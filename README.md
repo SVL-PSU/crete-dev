@@ -36,7 +36,7 @@ Install the following dependencies at first:
 ```bash
 $ sudo add-apt-repository ppa:ubuntu-toolchain-r/test
 $ sudo apt-get update
-$ sudo apt-get install build-essential libaio1 librbd1
+$ sudo apt-get install build-essential libaio1 librbd1 libsdl1.2debian
 $ sudo apt-get install --only-upgrade libstdc++6
 ```
 Install CRETE from debian packages:
