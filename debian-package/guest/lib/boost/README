@@ -1,0 +1,37 @@
+Contains a subset of the Boost Library necessary for the guest OS.
+
+Dependencies:
+
+DEPS="algorithm \
+     asio \
+     assign \
+     chrono \
+     context \
+     date_time \
+     filesystem \
+     lexical_cast \
+     msm \
+     property_tree \
+     program_options \
+     range \
+     regex \
+     serialization \
+     smart_ptr \
+     thread \
+     typeof
+     "
+
+Command used to extract subset of Boost:
+	Version 1.59 seems to work as long as 'config' is included in the build list (shown below).
+	In boost dir:
+	./bootstrap.sh
+	./b2 tools/bcp
+	./dist/bin/bcp build config $DEPS <out_dir>
+	
+Command used to build extraced subset of Boost:
+	cd <out_dir>
+	./boostrap.sh --prefix=<install_dir>
+	./b2 install
+
+Troubleshooting:
+	If building bcp failed, it may be because you built boost under sudo (e.g., sudo ./b2 install). Thus, just use sudo if necessary to build it, or clean boost an rebuild without sudo.
