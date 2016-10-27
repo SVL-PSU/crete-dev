@@ -59,6 +59,16 @@ $ sudo apt-get remove crete crete-native-qemu
 ```
 
 ## 3. Preparing the Guest Operating System
+>#### Note
+
+> You may skip this section by using a prepared VM image
+  [crete-demo.img](http://svl13.cs.pdx.edu/crete-demo.img). This image has
+  Ubuntu-14.04.5-server-amd64 installed as the Guest OS along with all CRETE
+  guest utilities.
+
+> Root username: __test__
+
+> Password: __crete__
 
 The front-end of CRETE is an instrumented VM (crete-qemu). You need
 to setup a QEMU-compatible VM image to performa a certain test upon
@@ -82,7 +92,7 @@ details.
 $ crete-native-qemu-system-x86_64 -hda <img-name>.img -m <memory> -k en-us -enable-kvm -cdrom <iso-name>.iso -boot d
 ```
 Where &lt;memory&gt; is the amount of RAM (Megabytes), &lt;img-name&gt; is the
-name of the image, and &lt;iso-name&gt; is the name of the .iso. The .iso, for
+name of the image, and &lt;iso-name&gt; is the name of the .iso. The iso of ubuntu-12.04.5-server-amd64, for
 example, can be downloaded [here](http://releases.ubuntu.com/12.04/ubuntu-12.04.5-server-amd64.iso). From this
 point, follow the installation procedure to install the OS to the image.
 
@@ -201,10 +211,8 @@ it may cause image corruption.
 ## 4. Generating Test Cases for Linux Binaries
 This section will show how to use CRETE to generate test cases for unmodified Linux
 binaries. In this section, I will use "crete-demo.img" as the VM image
-prepared for CRETE by following section  _3. Preparing the Guest Operating
-System_. A sample VM image that is ready to use can be downloaded
-[here](http://svl13.cs.pdx.edu/crete-demo.img) (usr:test, psw:crete). Also, I
-will _echo_ from _GNU CoreUtils_ as the target binary under test.
+prepared for CRETE. Also, I will use __echo__ from _GNU CoreUtils_ as the target
+binary under test.
 
 ### 4.1 Setting-up the Test on the Guest OS
 ####Provide a configuration file for the target binary
@@ -412,17 +420,35 @@ concolic:
 - Optional: yes - defaults to _false_.
 
 ### crete-dispatch configuration
+TBA
 ### crete-vm-node configuration
+TBA
 ### crete-svm-node configuration
+TBA
 
 ## 6. FAQ
 
-### 1. Virtual Machine Not Starting / Misbehaving
+### 6.1. Why is the VM not starting or misbehaving?
 
-#### 1.1 Possible Cause: Corrupt VM Image
+The most likely cause of this is the VM Image is corrupted.
 
-The most likely cause of this is running more than one VM instance on a given image at a time.
+There is no way to undo the damage. Forfeit the image, make a new one, and
+backup regularly. Try to not run more than one VM instance on a given image at a
+time.
 
-This can happen unknowingly when multiple users are using the same image on the machine at the same time.
+### 6.2. Why I can't switch to QEMU monitor by using ctrl+alt+2?
+A solution for this is forwarding the monitor to a local port through
+telnet while launching qemu on the host OS:
+```bash
+$ crete-qemu-2.3-system-x86_64 -hda crete-demo.img -m 256 -k en-us -loadvm test -monitor telnet:127.0.0.1:1234,server,nowait
+```
+Use the following command to access QEMU's monitor on the host OS:
+```bash
+$ telnet 127.0.0.1 1234
+```
 
-There is no way to undo the damage. Forfeit the image, make a new one, and backup regularly.
+### 6.3. Why is "apt-get install build-essential" not working from the guest OS?
+To resolve this, use the following command from the guest OS:
+```bash
+$ sudo rm -rf /var/lib/apt/lists/*
+```
