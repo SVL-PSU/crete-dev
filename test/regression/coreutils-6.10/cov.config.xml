@@ -1,0 +1,15 @@
+<crete>
+	<exec>./base64</exec>
+	<args>
+		<arg index="1" size="8"/>
+		<arg index="2" value="/home/test/tests/ramdisk/input.data" concolic="false"/>
+	</args>
+	<files>
+		<file path="/home/test/tests/ramdisk/input.data" virtual="true" size="10"/>
+	</files>
+	<stdin size="10"/>
+	<exploration>
+		<call-depth>7</call-depth>
+		<strategy>bfs</strategy>
+	</exploration>
+</crete>

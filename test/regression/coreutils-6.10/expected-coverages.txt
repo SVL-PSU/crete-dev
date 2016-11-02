@@ -1,0 +1,611 @@
+base64
+File 'base64.c'
+Lines executed:85.98% of 107
+Branches executed:88.89% of 90
+Taken at least once:62.22% of 90
+Calls executed:68.57% of 70
+base64.c:creating 'base64.c.gcov'
+
+File 'system.h'
+Lines executed:100.00% of 3
+No branches
+Calls executed:100.00% of 1
+system.h:creating 'system.h.gcov'
+
+basename
+File 'basename.c'
+Lines executed:73.17% of 41
+Branches executed:100.00% of 20
+Taken at least once:75.00% of 20
+Calls executed:56.00% of 25
+basename.c:creating 'basename.c.gcov'
+
+File 'system.h'
+Lines executed:0.00% of 3
+No branches
+Calls executed:0.00% of 1
+system.h:creating 'system.h.gcov'
+
+cat
+File 'cat.c'
+Lines executed:68.80% of 234
+Branches executed:67.79% of 149
+Taken at least once:51.01% of 149
+Calls executed:59.46% of 74
+cat.c:creating 'cat.c.gcov'
+
+File 'system.h'
+Lines executed:100.00% of 7
+No branches
+Calls executed:100.00% of 1
+system.h:creating 'system.h.gcov'
+
+cksum
+File 'cksum.c'
+Lines executed:75.00% of 64
+Branches executed:95.00% of 40
+Taken at least once:70.00% of 40
+Calls executed:56.41% of 39
+cksum.c:creating 'cksum.c.gcov'
+
+File 'system.h'
+Lines executed:0.00% of 3
+No branches
+Calls executed:0.00% of 1
+system.h:creating 'system.h.gcov'
+
+comm
+File 'comm.c'
+Lines executed:76.00% of 100
+Branches executed:94.29% of 70
+Taken at least once:70.00% of 70
+Calls executed:60.00% of 55
+comm.c:creating 'comm.c.gcov'
+
+File 'system.h'
+Lines executed:0.00% of 3
+No branches
+Calls executed:0.00% of 1
+system.h:creating 'system.h.gcov'
+
+cut
+File 'cut.c'
+Lines executed:73.00% of 300
+Branches executed:79.03% of 248
+Taken at least once:56.05% of 248
+Calls executed:55.91% of 127
+cut.c:creating 'cut.c.gcov'
+
+File 'system.h'
+Lines executed:100.00% of 4
+No branches
+Calls executed:100.00% of 1
+system.h:creating 'system.h.gcov'
+
+date
+File 'date.c'
+Lines executed:81.13% of 159
+Branches executed:92.94% of 85
+Taken at least once:75.29% of 85
+Calls executed:72.29% of 83
+date.c:creating 'date.c.gcov'
+
+File '../lib/stat-time.h'
+Lines executed:100.00% of 2
+No branches
+No calls
+../lib/stat-time.h:creating 'stat-time.h.gcov'
+
+File 'system.h'
+Lines executed:100.00% of 3
+No branches
+Calls executed:100.00% of 1
+system.h:creating 'system.h.gcov'
+
+df
+File 'df.c'
+Lines executed:68.80% of 375
+Branches executed:73.33% of 300
+Taken at least once:54.33% of 300
+Calls executed:47.97% of 123
+df.c:creating 'df.c.gcov'
+
+File 'system.h'
+Lines executed:0.00% of 3
+No branches
+Calls executed:0.00% of 1
+system.h:creating 'system.h.gcov'
+
+dircolors
+File 'dircolors.c'
+Lines executed:50.00% of 194
+Branches executed:40.00% of 160
+Taken at least once:27.50% of 160
+Calls executed:48.19% of 83
+dircolors.c:creating 'dircolors.c.gcov'
+
+File 'system.h'
+Lines executed:100.00% of 4
+No branches
+Calls executed:100.00% of 1
+system.h:creating 'system.h.gcov'
+
+dirname
+File 'dirname.c'
+Lines executed:75.76% of 33
+Branches executed:100.00% of 10
+Taken at least once:70.00% of 10
+Calls executed:66.67% of 24
+dirname.c:creating 'dirname.c.gcov'
+
+File 'system.h'
+Lines executed:0.00% of 3
+No branches
+Calls executed:0.00% of 1
+system.h:creating 'system.h.gcov'
+
+echo
+File 'echo.c'
+Lines executed:49.52% of 105
+Branches executed:46.34% of 82
+Taken at least once:37.80% of 82
+Calls executed:37.93% of 29
+echo.c:creating 'echo.c.gcov'
+
+File 'system.h'
+Lines executed:0.00% of 3
+No branches
+Calls executed:0.00% of 1
+system.h:creating 'system.h.gcov'
+
+env
+File 'env.c'
+Lines executed:100.00% of 47
+Branches executed:100.00% of 33
+Taken at least once:100.00% of 33
+Calls executed:100.00% of 27
+env.c:creating 'env.c.gcov'
+
+File 'system.h'
+Lines executed:85.71% of 7
+Branches executed:100.00% of 2
+Taken at least once:50.00% of 2
+Calls executed:100.00% of 1
+system.h:creating 'system.h.gcov'
+
+expand
+File 'expand.c'
+Lines executed:69.93% of 153
+Branches executed:93.88% of 98
+Taken at least once:66.33% of 98
+Calls executed:47.62% of 63
+expand.c:creating 'expand.c.gcov'
+
+File 'system.h'
+Lines executed:25.00% of 4
+No branches
+Calls executed:0.00% of 1
+system.h:creating 'system.h.gcov'
+
+expr
+File 'expr.c'
+Lines executed:37.43% of 342
+Branches executed:41.44% of 181
+Taken at least once:27.07% of 181
+Calls executed:36.26% of 182
+expr.c:creating 'expr.c.gcov'
+
+File 'system.h'
+Lines executed:57.14% of 7
+Branches executed:100.00% of 2
+Taken at least once:50.00% of 2
+Calls executed:0.00% of 1
+system.h:creating 'system.h.gcov'
+
+factor
+File 'factor.c'
+Lines executed:72.46% of 69
+Branches executed:94.44% of 36
+Taken at least once:72.22% of 36
+Calls executed:58.82% of 34
+factor.c:creating 'factor.c.gcov'
+
+File 'system.h'
+Lines executed:0.00% of 3
+No branches
+Calls executed:0.00% of 1
+system.h:creating 'system.h.gcov'
+
+fmt
+File 'fmt.c'
+Lines executed:80.69% of 321
+Branches executed:78.85% of 227
+Taken at least once:61.23% of 227
+Calls executed:77.17% of 92
+fmt.c:creating 'fmt.c.gcov'
+
+File 'system.h'
+Lines executed:100.00% of 3
+No branches
+Calls executed:100.00% of 1
+system.h:creating 'system.h.gcov'
+
+fold
+File 'fold.c'
+Lines executed:67.24% of 116
+Branches executed:86.30% of 73
+Taken at least once:67.12% of 73
+Calls executed:54.17% of 48
+fold.c:creating 'fold.c.gcov'
+
+File 'system.h'
+Lines executed:0.00% of 4
+No branches
+Calls executed:0.00% of 1
+system.h:creating 'system.h.gcov'
+
+head
+File 'head.c'
+Lines executed:36.79% of 386
+Branches executed:39.68% of 252
+Taken at least once:34.13% of 252
+Calls executed:27.39% of 157
+head.c:creating 'head.c.gcov'
+
+File 'system.h'
+Lines executed:100.00% of 3
+No branches
+Calls executed:100.00% of 1
+system.h:creating 'system.h.gcov'
+
+hostid
+File 'hostid.c'
+Lines executed:66.67% of 24
+Branches executed:100.00% of 6
+Taken at least once:66.67% of 6
+Calls executed:63.16% of 19
+hostid.c:creating 'hostid.c.gcov'
+
+File 'system.h'
+Lines executed:0.00% of 3
+No branches
+Calls executed:0.00% of 1
+system.h:creating 'system.h.gcov'
+
+id
+File 'id.c'
+Lines executed:35.48% of 155
+Branches executed:33.33% of 108
+Taken at least once:26.85% of 108
+Calls executed:31.25% of 80
+id.c:creating 'id.c.gcov'
+
+File 'system.h'
+Lines executed:100.00% of 3
+No branches
+Calls executed:100.00% of 1
+system.h:creating 'system.h.gcov'
+
+File '../lib/selinux/selinux.h'
+Lines executed:0.00% of 1
+No branches
+Calls executed:0.00% of 1
+../lib/selinux/selinux.h:creating 'selinux.h.gcov'
+
+join
+File 'join.c'
+Lines executed:72.70% of 381
+Branches executed:78.88% of 251
+Taken at least once:57.37% of 251
+Calls executed:59.21% of 152
+join.c:creating 'join.c.gcov'
+
+File 'system.h'
+Lines executed:100.00% of 4
+No branches
+Calls executed:100.00% of 1
+system.h:creating 'system.h.gcov'
+
+logname
+File 'logname.c'
+Lines executed:59.26% of 27
+Branches executed:75.00% of 8
+Taken at least once:50.00% of 8
+Calls executed:54.55% of 22
+logname.c:creating 'logname.c.gcov'
+
+File 'system.h'
+Lines executed:0.00% of 3
+No branches
+Calls executed:0.00% of 1
+system.h:creating 'system.h.gcov'
+
+ls
+File 'ls.c'
+Lines executed:50.47% of 1484
+Branches executed:48.11% of 1272
+Taken at least once:33.49% of 1272
+Calls executed:34.66% of 528
+ls.c:creating 'ls.c.gcov'
+
+File '../lib/stat-time.h'
+Lines executed:33.33% of 6
+No branches
+No calls
+../lib/stat-time.h:creating 'stat-time.h.gcov'
+
+File 'system.h'
+Lines executed:30.77% of 13
+Branches executed:20.00% of 10
+Taken at least once:10.00% of 10
+Calls executed:0.00% of 1
+system.h:creating 'system.h.gcov'
+
+File '../lib/timespec.h'
+Lines executed:0.00% of 4
+Branches executed:0.00% of 4
+Taken at least once:0.00% of 4
+No calls
+../lib/timespec.h:creating 'timespec.h.gcov'
+
+File '../lib/selinux/selinux.h'
+Lines executed:100.00% of 5
+No branches
+Calls executed:100.00% of 2
+../lib/selinux/selinux.h:creating 'selinux.h.gcov'
+
+nl
+File 'nl.c'
+Lines executed:70.89% of 213
+Branches executed:81.90% of 116
+Taken at least once:59.48% of 116
+Calls executed:64.13% of 92
+nl.c:creating 'nl.c.gcov'
+
+File 'system.h'
+Lines executed:0.00% of 3
+No branches
+Calls executed:0.00% of 1
+system.h:creating 'system.h.gcov'
+
+od
+File 'od.c'
+Lines executed:68.81% of 715
+Branches executed:82.44% of 410
+Taken at least once:59.27% of 410
+Calls executed:61.50% of 187
+od.c:creating 'od.c.gcov'
+
+File 'system.h'
+Lines executed:100.00% of 11
+Branches executed:100.00% of 2
+Taken at least once:100.00% of 2
+Calls executed:100.00% of 2
+system.h:creating 'system.h.gcov'
+
+paste
+File 'paste.c'
+Lines executed:76.37% of 182
+Branches executed:91.87% of 123
+Taken at least once:69.11% of 123
+Calls executed:71.62% of 74
+paste.c:creating 'paste.c.gcov'
+
+File 'system.h'
+Lines executed:100.00% of 3
+No branches
+Calls executed:100.00% of 1
+system.h:creating 'system.h.gcov'
+
+pathchk
+File 'pathchk.c'
+Lines executed:66.42% of 137
+Branches executed:75.79% of 95
+Taken at least once:60.00% of 95
+Calls executed:58.82% of 51
+pathchk.c:creating 'pathchk.c.gcov'
+
+File 'system.h'
+Lines executed:100.00% of 3
+No branches
+Calls executed:100.00% of 1
+system.h:creating 'system.h.gcov'
+
+pinky
+File 'pinky.c'
+Lines executed:38.14% of 236
+Branches executed:40.98% of 122
+Taken at least once:36.07% of 122
+Calls executed:42.22% of 90
+pinky.c:creating 'pinky.c.gcov'
+
+File 'system.h'
+Lines executed:75.00% of 4
+No branches
+Calls executed:100.00% of 1
+system.h:creating 'system.h.gcov'
+
+printenv
+File 'printenv.c'
+Lines executed:78.38% of 37
+Branches executed:91.67% of 24
+Taken at least once:75.00% of 24
+Calls executed:66.67% of 18
+printenv.c:creating 'printenv.c.gcov'
+
+File 'system.h'
+Lines executed:57.14% of 7
+Branches executed:100.00% of 2
+Taken at least once:50.00% of 2
+Calls executed:0.00% of 1
+system.h:creating 'system.h.gcov'
+
+printf
+File 'printf.c'
+Lines executed:70.88% of 261
+Branches executed:70.56% of 214
+Taken at least once:53.74% of 214
+Calls executed:48.98% of 98
+printf.c:creating 'printf.c.gcov'
+
+File 'system.h'
+Lines executed:25.00% of 4
+No branches
+Calls executed:0.00% of 1
+system.h:creating 'system.h.gcov'
+
+pwd
+File 'pwd.c'
+Lines executed:16.53% of 121
+Branches executed:14.81% of 54
+Taken at least once:9.26% of 54
+Calls executed:18.31% of 71
+pwd.c:creating 'pwd.c.gcov'
+
+File 'system.h'
+Lines executed:0.00% of 13
+Branches executed:0.00% of 12
+Taken at least once:0.00% of 12
+Calls executed:0.00% of 3
+system.h:creating 'system.h.gcov'
+
+readlink
+File 'readlink.c'
+Lines executed:94.23% of 52
+Branches executed:100.00% of 25
+Taken at least once:92.00% of 25
+Calls executed:85.71% of 28
+readlink.c:creating 'readlink.c.gcov'
+
+File 'system.h'
+Lines executed:100.00% of 3
+No branches
+Calls executed:100.00% of 1
+system.h:creating 'system.h.gcov'
+
+seq
+File 'seq.c'
+Lines executed:62.28% of 167
+Branches executed:59.65% of 114
+Taken at least once:50.88% of 114
+Calls executed:63.27% of 49
+seq.c:creating 'seq.c.gcov'
+
+File 'system.h'
+Lines executed:100.00% of 3
+No branches
+Calls executed:100.00% of 1
+system.h:creating 'system.h.gcov'
+
+shuf
+File 'shuf.c'
+Lines executed:81.50% of 173
+Branches executed:90.91% of 110
+Taken at least once:62.73% of 110
+Calls executed:59.74% of 77
+shuf.c:creating 'shuf.c.gcov'
+
+File 'system.h'
+Lines executed:0.00% of 3
+No branches
+Calls executed:0.00% of 1
+system.h:creating 'system.h.gcov'
+
+sleep
+File 'sleep.c'
+Lines executed:77.08% of 48
+Branches executed:92.59% of 27
+Taken at least once:74.07% of 27
+Calls executed:58.33% of 24
+sleep.c:creating 'sleep.c.gcov'
+
+File 'system.h'
+Lines executed:0.00% of 3
+No branches
+Calls executed:0.00% of 1
+system.h:creating 'system.h.gcov'
+
+sort
+File 'sort.c'
+Lines executed:54.88% of 1199
+Branches executed:55.95% of 865
+Taken at least once:39.42% of 865
+Calls executed:47.38% of 363
+sort.c:creating 'sort.c.gcov'
+
+File 'system.h'
+Lines executed:100.00% of 8
+Branches executed:100.00% of 2
+Taken at least once:50.00% of 2
+Calls executed:100.00% of 1
+system.h:creating 'system.h.gcov'
+
+stat
+File 'stat.c'
+Lines executed:62.05% of 361
+Branches executed:75.35% of 215
+Taken at least once:40.93% of 215
+Calls executed:73.38% of 139
+stat.c:creating 'stat.c.gcov'
+
+File '../lib/stat-time.h'
+Lines executed:100.00% of 6
+No branches
+No calls
+../lib/stat-time.h:creating 'stat-time.h.gcov'
+
+File 'system.h'
+Lines executed:75.00% of 4
+No branches
+Calls executed:100.00% of 1
+system.h:creating 'system.h.gcov'
+
+File '../lib/selinux/selinux.h'
+Lines executed:0.00% of 5
+No branches
+Calls executed:0.00% of 2
+../lib/selinux/selinux.h:creating 'selinux.h.gcov'
+
+sum
+File 'sum.c'
+Lines executed:81.44% of 97
+Branches executed:92.45% of 53
+Taken at least once:73.58% of 53
+Calls executed:71.15% of 52
+sum.c:creating 'sum.c.gcov'
+
+File 'system.h'
+Lines executed:100.00% of 3
+No branches
+Calls executed:100.00% of 1
+system.h:creating 'system.h.gcov'
+
+sync
+File 'sync.c'
+Lines executed:77.27% of 22
+Branches executed:100.00% of 6
+Taken at least once:66.67% of 6
+Calls executed:70.59% of 17
+sync.c:creating 'sync.c.gcov'
+
+File 'system.h'
+Lines executed:0.00% of 3
+No branches
+Calls executed:0.00% of 1
+system.h:creating 'system.h.gcov'
+
+tac
+File 'tac.c'
+Lines executed:62.50% of 224
+Branches executed:82.26% of 124
+Taken at least once:54.03% of 124
+Calls executed:41.41% of 99
+tac.c:creating 'tac.c.gcov'
+
+File 'system.h'
+Lines executed:0.00% of 3
+No branches
+Calls executed:0.00% of 1
+system.h:creating 'system.h.gcov'
+
+tail

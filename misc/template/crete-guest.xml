@@ -1,0 +1,37 @@
+<!-- Fed to crete-run on guest OS -->
+<crete>
+	<preloads>
+		<preload lib="libhook1.so"/>
+		<preload lib="libhook2.so"/>
+	<preloads>
+	<exec>./harness</exec>
+	<args>
+		<arg index=1 size=2 value="-x"/> <!-- size or value could be optional -->
+		<arg index=2 size=3 value="123"/>
+		<arg index=3 size=2 value="-f" concolic="false"/> <!-- "concolic=false" means that this is a concrete argument that doesn't change -->
+		<arg index=4 size=9 value="data1.txt" concolic="false"/>
+		<arg index=5 size=2 value="-f" concolic="false"/> <!-- "concolic=false" means that this is a concrete argument that doesn't change -->
+		<arg index=6 size=9 value="data2.txt" concolic="false"/>
+	</args>
+	<files>
+		<file path="data1.txt" virtual="true" size="64"> <!-- since this file is "virtual," must provide a size -->
+		<file path="data2.txt" virtual="false"/>  <!-- virtual="false" means the file actually exists on the filesystem -->
+		<file path="data3.txt"/>
+	</files>
+	<funcs>
+		<include>
+			<func name="harness"/>
+		</include>
+		<exclude>
+			<func name="printf" lib="/lib/gnu-x86-linux/libc.so"/>
+		</exclude>
+	</funcs>
+	<libs> 
+		<lib path="/home/test/tutoria/ffmpeg/libavutil/libavutil.so"/>
+		<lib path="/lib/gnu-x86-linux/libc.so"/>
+	</libs>
+	<exploration>
+		<call-depth>21</call-depth>
+		<strategy>weighted</strategy> <!-- trace selection strategy -->
+	</exploration>
+</crete>

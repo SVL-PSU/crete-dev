@@ -1,0 +1,18 @@
+<crete>
+	<svm>
+		<path>
+			<concolic>../../../bin/crete-klee</concolic>
+			<symbolic>../../../bin/crete-klee</symbolic>
+		</path>
+		<count>1</count>
+	</svm>
+	<translator>
+		<path>
+			<x86>../../../bin/crete-llvm-translator-qemu-2.3-i386</x86>
+		</path>
+	</translator>
+	<master>
+		<ip>localhost</ip>
+		<port>10012</port>
+	</master>
+</crete>

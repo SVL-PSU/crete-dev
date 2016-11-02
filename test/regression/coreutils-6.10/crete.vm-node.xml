@@ -1,0 +1,12 @@
+<crete>
+	<vm>
+		<path>
+			<x86>../../../bin/crete-qemu-2.3-system-i386</x86>
+		</path>
+		<count>1</count>
+	</vm>
+	<master>
+		<ip>localhost</ip>
+		<port>10012</port>
+	</master>
+</crete>

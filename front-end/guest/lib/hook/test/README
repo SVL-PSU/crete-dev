@@ -1,0 +1,5 @@
+Author: Christopher Havlicek
+
+* Run from lib/hook/test
+* I Can't get it to compile without crete_hook and crete_host_harness being installed. I must be doing something wrong with the linking, as they should link to ../../bin/libcrete_*
+

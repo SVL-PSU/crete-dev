@@ -1,0 +1,64 @@
+# -*- Makefile -*-
+
+include $(LEVEL)/Makefile.config
+
+# Include LLVM's Master Makefile config and rules.
+include $(LLVM_OBJ_ROOT)/Makefile.config
+
+ifeq ($(BYTECODE_LIBRARY), 1)
+#
+# Override make variables based on the runtime configuration. We want
+# to override whatever the user may have said on the command line,
+# hence the use of override.
+#
+
+override ENABLE_OPTIMIZED := $(RUNTIME_ENABLE_OPTIMIZED)
+override DISABLE_ASSERTIONS := $(RUNTIME_DISABLE_ASSERTIONS)
+override ENABLE_PROFILING := $(RUNTIME_ENABLE_PROFILING)
+override ENABLE_COVERAGE := $(RUNTIME_ENABLE_COVERAGE)
+override DEBUG_SYMBOLS := $(RUNTIME_DEBUG_SYMBOLS)
+endif
+
+include $(PROJ_SRC_ROOT)/Makefile.rules
+
+# LLVMCC was added in 2.7.
+ifeq ($(LLVMCC),)
+LLVMCC := $(LLVMGCC)
+LLVMCXX := $(LLVMGXX)
+endif
+
+# Needed to build runtime library using clang (gnu89 is the gcc default)
+C.Flags += -std=gnu89
+
+# This is filename that KLEE will look for when trying to load klee-uclibc
+KLEE_UCLIBC_BCA_NAME="klee-uclibc.bca"
+
+LD.Flags += -L$(STP_ROOT)/lib
+CXX.Flags += -I$(STP_ROOT)/include
+CXX.Flags += -DKLEE_DIR=\"$(PROJ_OBJ_ROOT)\" -DKLEE_INSTALL_BIN_DIR=\"$(PROJ_bindir)\"
+CXX.Flags += -DKLEE_INSTALL_LIB_DIR=\"$(PROJ_libdir)\"
+
+
+ifeq ($(ENABLE_UCLIBC),1)
+	CXX.Flags += -DKLEE_UCLIBC_BCA_NAME=\"$(KLEE_UCLIBC_BCA_NAME)\"
+endif
+
+# For STP.
+CXX.Flags += -DEXT_HASH_MAP
+
+# For metaSMT
+ifeq ($(ENABLE_METASMT),1)
+  include $(METASMT_ROOT)/share/metaSMT/metaSMT.makefile
+  LD.Flags += -L$(METASMT_ROOT)/lib
+  CXX.Flags += -DBOOST_HAS_GCC_TR1 -D __STDC_LIMIT_MACROS -D __STDC_FORMAT_MACROS
+  CXX.Flags := $(filter-out -fno-exceptions,$(CXX.Flags))
+  CXX.Flags += $(metaSMT_INCLUDES)
+endif
+
+# === added to enable CRETE or DEBUG info
+CXX.Flags += -DCRETE_CONFIG=1
+
+CXX.Flags += -I/usr/include/glib-2.0/ -I/usr/lib/x86_64-linux-gnu/glib-2.0/include
+
+LIBS += -lcrete_test_case
+LIBS += -lboost_serialization

@@ -1,0 +1,75 @@
+# -*- Mode: makefile -*-
+
+# The file was modified for CRETE
+#
+# Copyright (c) <2016>, <System Validation Laboratory, Portland State University>
+# Main authors: Bo Chen (chenbo@pdx.edu)
+#
+
+GENERATED_HEADERS = config-target.h
+
+include ../config-host.mak
+include config-target.mak
+include $(SRC_PATH)/rules.mak
+
+TARGET_PATH=$(SRC_PATH)/target-$(TARGET_BASE_ARCH)
+$(call set-vpath, $(SRC_PATH):$(TARGET_PATH))
+QEMU_CFLAGS += -I.. -I$(TARGET_PATH) -DNEED_CPU_H
+
+include $(SRC_PATH)/Makefile.objs
+QEMU_CFLAGS+=-I$(SRC_PATH)/qemu-include
+
+QEMU_PROG=crete-llvm-translator-$(TARGET_ARCH2)$(EXESUF)
+
+PROGS=$(QEMU_PROG)
+
+ifndef CONFIG_HAIKU
+LIBS+=-lm
+endif
+
+config-target.h: config-target.h-timestamp
+config-target.h-timestamp: config-target.mak
+
+all: $(PROGS)
+
+# Dummy command so that make thinks it has done something
+	@true
+
+#########################################################
+# cpu emulator library
+libobj-y += cutils.o
+libobj-y += tcg/tcg.o tcg/optimize.o
+
+LIBS += -lboost_serialization -lrt -L$(SRC_PATH)/include/lib -lboost_system -lboost_filesystem
+
+tcg-llvm-offline/tcg-llvm-offline.o: QEMU_CXXFLAGS+=$(LLVM_CXXFLAGS) -fno-inline
+libobj-y += tcg-llvm-offline/tcg-llvm-offline.o
+
+tcg/tcg-llvm.o: QEMU_CXXFLAGS+=$(LLVM_CXXFLAGS) -fno-inline
+libobj-y += tcg/tcg-llvm.o
+
+
+$(libobj-y): $(GENERATED_HEADERS)
+
+$(QEMU_PROG): $(libobj-y)
+	$(call LINK,$^)
+
+clean:
+	rm -f *.o *.a *~ $(PROGS) nwfpe/*.o fpu/*.o
+	rm -f *.d */*.d tcg/*.o ide/*.o 9pfs/*.o
+	rm -f hmp-commands.h qmp-commands-old.h gdbstub-xml.c
+	rm -f runtime-dump/*.o
+ifdef CONFIG_TRACE_SYSTEMTAP
+	rm -f *.stp
+endif
+
+install: all
+ifneq ($(PROGS),)
+	$(INSTALL) -m 755 $(PROGS) "$(DESTDIR)$(bindir)"
+ifneq ($(STRIP),)
+	$(STRIP) $(patsubst %,"$(DESTDIR)$(bindir)/%",$(PROGS))
+endif
+endif
+
+# Include automatically generated dependency files
+-include $(wildcard *.d */*.d)
