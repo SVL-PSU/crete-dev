@@ -1,0 +1,6 @@
+config-host.h
+config-host.h-timestamp
+config-host.ld
+config-host.mak
+config.log
+/*-softmmu/
