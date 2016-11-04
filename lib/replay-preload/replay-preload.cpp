@@ -149,9 +149,11 @@ void CreteReplayPreload::setup_concolic_args()
             buffer[current_tc_arg.data_size] = '\0';
             m_argv[it->index] = buffer;
         } else {
-            //sanity check
-            string current_argv(m_argv[it->index]);
-            assert(it->value == string(current_argv));
+            // sanity check
+            // Note: string::compare() will not work, as it->value
+            //       can contain several '\0' at the end while argv doesn't
+            assert(strcmp(it->value.c_str(), m_argv[it->index]) == 0 &&
+                    "[run-preload] Sanity check on concrete args failed\n");
         }
     }
 }

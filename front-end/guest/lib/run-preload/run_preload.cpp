@@ -214,9 +214,11 @@ static void crete_process_args(const config::Arguments& guest_config_args,
             crete_make_concolic(buffer, it->size, concolic_name.str().c_str());
             argv[it->index] = buffer;
         } else {
-            //sanity check
-            string current_argv(argv[it->index]);
-            assert(it->value == string(current_argv));
+            // sanity check
+            // Note: string::compare() will not work, as it->value
+            //       can contain several '\0' at the end while argv doesn't
+            assert(strcmp(it->value.c_str(), argv[it->index]) == 0 &&
+                    "[run-preload] Sanity check on concrete args failed\n");
         }
     }
 }

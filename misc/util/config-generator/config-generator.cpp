@@ -90,12 +90,19 @@ void CreteTest::gen_crete_test(bool inject_one_concolic)
 
             crete::config::Argument current_arg = *it;
 
+            // TODO:xxx Impose minimum size to 8 bytes for concolic argument
             current_arg.concolic = true;
+            if(current_arg.size < 8)
+            {
+                current_arg.size = 8;
+                current_arg.value.resize(current_arg.size, 0);
+            }
+
             m_crete_config.set_argument(current_arg);
             gen_crete_test_internal();
 
-            current_arg.concolic = false;
-            m_crete_config.set_argument(current_arg);
+            // Reset to the original arg
+            m_crete_config.set_argument(*it);
         }
     } else {
         crete::config::Arguments args = m_crete_config.get_arguments();
@@ -106,6 +113,13 @@ void CreteTest::gen_crete_test(bool inject_one_concolic)
                 continue;
 
             crete::config::Argument current_arg = *it;
+
+            // TODO:xxx Impose minimum size to 8 bytes for concolic argument
+            if(current_arg.size < 8)
+            {
+                current_arg.size = 8;
+                current_arg.value.resize(current_arg.size, 0);
+            }
 
             current_arg.concolic = true;
             m_crete_config.set_argument(current_arg);
@@ -150,12 +164,7 @@ void CreteTest::gen_config()
         config::Argument arg;
         arg.index = j;
 
-        // TODO:xxx Impose minimum size of argument as 8 bytes
-        if(test[j].size() < 8){
-            arg.size = 8;
-        } else {
-            arg.size = test[j].size();
-        }
+        arg.size = test[j].size();
 
         arg.value = test[j];
         arg.value.resize(arg.size);
@@ -529,18 +538,27 @@ vector<vector<string> > tokenize(const char *filename) {
 
 int main (int argc, char **argv)
 {
-    // TODO: xxx add more generic way of parsing inputs
-    if (argc == 1) {
-        CreteTests crete_tests(NULL);
-        crete_tests.gen_crete_tests_coreutils();
-    } else if(argc == 2){
-        CreteTests crete_tests(argv[1]);
-        crete_tests.gen_crete_tests(true);
-    } else if(argc == 3){
-        fs::path input(argv[2]);
-        config::RunConfiguration crete_config(input);
-    } else {
-        fprintf(stderr, "invalid inputs.\n");
+    try
+    {
+        // TODO: xxx add more generic way of parsing inputs
+        if (argc == 1) {
+            CreteTests crete_tests(NULL);
+            crete_tests.gen_crete_tests_coreutils();
+        } else if(argc == 2){
+            CreteTests crete_tests(argv[1]);
+            crete_tests.gen_crete_tests(true);
+        } else if(argc == 3){
+            fs::path input(argv[2]);
+            config::RunConfiguration crete_config(input);
+        } else {
+            fprintf(stderr, "invalid inputs.\n");
+            return -1;
+        }
+    }
+    catch(...)
+    {
+        cerr << "[CRETE Config Generator] Exception Info: \n"
+                << boost::current_exception_diagnostic_information() << endl;
         return -1;
     }
 
