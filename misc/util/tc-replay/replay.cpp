@@ -126,7 +126,6 @@ void CreteReplay::setup_launch()
     // 2. Set up m_launch_args
     config::Arguments guest_args = guest_config.get_arguments();
 
-    // FIXME: xxx assume argv[0] is not a part of guest_config
     m_launch_args.resize(guest_args.size()+1, string());
     m_launch_args[0] = m_exec.string();
 

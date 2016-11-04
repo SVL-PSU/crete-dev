@@ -1,6 +1,3 @@
-#include "preload.h"
-#include "argv_processor.h"
-
 #include <crete/harness.h>
 #include <crete/custom_instr.h>
 #include <crete/harness_config.h>
@@ -99,7 +96,7 @@ static void crete_process_stdin_libc(const config::STDStream stdin_config)
 
 static void crete_process_stdin_posix(const config::STDStream stdin_config)
 {
-    // FIXME: xxx how about non-concolic (concrete) stdin for posix
+    // TODO: xxx how about non-concolic (concrete) stdin for posix
     if(stdin_config.concolic)
     {
         uint64_t size = stdin_config.size;
@@ -197,21 +194,45 @@ void crete_process_files(const config::HarnessConfiguration& hconfig)
     }
 }
 
+static void crete_process_args(const config::Arguments& guest_config_args,
+        int argc, char**& argv)
+{
+    assert(guest_config_args.size() == (argc - 1));
+
+    for(config::Arguments::const_iterator it = guest_config_args.begin();
+            it != guest_config_args.end(); ++it) {
+        if(it->concolic)
+        {
+            assert(it->index < argc);
+
+            stringstream concolic_name;
+            concolic_name << "argv_" << it->index;
+
+            // TODO: xxx memory leak here, but who care?
+            char *buffer = new char [it->size + 1];
+            memset(buffer, 0, it->size + 1);
+            crete_make_concolic(buffer, it->size, concolic_name.str().c_str());
+            argv[it->index] = buffer;
+        } else {
+            //sanity check
+            string current_argv(argv[it->index]);
+            assert(it->value == string(current_argv));
+        }
+    }
+}
+
 void crete_process_configuration(const config::HarnessConfiguration& hconfig,
-                                 int& argc, char**& argv)
+                                 int argc, char**& argv)
 {
     // Note: order matters.
-    config::process_argv(hconfig.get_arguments(),
-                         hconfig.is_first_iteration(),
-                         argc, argv);
+    crete_process_args(hconfig.get_arguments(),argc, argv);
     crete_process_files(hconfig);
     crete_process_stdin(hconfig);
 }
 
-void crete_preload_initialize(int& argc, char**& argv)
+void crete_preload_initialize(int argc, char**& argv)
 {
     // Should exit program while being launched as prime
-    // FIXME: xxx hconfig.is_first_iteration() is not being used
     crete_initialize(argc, argv);
     // Need to call crete_capture_begin before make_concolics, or they won't be captured.
     // crete_capture_end() is registered with atexit() in crete_initialize().
@@ -239,6 +260,29 @@ bool crete_verify_executable_path_matches(const char* argv0)
     return fs::equivalent(config.get_executable(), fs::path(argv0));
 }
 #endif // CRETE_HOST_ENV
+
+extern "C" {
+    // The type of __libc_start_main
+    typedef int (*__libc_start_main_t)(
+            int *(main) (int, char**, char**),
+            int argc,
+            char ** ubp_av,
+            void (*init) (void),
+            void (*fini) (void),
+            void (*rtld_fini) (void),
+            void (*stack_end)
+            );
+
+    int __libc_start_main(
+            int *(main) (int, char **, char **),
+            int argc,
+            char ** ubp_av,
+            void (*init) (void),
+            void (*fini) (void),
+            void (*rtld_fini) (void),
+            void *stack_end)
+            __attribute__ ((noreturn));
+}
 
 int __libc_start_main(
         int *(main) (int, char **, char **),

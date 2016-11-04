@@ -526,7 +526,7 @@ void HarnessConfiguration::load_argument(const boost::property_tree::ptree& conf
     Argument arg;
 
     // TODO: xxx remove index from crete.xml, while keeping it as internal usage
-    //           keep in mind argv[0]
+    // NOTE:        keep in mind argv[0]
     arg.index = config_tree.get<uint64_t>("<xmlattr>.index");
     arg.size = config_tree.get<uint64_t>("<xmlattr>.size", 0);
     arg.value = config_tree.get<std::string>("<xmlattr>.value", "");
@@ -543,7 +543,12 @@ void HarnessConfiguration::load_argument(const boost::property_tree::ptree& conf
     }
     arg.size = arg.value.size();
 
-    arguments_.push_back(arg);
+    // NOTE: xxx exclude argv[0] from crete-guest-config while parsing
+    //       crete-replay and crete-run utilizes this assumption
+    if(arg.index != 0)
+    {
+        arguments_.push_back(arg);
+    }
 }
 
 inline

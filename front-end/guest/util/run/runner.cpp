@@ -70,7 +70,12 @@ private:
     boost::shared_ptr<Client> client_;
     fs::path guest_config_path_;
     config::RunConfiguration guest_config_;
-    fs::path exec_launch_dir_;
+
+    fs::path m_exec_launch_dir;
+    fs::path m_exec;
+    std::vector<std::string> m_launch_args;
+    bp::context m_launch_ctx;
+
     pid_t pid_;
 
     bool is_first_exec_;
@@ -110,6 +115,7 @@ public:
     fs::path deduce_library(const fs::path& lib,
                             const ProcReader& pr);
 
+    void setup_launch_exec();
 
 
 public:
@@ -435,35 +441,43 @@ void RunnerFSM_::load_defaults(const poll&)
                                           << err::msg(e.what()));
     }
 
-    // exec_launch_dir_ is et to the parent folder of executable, unless that folder
-    // is not writable
-    exec_launch_dir_ = guest_config_.get_executable().parent_path();
-    if(access(exec_launch_dir_.string().c_str(), W_OK) != 0)
+    setup_launch_exec();
+}
+
+void RunnerFSM_::setup_launch_exec()
+{
+    m_exec = guest_config_.get_executable();
+
+    // 1. m_exec_launch_dir is set to the parent folder of the executable,
+    // unless that folder is not writable (then it will be the working
+    // directory of crete-run)
+    m_exec_launch_dir = m_exec.parent_path();
+    if(access(m_exec_launch_dir.string().c_str(), W_OK) != 0)
     {
-        exec_launch_dir_ = fs::current_path();
+        m_exec_launch_dir = fs::current_path();
     }
 
-    // FIXME: xxx why do we set LD_PRELOAD here by modifying guest_config_
-    //            instead of in launch_executable() by adding to LD_PRELOAD directly
+    // 2. Set up m_launch_args
+    config::Arguments guest_args = guest_config_.get_arguments();
+    // +1 for argv[0]
+    m_launch_args.resize(guest_args.size()+1, std::string());
+    m_launch_args[0] = m_exec.string();
 
-    // set configuration for LD_PRELOAD
-    pt::ptree preloads_config;
-
-    const char* const preload_lib = "libcrete_preload.so";
-    pt::ptree& node = preloads_config.add_child("preloads.preload", pt::ptree());
-    node.put("<xmlattr>.path", preload_lib);
-
-#if 0
-    //FIXME: xxx remove the whole crete_hook now, as it is broken
-    const char* const hook_lib = "libcrete_hook.so";
-    if(guest_config_.get_files().size() > 0)
-    {
-        pt::ptree& nodeh = preloads_config.add_child("preloads.preload", pt::ptree());
-        nodeh.put("<xmlattr>.path", hook_lib);
+    for(config::Arguments::const_iterator it = guest_args.begin();
+            it != guest_args.end(); ++it) {
+        assert(it->index < m_launch_args.size());
+        assert(m_launch_args[it->index].empty());
+        m_launch_args[it->index] = it->value;
     }
-#endif
 
-    guest_config_.load_preloads(preloads_config);
+    // 3. Setup m_launch_ctx
+    m_launch_ctx.stdout_behavior = bp::capture_stream();
+    m_launch_ctx.stderr_behavior = bp::redirect_stream_to_stdout();
+    m_launch_ctx.stdin_behavior = bp::capture_stream();
+    m_launch_ctx.work_directory = m_exec_launch_dir.string();
+    m_launch_ctx.environment = bp::self::get_environment();
+    m_launch_ctx.environment.erase("LD_PRELOAD");
+    m_launch_ctx.environment.insert(bp::environment::value_type("LD_PRELOAD", "libcrete_run_preload.so"));
 }
 
 void RunnerFSM_::load_file_data(const poll&)
@@ -499,10 +513,8 @@ void RunnerFSM_::prime_virtual_machine()
 // The exec should exit prematurely within preload.so
 void RunnerFSM_::prime_executable()
 {
-    // FIXME: xxx implicit assumption that the proc_map.log has been removed under the folder
-    // where the executable is running in
-    fs::remove(exec_launch_dir_ / proc_maps_file_name);
-    fs::remove(exec_launch_dir_ / harness_config_file_name);
+    fs::remove(m_exec_launch_dir / proc_maps_file_name);
+    fs::remove(m_exec_launch_dir / harness_config_file_name);
 
     guest_config_.is_first_iteration(true);
     write_configuration();
@@ -515,7 +527,7 @@ void RunnerFSM_::prime_executable()
 
 void RunnerFSM_::write_configuration() const
 {
-    std::ofstream ofs((exec_launch_dir_ / harness_config_file_name).string().c_str());
+    std::ofstream ofs((m_exec_launch_dir / harness_config_file_name).string().c_str());
 
     if(!ofs.good())
     {
@@ -528,99 +540,40 @@ void RunnerFSM_::write_configuration() const
 
 void RunnerFSM_::launch_executable()
 {
-    std::string joined_preloads;
-
-    config::Preloads preloads = guest_config_.get_preloads();
-
-    for(config::Preloads::const_iterator it = preloads.begin();
-        it != preloads.end();
-        ++it)
-    {
-        joined_preloads += it->lib.string();
-        joined_preloads += " ";
-    }
-
-
 #if defined(CRETE_DBG_SYSTEM_LAUNCH)
     // A alternative of bp::launch. require header file "#include <cstdlib>"
-    std::string exec_cmd = "LD_PRELOAD=\"" + joined_preloads +
-            "\" " + guest_config_.get_executable().string();
+    std::string exec_cmd = "LD_PRELOAD=\"libcrete_run_preload.so\" ";
+    for(vector<string>::const_iterator it = m_launch_args.begin();
+            it != m_launch_args.end(); ++it) {
+        exec_cmd = exec_cmd + (*it) + " ";
+    }
 
     std::cerr << "Launch program with system(): " << exec_cmd << std::endl;
 
+    // Note: Whether this function call is blocking or not depends on the shell being used
     std::system(exec_cmd.c_str());
-
 #else
-    fs::path exe = guest_config_.get_executable();
+    bp::child proc = bp::launch(m_exec, m_launch_args, m_launch_ctx);
 
-    std::vector<std::string> args;
-    args.push_back(exe.filename().string());
-
-    bp::context ctx;
-    ctx.stdout_behavior = bp::capture_stream();
-    ctx.stderr_behavior = bp::redirect_stream_to_stdout();
-    ctx.stdin_behavior = bp::capture_stream();
-    ctx.work_directory = exec_launch_dir_.string();
-    ctx.environment = bp::self::get_environment();
-    ctx.environment.erase("LD_PRELOAD");
-    ctx.environment.insert(bp::environment::value_type( "LD_PRELOAD"
-                                                      , joined_preloads));
-
-    std::cerr << "LD_PRELOAD: " << joined_preloads << std::endl;
-    std::cerr << "exe: " << guest_config_.get_executable().string() << std::endl;
-
-    //TODO: launch the executable with real arguments,
-    //      so that we don't have to reallocate array for argv
-    bp::child proc = bp::launch(exe.string(),
-                                args,
-                                ctx);
-
+    std::cerr << "=== Output from the target executable ===\n";
     bp::pistream& is = proc.get_stdout();
     std::string line;
     while(std::getline(is, line))
+    {
         std::cerr << line << std::endl;
+    }
+    std::cerr << "=========================================\n";
 
+    // FIXME:: xxx bp::launch is blocking, why do we need to wait based on the pid?
     pid_ = proc.get_id();
     bp::status s = proc.wait();
-
-    // TODO: what I should be doing is storing the bp::child, so once it's finished,
-    // I can check the exit status. Do I really care about the exit status?
-
-//    if(s.exit_status() != 0)
-//    {
-//        // TODO: exception, or error state?
-//        BOOST_THROW_EXCEPTION(Exception() << err::process_exit_status(exe.string()));
-//    }
-
 #endif
 }
 
-// FIXME: xxx just send a custom instruction
-// Run crete_dump
 void RunnerFSM_::signal_dump() const
 {
 #if !defined(CRETE_TEST)
-
-    bp::context ctx;
-    ctx.work_directory = fs::current_path().string();
-    ctx.environment = bp::self::get_environment();
-
-    fs::path exe = bp::find_executable_in_path("crete-dump");
-    std::vector<std::string> args;
-    args.push_back(exe.filename().string());
-
-    bp::child proc = bp::launch(exe.string(),
-                                args,
-                                ctx);
-
-    bp::status s = proc.wait();
-
-    if(s.exit_status() != 0)
-    {
-        // TODO: exception, or error state?
-        BOOST_THROW_EXCEPTION(Exception() << err::process_exit_status(exe.string()));
-    }
-
+    crete_send_custom_instr_dump();
 #endif // !defined(CRETE_TEST)
 }
 
@@ -630,7 +583,7 @@ void RunnerFSM_::process_config(const poll&)
     //FIXME: xxx should be disabled as CRETE now works with stripped binaries
     using namespace std;
 
-    ProcReader proc_reader(exec_launch_dir_ / proc_maps_file_name);
+    ProcReader proc_reader(m_exec_launch_dir / proc_maps_file_name);
     process_lib_filter(proc_reader,
                        guest_config_.get_libraries(),
                        crete_insert_instr_addr_include_filter);
@@ -691,7 +644,7 @@ void RunnerFSM_::verify_invariants(const poll&)
 {
 #if !defined(CRETE_TEST)
 
-    std::ifstream ifs ((exec_launch_dir_ / proc_maps_file_name).string().c_str());
+    std::ifstream ifs ((m_exec_launch_dir / proc_maps_file_name).string().c_str());
     std::string contents((
         std::istreambuf_iterator<char>(ifs)),
         std::istreambuf_iterator<char>());
@@ -916,8 +869,6 @@ bool RunnerFSM_::is_not_first_exec(const poll&)
 {
     return !is_first_exec_;
 }
-
-
 
 Runner::Runner(int argc, char* argv[]) :
     ops_descr_(make_options()),
