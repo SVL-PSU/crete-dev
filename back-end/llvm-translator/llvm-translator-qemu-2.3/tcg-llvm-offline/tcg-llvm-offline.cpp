@@ -149,6 +149,7 @@ uint64_t TCGLLVMOfflineContext::get_size()
 
 extern "C" {
 #include "config.h"
+#include "exec-all.h"
 }
 
 #include <boost/filesystem.hpp>

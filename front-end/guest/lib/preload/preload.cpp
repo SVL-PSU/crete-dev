@@ -49,17 +49,26 @@ config::HarnessConfiguration crete_load_configuration()
     return config;
 }
 
-// Support symbolic stdin operated by standard c functions (eg. fgets, fread, scanf, etc)
-void crete_make_concolic_stdin_std(size_t size)
+// Support conoclic/concrete stdin operated by standard c functions (eg. fgets, fread, scanf, etc)
+static void crete_process_stdin_libc(const config::STDStream stdin_config)
 {
-    //1. Allocate buffer for stdin_ramdisk and write symbolic value to it
+    uint64_t size = stdin_config.size;
+
+    //1. Allocate buffer "crete_stdin_buffer" for stdin_ramdisk and write conoclic/concrete value to it
     char* crete_stdin_buffer = (char *)malloc(size);
     assert(crete_stdin_buffer &&
             "malloc() failed in preload::crete_make_concolic_stdin_std().\n");
     memset(crete_stdin_buffer, 0, size);
-    crete_make_concolic(crete_stdin_buffer, size, "crete-stdin");
 
-    //2. Write symbolic value to file "crete_stdin_ramdisk"
+    if(stdin_config.concolic)
+    {
+        crete_make_concolic(crete_stdin_buffer, size, "crete-stdin");
+    } else {
+        size_t length = stdin_config.value.copy(crete_stdin_buffer, size);
+        assert(length == size);
+    }
+
+    //2. Write concolic/concrete value from buffer "crete_stdin_buffer" to file "crete_stdin_ramdisk"
     char stdin_ramdisk_file[512];
     memset(stdin_ramdisk_file, 0, 512);
     sprintf(stdin_ramdisk_file, "%s/crete_stdin_ramdisk", getenv("CRETE_RAMDISK_PATH"));
@@ -88,22 +97,28 @@ void crete_make_concolic_stdin_std(size_t size)
     }
 }
 
-void crete_make_concolic_stdin_posix_blank(size_t size) {
-    char* crete_stdin_buffer = (char *)malloc(size);
-    assert(crete_stdin_buffer &&
-            "malloc() failed in preload::crete_make_concolic_stdin_posix_blank().\n");
-    memset(crete_stdin_buffer, 0, size);
-    crete_make_concolic(crete_stdin_buffer, size, "crete-stdin-posix");
+static void crete_process_stdin_posix(const config::STDStream stdin_config)
+{
+    // FIXME: xxx how about non-concolic (concrete) stdin for posix
+    if(stdin_config.concolic)
+    {
+        uint64_t size = stdin_config.size;
+        char* crete_stdin_buffer = (char *)malloc(size);
+        assert(crete_stdin_buffer &&
+                "malloc() failed in preload::crete_make_concolic_stdin_posix_blank().\n");
+        memset(crete_stdin_buffer, 0, size);
+        crete_make_concolic(crete_stdin_buffer, size, "crete-stdin-posix");
+    }
 }
 
-void crete_process_stdin(const config::HarnessConfiguration& hconfig)
+static void crete_process_stdin(const config::HarnessConfiguration& hconfig)
 {
     const config::STDStream stdin_config = hconfig.get_stdin();
-    //FIXME: xxx add support for non-concolic stdin
-    if(stdin_config.concolic && stdin_config.size > 0)
+
+    if(stdin_config.size > 0)
     {
-        crete_make_concolic_stdin_std(stdin_config.size);
-        crete_make_concolic_stdin_posix_blank(stdin_config.size);
+        crete_process_stdin_libc(stdin_config);
+        crete_process_stdin_posix(stdin_config);
     }
 }
 
