@@ -160,9 +160,6 @@ public:
     void clear_file_data();
     void is_first_iteration(bool b);
 
-    // FIXME: xxx test-case/executor
-    void clean_file_name();
-
     // config-generator
     void set_executable(const Executable& exe);
     void add_argument(const Argument& arg);
@@ -472,29 +469,6 @@ inline
 void HarnessConfiguration::is_first_iteration(bool b)
 {
     first_iteration_ = b;
-}
-
-// FIXME: xxx
-// Replace '/' to '_' for file name and path
-inline
-void HarnessConfiguration::clean_file_name()
-{
-    // Symbolic file name
-    for(std::vector<File>::iterator it = files_.begin();
-            it != files_.end(); ++it) {
-        std::string cleaned_name(it->path.string());
-        std::replace(cleaned_name.begin(), cleaned_name.end(), '/', '_');
-        it->path = boost::filesystem::path(cleaned_name);
-    }
-
-    // concrete arguments that are file path
-    for(std::vector<Argument>::iterator it = arguments_.begin();
-            it != arguments_.end(); ++it) {
-        if(!it->concolic) {
-            std::string cleaned_name;
-            std::replace(it->value.begin(), it->value.end(), '/', '_');
-        }
-    }
 }
 
 inline

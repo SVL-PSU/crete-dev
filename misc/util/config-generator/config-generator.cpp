@@ -369,7 +369,7 @@ void CreteTest::gen_crete_test_internal()
 
     // Create folder
     stringstream ss;
-    ss << "auto_" << m_target_exec << "_" << config_count++;
+    ss << "auto." << m_target_exec << "." << config_count++;
     fs::path outDir = addConfigOutputDir(ss.str());
 
     // Generate xml
@@ -411,8 +411,6 @@ void CreteTest::gen_crete_test_seeds(fs::path seeds_folder)
         assert(!test.empty());
 
         crete::TestCase tc;
-        //TODO: xxx Must match that of preload. Order matters.
-        string name = "arg";
 
         for(uint64_t i = 0; i < set_conoclic_arg_index.size(); ++i) {
             crete::config::Argument concolic_arg =
@@ -421,18 +419,14 @@ void CreteTest::gen_crete_test_seeds(fs::path seeds_folder)
 
             crete::TestCaseElement elem;
 
-            //FIXME: xxx Maybe "arg_" + index in Argument is better, as it would
-            // guarantee the consistency on name for the same config file
-            name += ",x";
+            std::stringstream ss_name;
+            ss_name << "argv_" << concolic_arg.index;
+            string name = ss_name.str();
             elem.name = std::vector<uint8_t>(name.begin(), name.end());
             elem.name_size = name.size();
 
-            if(!concolic_arg.value.empty())
-            {
-                elem.data = std::vector<uint8_t>(seed_arg_value.begin(),
-                        seed_arg_value.end());
-            }
-
+            elem.data = std::vector<uint8_t>(seed_arg_value.begin(),
+                    seed_arg_value.end());
             if(elem.data.size() < concolic_arg.size) {
                 elem.data.resize(concolic_arg.size, 0);
             }
@@ -494,7 +488,7 @@ void CreteTests::gen_crete_tests_coreutils()
 
     for(set<string>::const_iterator it = coreutil_programs.begin();
             it != coreutil_programs.end(); ++ it) {
-        fs::path out_config_file = m_outputDirectory + "/auto_" + *it + ".xml";
+        fs::path out_config_file = m_outputDirectory + "/auto." + *it + ".xml";
         cerr << out_config_file.string() << endl;
         crete_config.set_executable(coreutil_guest_path + *it);
 
