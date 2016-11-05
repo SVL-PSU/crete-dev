@@ -14,9 +14,9 @@ error_summary()
 
 
     printf "Totoal error: "
-    grep -c -w '2016' $INPUT_DIR/log/node_error.log
+    grep -c '\[2016\-' $INPUT_DIR/log/node_error.log
     printf "SVM error: "
-    grep -c -w 'Node:\sSVM' $INPUT_DIR/log/node_error.log
+    grep -c -w 'Node: SVM' $INPUT_DIR/log/node_error.log
 
     printf "cross-check failed: "
     grep -c "QemuRuntimeInfo::cross_check_cpuState.*failed." < $INPUT_DIR/log/node_error.log
@@ -46,6 +46,10 @@ error_summary()
     grep -c "^KLEE: ERROR: (location information missing) overshift error$" < $INPUT_DIR/log/node_error.log
     printf "STP timed out: "
     grep -c "^error: STP timed out" < $INPUT_DIR/log/node_error.log
+    printf "Over memory cap: "
+    grep -c "^KLEE\: WARNING\: killing 1 states (over memory cap)" < $INPUT_DIR/log/node_error.log
+    printf "HaltTimer: "
+    grep -c "KLEE: HaltTimer invoked" < $INPUT_DIR/log/node_error.log
 
     printf "\nVM error: "
     grep -c -w 'Node:\sVM' $INPUT_DIR/log/node_error.log

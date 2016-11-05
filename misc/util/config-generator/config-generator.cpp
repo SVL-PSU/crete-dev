@@ -171,6 +171,13 @@ void CreteTest::gen_config()
 
         m_crete_config.add_argument(arg);
     }
+
+    // 3. Impose concrete stdin
+    config::STDStream config_stdin;
+    config_stdin.concolic = false;
+    config_stdin.size = 1;
+    config_stdin.value.resize(config_stdin.size, 0);
+    m_crete_config.set_stdin(config_stdin);
 }
 
 // Check the consistency between m_crete_config and m_seeds

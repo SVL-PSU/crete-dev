@@ -12,7 +12,7 @@ GUEST_CRETE_BIN_DIR="/home/test/guest-build/bin"
 GUEST_PROG_DIR="/home/test/tests/ffmpeg-3.1.2/coverage"
 
 CRETE_BIN_DIR=$GUEST_CRETE_BIN_DIR
-PARSEGCOVCMD=$CRETE_BIN_DIR/../../guest/scripts/coverage/parse_gcov_coreutils.py
+PARSEGCOVCMD=$CRETE_BIN_DIR/../../guest/scripts/replay/parse_gcov_coreutils.py
 PROG_DIR=$GUEST_PROG_DIR
 
 PROGRAMS="ffmpeg
