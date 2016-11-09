@@ -133,7 +133,7 @@ namespace crete
 
         if(ssize > 1000000)
         {
-             BOOST_THROW_EXCEPTION(Exception() << err::msg("Sanity check: test case file size is unexpectedly large (size > 1000000)."));
+            BOOST_THROW_EXCEPTION(Exception() << err::msg("Sanity check: test case file size is unexpectedly large (size > 1000000)."));
         }
 
         uint32_t elem_count;
@@ -211,7 +211,12 @@ namespace crete
         {
             fs::path entry(*it);
 
-            CRETE_EXCEPTION_ASSERT(fs::file_size(entry) >= 4, err::file(entry.string()));
+            // Test case with no elements
+            // TODO: xxx report after retrieve all the valid test cases
+            if(fs::file_size(entry) <= 4)
+            {
+                BOOST_THROW_EXCEPTION(Exception() << err::msg("Invalid test case: empty elements."));
+            }
 
             fs::ifstream tests_file(entry);
             CRETE_EXCEPTION_ASSERT(tests_file.good(), err::file_open_failed(entry.string()));
