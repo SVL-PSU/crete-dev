@@ -50,6 +50,8 @@ error_summary()
     grep -c "^KLEE\: WARNING\: killing 1 states (over memory cap)" < $INPUT_DIR/log/node_error.log
     printf "HaltTimer: "
     grep -c "KLEE: HaltTimer invoked" < $INPUT_DIR/log/node_error.log
+    printf "Invalid test case: "
+    grep -c "Invalid test case" < $INPUT_DIR/log/node_error.log
 
     printf "\nVM error: "
     grep -c -w 'Node:\sVM' $INPUT_DIR/log/node_error.log

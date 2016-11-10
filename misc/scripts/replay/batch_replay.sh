@@ -65,7 +65,7 @@ main()
     lcov --directory $PROG_DIR --zerocounters
 
     printf "2. execute all test cases in folder $DISPATCH_OUT_DIR ...\n"
-    SUB_FOLDERS=$DISPATCH_OUT_DIR/*.xml
+    SUB_FOLDERS=$DISPATCH_OUT_DIR/*
     for f in $SUB_FOLDERS
     do
         target_prog="not-found"
@@ -89,8 +89,32 @@ main()
         fi
 
         # execute all the test cases from the current subfolder with target_prog
-        printf "executing $target_prog with test-case from $f...\n"
-        $CRETE_BIN_DIR/crete-tc-replay -e $PROG_DIR/$target_prog -c $f/guest-data/crete-guest-config.serialized -t $f/test-case >> crete-coverage-progress.log
+        if [ -d  $f/test-case ]; then
+            # replay under the folder structure of dispatch
+            if [ ! -f $f/guest-data/crete-guest-config.serialized ]; then
+                printf "[Error] Missing file: \'crete-guest-config.serialized\' under folder \'$f/guest-data\'"
+                exit
+            fi
+
+            test_case_dir=$f/test-case
+            config_file_path=$f/guest-data/crete-guest-config.serialized
+        elif [ -d $f/seeds ]; then
+            # replay under the folder structure of crete-config-generator
+            if [ ! -f $f/crete-guest-config.serialized ]; then
+                printf "[Error] Missing file: \'crete-guest-config.serialized\' under folder \'$f\'"
+                exit
+            fi
+
+            test_case_dir=$f/seeds
+            config_file_path=$f/crete-guest-config.serialized
+        else
+            printf "[Error] Only supports output folder of crete-dispatch and crete-config-generator ...\n"
+            exit
+        fi
+
+        printf "executing $target_prog with tc from \'$test_case_dir\'...\n"
+        $CRETE_BIN_DIR/crete-tc-replay -e $PROG_DIR/$target_prog -c $config_file_path \
+                                       -t $test_case_dir >> crete-coverage-progress.log
     done
 
     printf "3. Parsing crete.replay.log ...\n"

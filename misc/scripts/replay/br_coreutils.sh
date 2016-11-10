@@ -5,14 +5,14 @@ HOST_CRETE_BIN_DIR="/home/chenbo/crete/crete-dev/build/bin/"
 HOST_PROG_DIR="/home/chenbo/icse2016/eval/coreutils-6.10/crete-coverage/src"
 
 CRETE_BIN_DIR=$HOST_CRETE_BIN_DIR
-PARSEGCOVCMD=$CRETE_BIN_DIR/../../misc/scripts/coverage/parse_gcov_coreutils.py
+PARSEGCOVCMD=$CRETE_BIN_DIR/../../misc/scripts/replay/parse_gcov_coreutils.py
 PROG_DIR=$HOST_PROG_DIR
 
 # GUEST_CRETE_BIN_DIR="/home/test/guest-build/bin"
 # GUEST_PROG_DIR="/home/test/tests/coreutils-6.10/coverage/src/"
 
 # CRETE_BIN_DIR=$GUEST_CRETE_BIN_DIR
-# PARSEGCOVCMD=$CRETE_BIN_DIR/../../guest/scripts/coverage/parse_gcov_coreutils.py
+# PARSEGCOVCMD=$CRETE_BIN_DIR/../../guest/scripts/replay/parse_gcov_coreutils.py
 # PROG_DIR=$GUEST_PROG_DIR
 
 PROGRAMS="base64
