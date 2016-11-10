@@ -388,8 +388,12 @@ void CreteTest::gen_crete_test_internal()
             out_config_file.string(), pt_config, std::locale(),
             boost::property_tree::xml_writer_make_settings<std::string>('\t', 1));
 
-    // Generate seeds
+    // Generate serialized guest-config for crete-replay
+    ofstream ofs((outDir / "crete-guest-config.serialized").string().c_str());
+    boost::archive::text_oarchive oa(ofs);
+    oa << m_crete_config;
 
+    // Generate seeds
     gen_crete_test_seeds(outDir / seed_dir_name);
 }
 
