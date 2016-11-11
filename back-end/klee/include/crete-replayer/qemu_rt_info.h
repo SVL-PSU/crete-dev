@@ -168,16 +168,14 @@ private:
 	void read_streamed_trace();
 	uint32_t read_cpuSyncTables();
 	uint32_t read_debug_cpuSyncTables();
+	uint32_t read_memoSyncTables();
 	void read_debug_cpuState_offsets();
 
-	void init_memoSyncTables();
 	void init_interruptStates();
-	//    uint32_t read_memoSyncTables();
 	//    uint32_t read_interruptStates();
 
 	void init_concolics();
 	void init_initial_cpuState();
-	void verify_init() const;
 
 	// Debugging
 	void init_debug_cpuOffsetTable();

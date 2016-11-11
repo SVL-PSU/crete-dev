@@ -232,6 +232,8 @@ private:
     vector<MemoMergePoint_ty> m_debug_memoMergePoints;
 
     // Streaming tracing
+    bool m_streamed;        // Flag to indicate whether the trace have been streamed or not
+    bool m_pending_stream;  // Flag to indicate whether this is a pending stream
     uint64_t m_streamed_tb_count;
     uint64_t m_streamed_index;
 
@@ -293,11 +295,14 @@ public:
     void addMemoSyncTableEntry(uint64_t addr, uint32_t size, uint64_t value);
     void addMemoMergePoint(MemoMergePoint_ty type_MMP);
 
+    // Stream tracing
+    void stream_writeRtEnvToFile(uint64_t tb_count);
+    void set_pending_stream();
+
     //Misc
     void handlecreteMakeConcolic(string name, uint64_t guest_addr, uint64_t size);
 
     void writeRtEnvToFile();
-    void stream_writeRtEnvToFile(uint64_t tb_count);
     void verifyDumpData() const;
     void initOutputDirectory(const string& outputDirectory);
 
