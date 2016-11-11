@@ -1696,7 +1696,7 @@ void TCGLLVMContextPrivate::crete_add_tbExecSequ(vector<pair<uint64_t, uint64_t>
     m_tbExecSequ.insert(m_tbExecSequ.end(), seq.begin(), seq.end());
 }
 
-#define CRETE_CROSS_CHECK
+//#define CRETE_CROSS_CHECK
 
 void TCGLLVMContextPrivate::generate_crete_main()
 {
