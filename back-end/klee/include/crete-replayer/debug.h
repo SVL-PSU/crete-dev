@@ -1,7 +1,7 @@
 #ifndef CRETE_DEBUG_H
 #define CRETE_DEBUG_H
 
-#define CRETE_CROSS_CHECK
+//#define CRETE_CROSS_CHECK
 
 //#define CRETE_DEBUG_GENERAL
 //#define CRETE_DEBUG_MEMORY
