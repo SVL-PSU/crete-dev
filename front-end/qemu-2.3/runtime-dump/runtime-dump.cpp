@@ -62,7 +62,8 @@ static const uint32_t CRETE_TRACING_WINDOW_SIZE = 10000;
 /***********************************/
 /* External interface for C++ code */
 RuntimeEnv::RuntimeEnv()
-: m_streamed_tb_count(0), m_streamed_index(0)
+: m_streamed(false), m_pending_stream(false),
+  m_streamed_tb_count(0), m_streamed_index(0)
 {
     m_cpuState_post_insterest.first = false;
     m_cpuState_post_insterest.second = new uint8_t [sizeof(CPUArchState)];
@@ -398,7 +399,8 @@ void RuntimeEnv::writeRtEnvToFile()
 
         verifyDumpData();
 
-        if(rt_dump_tb_count < CRETE_TRACING_WINDOW_SIZE){
+        if(!m_streamed)
+        {
             initOutputDirectory("");
             writeInitialCpuState();
             writeDebugCpuStateOffsets();
@@ -408,15 +410,13 @@ void RuntimeEnv::writeRtEnvToFile()
         writeTcgLlvmCtx();
         writeCPUStateSyncTables();
         writeDebugCPUStateSyncTables();
+        writeMemoSyncTables();
 
         // to-be-streamed
         writeInterruptStates();
-
 #if defined(CRETE_DBG_MEM_MONI)
         debug_writeMemoSyncTables();
 #endif
-
-        writeMemoSyncTables();
 
         // need-not-streamed
         writeConcolics();
@@ -429,13 +429,12 @@ void RuntimeEnv::writeRtEnvToFile()
     }
 }
 
-void RuntimeEnv::stream_writeRtEnvToFile(uint64_t tb_count){
-    if(tb_count%CRETE_TRACING_WINDOW_SIZE != 0)
+void RuntimeEnv::stream_writeRtEnvToFile(uint64_t tb_count) {
+    if(!m_pending_stream)
         return;
 
-    assert((tb_count - m_streamed_tb_count) == CRETE_TRACING_WINDOW_SIZE);
-
-    if(tb_count/CRETE_TRACING_WINDOW_SIZE == 1){
+    if(!m_streamed)
+    {
         initOutputDirectory("");
         writeInitialCpuState();
         writeDebugCpuStateOffsets();
@@ -444,10 +443,17 @@ void RuntimeEnv::stream_writeRtEnvToFile(uint64_t tb_count){
     writeTcgLlvmCtx();
     writeCPUStateSyncTables();
     writeDebugCPUStateSyncTables();
-//    debug_writeMemoSyncTables();
+    writeMemoSyncTables();
 
+    m_streamed = true;
+    m_pending_stream = false;
     ++m_streamed_index;
     m_streamed_tb_count = tb_count;
+}
+
+void RuntimeEnv::set_pending_stream()
+{
+    m_pending_stream = true;
 }
 
 void RuntimeEnv::printInfo()
@@ -582,7 +588,7 @@ void RuntimeEnv::verifyDumpData() const
     assert(m_debug_cpuStateSyncTables.size() == (rt_dump_tb_count - m_streamed_tb_count) &&
                "Something wrong in m_cpuStateSyncTables dump, its size should be equal to rt_dump_tb_count all the time.\n");
 
-    assert(m_memoSyncTables.size() == (rt_dump_tb_count) &&
+    assert(m_memoSyncTables.size() == (rt_dump_tb_count - m_streamed_tb_count) &&
                 "Something wrong in m_memoSyncTables dump, its size should be equal to rt_dump_tb_count all the time.\n");
 
     assert(m_interruptStates.size() == (rt_dump_tb_count) &&
@@ -782,9 +788,11 @@ void RuntimeEnv::resetCPUStatePreInterest()
 
 void RuntimeEnv::writeMemoSyncTables()
 {
-    ofstream o_sm(getOutputFilename("dump_new_sync_memos.bin").c_str(),
-                ios_base::binary);
-    assert(o_sm && "Create file failed: dump_new_sync_memos.bin\n");
+    stringstream ss;
+    ss << "dump_new_sync_memos." << m_streamed_index << ".bin";
+    ofstream o_sm(getOutputFilename(ss.str()).c_str(), ios_base::binary);
+
+    assert(o_sm.good());
 
     // boost::unordered_map is not supported by boost::serialization
     // Covert boost::unordered_map to vector< pair<> >
@@ -1539,6 +1547,10 @@ int crete_post_cpu_tb_exec(void *qemuCpuState, TranslationBlock *input_tb, uint6
     	runtime_env->reverseTBDump(qemuCpuState);
 
     	is_post_interested_tb = 0;
+
+    	// NOTE: streaming tracing only being called after the execution of a un-interested TB
+    	//       for the favor of memory-monitoring (MM needs to do merge)
+    	runtime_env->stream_writeRtEnvToFile(rt_dump_tb_count);
     } else {
     	// Otherwise, finish-up tracing: instruction sequence, translation context, interrupt states,
         // and CPUStateSyncTable
@@ -1598,7 +1610,10 @@ int crete_post_cpu_tb_exec(void *qemuCpuState, TranslationBlock *input_tb, uint6
         // 5.
         is_post_interested_tb = 1;
 
-        runtime_env->stream_writeRtEnvToFile(rt_dump_tb_count);
+        if(rt_dump_tb_count%CRETE_TRACING_WINDOW_SIZE == 0)
+        {
+            runtime_env->set_pending_stream();
+        }
     }
 
     // Set runtime_env->m_cpuState_post_insterest

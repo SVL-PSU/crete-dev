@@ -20,7 +20,6 @@ QemuRuntimeInfo::QemuRuntimeInfo()
     m_streamed_index = 0;
 
     // to-be-streamed
-    init_memoSyncTables();
     init_interruptStates();
 
     // not-streamed
@@ -80,11 +79,16 @@ void QemuRuntimeInfo::sync_cpuState(klee::ObjectState *wos, uint64_t tb_index) {
 
 const memoSyncTable_ty& QemuRuntimeInfo::get_memoSyncTable(uint64_t tb_index)
 {
-//    if(tb_index >= (m_streamed_tb_count + m_memoSyncTables.size()))
-//        read_streamed_trace();
+    if(tb_index >= m_streamed_tb_count)
+    {
+        read_streamed_trace();
+        assert((m_streamed_tb_count - tb_index) == m_memoSyncTables.size());
+    }
 
-    assert(tb_index < m_memoSyncTables.size());
-	return m_memoSyncTables[tb_index];
+    uint64_t adjusted_tb_index = tb_index - (m_streamed_tb_count - m_memoSyncTables.size());
+    assert(adjusted_tb_index < m_memoSyncTables.size());
+
+    return m_memoSyncTables[adjusted_tb_index];
 }
 
 void QemuRuntimeInfo::printMemoSyncTable(uint64_t tb_index)
@@ -212,17 +216,6 @@ void QemuRuntimeInfo::cleanup_concolics()
 	}
 }
 
-void QemuRuntimeInfo::init_memoSyncTables()
-{
-    ifstream i_sm("dump_new_sync_memos.bin", ios_base::binary);
-    assert(i_sm && "open file failed: dump_new_sync_memos.bin\n");
-
-    boost::archive::binary_iarchive ia(i_sm);
-    ia >> m_memoSyncTables;
-
-    CRETE_DBG(print_memoSyncTables(););
-}
-
 void QemuRuntimeInfo::print_memoSyncTables()
 {
 	uint64_t temp_tb_count = 0;
@@ -293,8 +286,10 @@ void QemuRuntimeInfo::read_streamed_trace()
 {
     uint32_t read_amt_cst = read_cpuSyncTables();
     uint32_t read_amt_dbg_cst = read_debug_cpuSyncTables();
+    uint32_t read_amt_mst = read_memoSyncTables();
 
     assert(read_amt_cst == read_amt_dbg_cst);
+    assert(read_amt_cst == read_amt_mst);
 
     m_streamed_tb_count += read_amt_cst;
     ++m_streamed_index;
@@ -339,6 +334,23 @@ uint32_t QemuRuntimeInfo::read_debug_cpuSyncTables()
     return m_debug_cpuStateSyncTables.size();
 }
 
+uint32_t QemuRuntimeInfo::read_memoSyncTables()
+{
+    stringstream ss;
+    ss << "dump_new_sync_memos." << m_streamed_index << ".bin";
+    ifstream i_sm(ss.str().c_str(), ios_base::binary);
+    if(!i_sm.good()) {
+        cerr << "[Crete Error] can't find file " << ss.str() << endl;
+        assert(0);
+    }
+
+    boost::archive::binary_iarchive ia(i_sm);
+    m_memoSyncTables.clear();
+    ia >> m_memoSyncTables;
+
+    return m_memoSyncTables.size();
+}
+
 void QemuRuntimeInfo::read_debug_cpuState_offsets()
 {
     ifstream i_sm("dump_debug_cpuState_offsets.bin", ios_base::binary);
@@ -361,13 +373,6 @@ QemuInterruptInfo QemuRuntimeInfo::get_qemuInterruptInfo(uint64_t tb_index)
 void QemuRuntimeInfo::update_qemu_CPUState(klee::ObjectState *wos, uint64_t tb_index)
 {
 	assert(0);
-}
-
-void QemuRuntimeInfo::verify_init() const
-{
-    assert(m_cpuStateSyncTables.size() == m_memoSyncTables.size());
-
-    CRETE_CK(assert(m_cpuStateSyncTables.size() == m_debug_cpuStateSyncTables.size()););
 }
 
 static void concretize_incorrect_cpu_element(klee::ObjectState *cpu_os,
