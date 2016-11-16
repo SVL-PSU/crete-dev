@@ -15,6 +15,11 @@ add_subdirectory(front-end)
 add_subdirectory(misc)
 add_subdirectory(test EXCLUDE_FROM_ALL)
 
+add_custom_target(crete-version ALL
+  COMMAND git rev-parse --short HEAD > CRETE-VERSION
+  COMMAND cp ./CRETE-VERSION ${CMAKE_CURRENT_SOURCE_DIR}/front-end/guest/CRETE-VERSION
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
 install (PROGRAMS "${PROJECT_SOURCE_DIR}/back-end/klee/Release+Asserts/bin/klee"
          DESTINATION bin
          PERMISSIONS WORLD_EXECUTE WORLD_READ
