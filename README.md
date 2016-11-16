@@ -216,7 +216,7 @@ binary under test.
 
 ### 4.1 Setting-up the Test on the Guest OS
 ####Provide a configuration file for the target binary
-Boot the VM image using native qemu without kvm-enabledfirst by:
+Boot the VM image using native qemu without kvm-enabled first by:
 ```bash
 $ crete-native-qemu-system-x86_64 -hda crete-demo.img -m 256 -k en-us
 ```
