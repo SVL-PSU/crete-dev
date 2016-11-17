@@ -17,7 +17,7 @@ namespace cluster
 {
 
 TestPool::TestPool(const fs::path& root)
-    : random_engine_{std::time(0)}
+    : random_engine_{static_cast<unsigned>(std::time(0))}
     , root_{root}
 {
 }
