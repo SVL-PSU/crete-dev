@@ -1,14 +1,13 @@
 cmake_minimum_required(VERSION 2.8.7)
 
-set(CMAKE_CXX_COMPILER clang++)
-
 project(crete)
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-include_directories("${PROJECT_SOURCE_DIR}/lib/include")
+include_directories("${PROJECT_SOURCE_DIR}/lib/include" "${CMAKE_BINARY_DIR}/lib/boost/boost-prefix/src/boost")
+link_directories("${CMAKE_BINARY_DIR}/lib/boost/boost-prefix/src/boost/stage/lib")
 
 add_subdirectory(lib)
 add_subdirectory(back-end)
