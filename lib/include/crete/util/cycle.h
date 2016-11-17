@@ -40,7 +40,7 @@ auto remove_subranges(ForwardIt first, ForwardIt last) -> ForwardIt
 {
     for(auto i = first; i != last;)
     {
-        last = std::remove_if(first, last, [i](const decltype(*first)& p)
+        last = std::remove_if(first, last, [i](decltype(*first)& p)
         {
             return (i->first <= p.first && i->second > p.second) ||
                    (i->first < p.first && i->second >= p.second);
@@ -67,7 +67,7 @@ auto remove_overlapping_ranges(T& ranges) -> void
 {
     for(auto i = ranges.begin(); i != ranges.end();)
     {
-        auto r = std::find_if(ranges.begin(), ranges.end(), [i](const decltype(*ranges.begin())& p)
+        auto r = std::find_if(ranges.begin(), ranges.end(), [i](decltype(*ranges.begin())& p)
         {
             return    i->first < p.first
                    && i->second < p.second
