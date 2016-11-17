@@ -1,5 +1,6 @@
 #include "debug.h"
 #include "asm_mode.h"
+#include "compare-test.h"
 
 #include <boost/program_options.hpp>
 #include <boost/filesystem/fstream.hpp>
@@ -34,6 +35,7 @@ po::options_description Debug::make_options()
         ("asm-mode,a", "assembly mode")
         ("out-file,o", po::value<fs::path>(), "output file")
         ("exception,e", "search for CRETE exceptions")
+        ("compare-test,c", "compare the test cases between two folder")
             ;
 
     return desc;
@@ -75,6 +77,16 @@ void Debug::process_options()
 
         exit(0);
     }
+
+    if(var_map_.count("compare-test"))
+    {
+        CompareTest compare_test(cin, cout);
+
+        compare_test.start();
+
+        exit(0);
+    }
+
     if(var_map_.count("trace-dir"))
     {
         auto trace_dir = var_map_["trace-dir"].as<fs::path>();
