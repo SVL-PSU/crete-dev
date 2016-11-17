@@ -452,3 +452,79 @@ To resolve this, use the following command from the guest OS:
 ```bash
 $ sudo rm -rf /var/lib/apt/lists/*
 ```
+
+## 7. Building CRETE
+
+### 7.1 Dependencies
+
+The following apt-get packages are required:
+```bash
+sudo apt-get update
+sudo apt-get install build-essential lcov libcap-dev flex bison cmake libelf-dev subversion git libtool libpixman-1-dev
+sudo apt-get build-dep qemu
+```
+
+If your host system is Ubuntu 14.04, you will need to revert to an older version of bison:
+```bash
+sudo apt-get remove libbison-dev bison # Remove current version of bison.
+sudo apt-get update # For good measure.
+wget https://launchpad.net/ubuntu/+source/bison/1:2.5.dfsg-2.1/+build/3270698/+files/libbison-dev_2.5.dfsg-2.1_amd64.deb
+wget https://launchpad.net/ubuntu/+source/bison/1:2.5.dfsg-2.1/+build/3270698/+files/bison_2.5.dfsg-2.1_amd64.deb
+# Install bison-2.5 which is required by the dependency STP.
+sudo dpkg -i libbison-dev_2.5.dfsg-2.1_amd64.deb
+sudo dpkg -i bison_2.5.dfsg-2.1_amd64.deb
+sudo apt-mark hold libbison-dev bison # Prevent apt-get from updating.
+```
+
+### 7.2 Source Tree
+
+Grab a copy of the source tree:
+```bash
+git clone https://github.com/SVL-PSU/crete-dev.git crete
+```
+
+### 7.3 Preparing the Environment
+>#### Warning
+
+> CRETE uses Boost 1.59.0. If any other version of Boost is installed on the system, there may be conflicts. It is recommended that you remove any conflicting Boost versions.
+
+If you are using Ubuntu 14.04, you will need to make the compiler aware of the location of some header files.
+The exact location will depend on your version of gcc. To find this location:
+```bash
+locate bits/c++config.h
+```
+If the result is, for example:
+```bash
+/usr/include/x86_64-linux-gnu/c++/4.8/bits/c++config.h
+```
+Then you would do, for example:
+```bash
+echo 'export CPLUS_INCLUDE_PATH=$CPLUS_INCLUDE_PATH:/usr/include/x86_64-linux-gnu/c++/4.8' >> ~/.bashrc
+source ~/.bashrc
+```
+
+### 7.4 Building
+
+>#### Note
+
+> CRETE requires a C++11 compatible compiler.
+> We recommend clang-3.2 or g++-4.9 or higher versions of these compilers.
+
+From outside of CRETE's top-level directory:
+```bash
+mkdir crete-build
+cd crete-build
+cmake ../crete -DCMAKE_CXX_COMPILER=/path/to/c++11/compatible/compiler
+make # This will take a while; do NOT use -j
+```
+
+If you like, you can add the executables and libraries to your .bashrc file:
+```bash
+echo '# Added by CRETE' >> ~/.bashrc
+echo export PATH='$PATH':`readlink -f ./bin` >> ~/.bashrc
+echo export LD_LIBRARY_PATH='$LD_LIBRARY_PATH':`readlink -f ./bin` >> ~/.bashrc
+echo export LD_LIBRARY_PATH='$LD_LIBRARY_PATH':`readlink -f ./bin/boost` >> ~/.bashrc
+source ~/.bashrc
+```
+
+At this point, you're all set!
