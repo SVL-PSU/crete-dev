@@ -6,8 +6,8 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-include_directories("${PROJECT_SOURCE_DIR}/lib/include" "${CMAKE_BINARY_DIR}/lib/boost/boost-prefix/src/boost")
-link_directories("${CMAKE_BINARY_DIR}/lib/boost/boost-prefix/src/boost/stage/lib")
+include_directories("${PROJECT_SOURCE_DIR}/lib/include" "${CMAKE_BINARY_DIR}/lib/boost/boost-prefix/src/boost_1_59_0")
+link_directories("${CMAKE_BINARY_DIR}/lib/boost/boost-prefix/src/boost_1_59_0/stage/lib")
 
 add_subdirectory(lib)
 add_subdirectory(back-end)

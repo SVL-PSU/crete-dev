@@ -6,12 +6,27 @@ include(ExternalProject)
 
 ExternalProject_Add(
 	llvm-translator-qemu-2.3
-	DOWNLOAD_COMMAND ""
-	UPDATE_COMMAND ""
+
 	SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/llvm-translator-qemu-2.3
 	BUILD_IN_SOURCE 1
-	CONFIGURE_COMMAND echo ./configure --enable-tcg-interpreter --enable-llvm --with-llvm=${CMAKE_BINARY_DIR}/lib/llvm/llvm-3.2-prefix/src/llvm-3.2/Release+Asserts --target-list=i386-softmmu,x86_64-softmmu --disable-zlib-test --cxx=${CMAKE_BINARY_DIR}/lib/llvm/llvm-3.2-prefix/src/llvm-3.2/Release+Asserts/bin/clang++ --extra-ldflags='-L${CMAKE_BINARY_DIR}/bin -L${CMAKE_BINARY_DIR}/bin/boost' --extra-cflags='-mno-sse3 -g -I${CMAKE_SOURCE_DIR}/lib/include -I${CMAKE_BINARY_DIR}/lib/boost/boost-prefix/src/boost -DTCG_LLVM_OFFLINE' --extra-cxxflags='-mno-sse3 -O2 -DTCG_LLVM_OFFLINE' > ${CMAKE_CURRENT_SOURCE_DIR}/llvm-translator-qemu-2.3/crete_configure.sh && chmod +x ${CMAKE_CURRENT_SOURCE_DIR}/llvm-translator-qemu-2.3/crete_configure.sh && ./crete_configure.sh
-	BUILD_COMMAND make -j7
+
+	DOWNLOAD_COMMAND ""
+	UPDATE_COMMAND ""
+
+	CONFIGURE_COMMAND
+        ./configure
+        --target-list=i386-softmmu,x86_64-softmmu
+        --enable-llvm
+        --enable-tcg-interpreter
+        --disable-zlib-test
+        --with-llvm=${CMAKE_BINARY_DIR}/lib/llvm/llvm-3.2-prefix/src/llvm-3.2.src/Release+Asserts
+        --cxx=${CMAKE_BINARY_DIR}/lib/llvm/llvm-3.2-prefix/src/llvm-3.2.src/Release+Asserts/bin/clang++
+        "--extra-ldflags=-L${CMAKE_BINARY_DIR}/bin -L${CMAKE_BINARY_DIR}/bin/boost"
+        "--extra-cflags=-mno-sse3 -g -I${CMAKE_SOURCE_DIR}/lib/include -I${CMAKE_BINARY_DIR}/lib/boost/boost-prefix/src/boost_1_59_0 -DTCG_LLVM_OFFLINE"
+        "--extra-cxxflags=-mno-sse3 -O2 -DTCG_LLVM_OFFLINE"
+
+        BUILD_COMMAND make -j7
+
 	INSTALL_COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/llvm-translator-qemu-2.3/crete_gen_links.sh ${CMAKE_BINARY_DIR}
 	)
 
