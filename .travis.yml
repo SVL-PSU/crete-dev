@@ -1,0 +1,78 @@
+language: cpp
+
+matrix:
+  include:
+    # - os: linux
+    #   compiler: gcc
+    #   sudo: required
+    #   dist: trusty
+    #   env: TARGET_DIST=trusty
+    - os: linux
+      compiler: gcc
+      sudo: false
+      dist: precise
+      env: TARGET_DIST=precise
+
+addons:
+  apt:
+    packages:
+    - build-essential
+    - lcov
+    - libcap-dev
+    - flex
+    - bison
+    - cmake
+    - libelf-dev
+    - subversion
+    - git
+    - libtool
+    - libpixman-1-dev
+
+before_install:
+    ###########################################################################
+    # Set up the locations to get various packages from
+    # We assume the Travis image uses Ubuntu 12.04 LTS or 14.04 LTS
+    ###########################################################################
+    - if [[ "$TARGET_DIST" == "trusty" ]]; then
+         sudo apt-get update;
+         sudo apt-get remove libbison-dev bison ;
+         sudo apt-get update;
+         wget https://launchpad.net/ubuntu/+source/bison/1:2.5.dfsg-2.1/+build/3270698/+files/libbison-dev_2.5.dfsg-2.1_amd64.deb;
+         wget https://launchpad.net/ubuntu/+source/bison/1:2.5.dfsg-2.1/+build/3270698/+files/bison_2.5.dfsg-2.1_amd64.deb;
+         sudo dpkg -i libbison-dev_2.5.dfsg-2.1_amd64.deb;
+         sudo dpkg -i bison_2.5.dfsg-2.1_amd64.deb;
+         sudo apt-mark hold libbison-dev bison;
+         export CPLUS_INCLUDE_PATH=$CPLUS_INCLUDE_PATH:/usr/include/x86_64-linux-gnu/c++/4.8;
+      fi
+
+    ###########################################################################
+    # Set up out of source build directory
+    ###########################################################################
+    - export CRETE_SRC=`pwd`
+    - cd ../
+    - mkdir build
+    - cd build/
+    - export BUILD_DIR=`pwd`
+
+    ###########################################################################
+    # Install stuff
+    ###########################################################################
+    # Install Clang as the compiler supporting C++11
+    - if [[ "$TARGET_DIST" == "trusty" ]]; then
+         wget http://llvm.org/releases/3.5.0/clang+llvm-3.5.0-x86_64-linux-gnu-ubuntu-14.04.tar.xz;
+         tar xf clang+llvm-3.5.0-x86_64-linux-gnu-ubuntu-14.04.tar.xz;
+         CXX=./clang+llvm-3.5.0-x86_64-linux-gnu/bin/clang cmake $CRETE_SRC;
+      fi
+
+    - if [[ "$TARGET_DIST" == "precise" ]]; then
+         wget http://llvm.org/releases/3.2/clang+llvm-3.2-x86_64-linux-ubuntu-12.04.tar.gz;
+         tar xf clang+llvm-3.2-x86_64-linux-ubuntu-12.04.tar.gz;
+         CXX=./clang+llvm-3.2-x86_64-linux-ubuntu-12.04/bin/clang cmake $CRETE_SRC;
+      fi
+
+script:
+    # Build CRETE
+    - make boost
+    - make llvm-3.2
+    - make stp-r940
+    - make all
