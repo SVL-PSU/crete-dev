@@ -65,6 +65,8 @@ void crete_handle_raise_interrupt(void *env, int intno,
 void crete_handle_do_interrupt_all(void *qemuCPUState, int intno,
         int is_int, int error_code, uint64_t next_eip, int is_hw);
 
+void set_last_br_taken(int br_taken);
+
 void crete_set_capture_enabled(struct CreteFlags *cf, int capture_enabled);
 int  crete_flags_is_true(struct CreteFlags *cf);
 
@@ -93,6 +95,7 @@ int  crete_flags_is_true(struct CreteFlags *cf);
 /***********************************/
 /* External interface for C++ code */
 #include "tcg-llvm-offline/tcg-llvm-offline.h"
+#include <crete/trace_tag.h>
 
 using namespace std;
 
@@ -201,6 +204,7 @@ typedef pair<QemuInterruptInfo, bool> interruptState_ty;
 //<name, concolic_memo>
 typedef map<string, CreteMemoInfo> creteConcolics_ty;
 
+
 class RuntimeEnv
 {
 private:
@@ -239,6 +243,12 @@ private:
 
     // For skipping tracing interrupt handling code
     pair<bool, uint64_t> m_interrupt_process_info; // (interrupt_started, ret_eip)
+
+    // trace tag for annotating test case
+    crete::creteTraceTag_ty m_trace_tag_explored;
+    crete::creteTraceTag_ty m_trace_tag_new;
+
+    int m_current_tb_last_br_taken;
 
     // crete miscs:
     // <name, concolic CreteMemoInfo>
@@ -309,6 +319,10 @@ public:
     void set_interrupt_process_info(uint64_t ret_eip);
     bool check_interrupt_process_info(uint64_t current_tb_pc);
 
+    // Trace tag
+    void set_last_br_taken(int br_takend);
+    void add_trace_tag(const TranslationBlock *tb, uint64_t tb_count);
+
     //Misc
     void handlecreteMakeConcolic(string name, uint64_t guest_addr, uint64_t size);
 
@@ -373,6 +387,9 @@ private:
     void writeInterruptStates() const;
 
     void writeTBGraphExecSequ();
+
+    // Trace tag
+    void print_trace_tag() const;
 };
 
 class CreteFlags{

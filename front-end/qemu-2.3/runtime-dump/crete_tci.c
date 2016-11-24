@@ -500,6 +500,10 @@ uintptr_t crete_tcg_qemu_tb_exec(CPUArchState *env, uint8_t *tb_ptr)
     int temp_crete_read_was_symbolic = 0;
 #endif
 
+#if defined(CRETE_TRACE_TAG) || 1
+    int last_br_taken = 0;
+#endif
+
     for (;;) {
         TCGOpcode opc = tb_ptr[0];
 #if !defined(NDEBUG)
@@ -939,6 +943,10 @@ uintptr_t crete_tcg_qemu_tb_exec(CPUArchState *env, uint8_t *tb_ptr)
                 assert(tb_ptr == old_code_ptr + op_size);
                 tb_ptr = (uint8_t *)label;
 
+#if defined(CRETE_TRACE_TAG) || 1
+                last_br_taken = 1;
+#endif
+
                 continue;
             }
 
@@ -966,6 +974,10 @@ uintptr_t crete_tcg_qemu_tb_exec(CPUArchState *env, uint8_t *tb_ptr)
             if (tci_compare64(tmp64, v64, condition)) {
                 assert(tb_ptr == old_code_ptr + op_size);
                 tb_ptr = (uint8_t *)label;
+
+#if defined(CRETE_TRACE_TAG) || 1
+                last_br_taken = 1;
+#endif
 
                 continue;
             }
@@ -1306,6 +1318,10 @@ uintptr_t crete_tcg_qemu_tb_exec(CPUArchState *env, uint8_t *tb_ptr)
             if (tci_compare64(t0, t1, condition)) {
                 assert(tb_ptr == old_code_ptr + op_size);
                 tb_ptr = (uint8_t *)label;
+
+#if defined(CRETE_TRACE_TAG) || 1
+                last_br_taken = 1;
+#endif
 
                 continue;
             }
@@ -1727,5 +1743,10 @@ uintptr_t crete_tcg_qemu_tb_exec(CPUArchState *env, uint8_t *tb_ptr)
         assert(tb_ptr == old_code_ptr + op_size);
     }
 exit:
+
+#if defined(CRETE_TRACE_TAG) || 1
+    set_last_br_taken(last_br_taken);
+#endif
+
     return next_tb;
 }
