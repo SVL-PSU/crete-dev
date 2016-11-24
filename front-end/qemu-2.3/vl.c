@@ -2727,8 +2727,21 @@ static void set_memory_options(uint64_t *ram_slots, ram_addr_t *maxram_size)
     }
 }
 
+#if defined(CRETE_CONFIG) || 1
+#include "runtime-dump/crete-debug.h"
+#endif
+
 int main(int argc, char **argv, char **envp)
 {
+#if defined(CRETE_DBG_WITH_GDB)
+    char a;
+    a = getc(stdin);
+#endif
+
+    CRETE_DBG_GEN(
+    crete_dbg_disable_stderr_stdout();
+    );
+
     int i;
     int snapshot, linux_boot;
     const char *initrd_filename;

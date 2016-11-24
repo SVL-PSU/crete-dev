@@ -1,7 +1,7 @@
 #ifndef CRETE_DEBUG_H
 #define CRETE_DEBUG_H
 
-//#define CRETE_CROSS_CHECK
+#define CRETE_CROSS_CHECK
 
 //#define CRETE_DEBUG_GENERAL
 //#define CRETE_DEBUG_MEMORY
@@ -9,7 +9,7 @@
 //#define CRETE_DEBUG_XMM
 //#define CRETE_DEBUG_FLOAT
 
-#define CRETE_DEBUG_TAINT_ANALYSIS
+//#define CRETE_DEBUG_TAINT_ANALYSIS
 
 #define PRINT_TB_INDEX 0xfffffff
 

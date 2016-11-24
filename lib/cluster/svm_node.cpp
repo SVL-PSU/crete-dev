@@ -75,8 +75,8 @@ auto SVMNode::poll() -> void
                 auto t = pop_trace();
                 svm->process_event(ev::next_trace{t});
 
-//                std::ofstream ofs{"trace-seq.txt", std::ios::app};
-//                ofs << t.filename().string() << "\n";
+                std::ofstream ofs{"trace-seq.txt", std::ios::app};
+                ofs << t.filename().string() << "\n";
             }
         }
         else if(svm->is_flag_active<flag::tests_ready>())

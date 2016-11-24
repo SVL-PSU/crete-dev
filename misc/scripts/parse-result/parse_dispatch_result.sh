@@ -25,7 +25,7 @@ error_summary()
     grep -c "Assertion.*crete_dbg_ta_fail.*failed." < $INPUT_DIR/log/node_error.log
 
     printf "missing helper functions: "
-    grep -c "Executor.cpp\:2939.*Assertion.*failed." < $INPUT_DIR/log/node_error.log
+    grep -c "^\[CRETE ERROR\] Calling external function.* missing in helper.bc from qemu." < $INPUT_DIR/log/node_error.log
 
     printf "\nLoad MO missing: "
     grep -c "Load\sMO\smissing\!" < $INPUT_DIR/log/node_error.log

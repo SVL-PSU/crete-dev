@@ -2870,6 +2870,10 @@ void Executor::terminateStateOnError(ExecutionState &state,
                                      const llvm::Twine &messaget,
                                      const char *suffix,
                                      const llvm::Twine &info) {
+#if defined(CRETE_CONFIG)
+  state.print_stack();
+#endif
+
   std::string message = messaget.str();
   static std::set< std::pair<Instruction*, std::string> > emittedErrors;
   Instruction * lastInst;
@@ -4504,6 +4508,9 @@ void Executor::handleQemuRaiseInterrupt2(klee::Executor* executor,
   		  klee::KInstruction* target,
   		  std::vector<klee::ref<klee::Expr> > &args) {
     assert(args.size() == 5);
+
+    state->print_stack();
+    assert(0 && "[Crete Error] Interrupt should be invisible from klee side.\n");
 
 	// Get the concrete value of each arguments in the current execution of klee
 	ref<Expr> exp_intno = args[1];

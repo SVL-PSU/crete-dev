@@ -500,21 +500,6 @@ uintptr_t crete_tcg_qemu_tb_exec(CPUArchState *env, uint8_t *tb_ptr)
     int temp_crete_read_was_symbolic = 0;
 #endif
 
-#if defined(CRETE_DBG_CK) && 0
-    fprintf(stderr, "TCG_REG_CALL_STACK = %d, "
-            "CPU_TEMP_BUF_NLONGS = %d, "
-            "tcg_temps = %p, \n"
-            "sizeof(long) = %u, "
-            "(tcg_temps + CPU_TEMP_BUF_NLONGS) = %p, "
-            "sp_value = %p\n",
-            (uint32_t)TCG_REG_CALL_STACK,
-            (uint32_t)CPU_TEMP_BUF_NLONGS,
-            &tcg_temps[0],
-            (uint32_t)sizeof(long),
-            (void *)(uint64_t)(tcg_temps + CPU_TEMP_BUF_NLONGS),
-            (void *)(uint64_t)sp_value);
-#endif
-
     for (;;) {
         TCGOpcode opc = tb_ptr[0];
 #if !defined(NDEBUG)
@@ -627,6 +612,16 @@ uintptr_t crete_tcg_qemu_tb_exec(CPUArchState *env, uint8_t *tb_ptr)
                         fprintf(stderr, " 0x%02x", byte_value);
                     }
                     fprintf(stderr, "]\n");
+
+                    fprintf(stderr, "input args: "
+                            "arg0 = %p, "
+                            "arg1 = %p, "
+                            "arg2 = %p, "
+                            "arg3 = %p, "
+                            "arg5 = %p\n",
+                            (void *)(uint64_t)arg0,
+                            (void *)(uint64_t)arg1, (void *)(uint64_t)arg2,
+                            (void *)(uint64_t)arg3, (void *)(uint64_t)arg5);
                 }
             }
 #endif

@@ -24,7 +24,12 @@ using namespace std;
 static boost::unordered_set<uint64_t> init_list_crete_dbg_tb_pc() {
     boost::unordered_set<uint64_t> list;
 
-    list.insert(0x8c42f8e);
+    list.insert(0xc10ffead);
+    list.insert(0xc1106b28);
+    list.insert(0xc1687b9e);
+
+//    list.insert(0xc10b48d0);
+//    list.insert(0xc132c9f2);
 
     return list;
 }
@@ -32,8 +37,7 @@ static boost::unordered_set<uint64_t> init_list_crete_dbg_tb_pc() {
 static boost::unordered_set<uint64_t> init_list_crete_dbg_ta_guest_addr() {
     boost::unordered_set<uint64_t> list;
 
-    list.insert(0xbffff5ef);
-
+//    list.insert(0xb7f65000);
     return list;
 }
 
@@ -227,15 +231,48 @@ void crete_print_helper_function_name(uint64_t func_addr)
     cerr << "helper function: " << func_name;
 }
 
-void dump_IR(void* void_s, unsigned long long ir_tb_pc) {
+void dump_IR(void *void_s, void *tb_ptr) {
     TCGContext *s = (TCGContext *)void_s;
+    TranslationBlock *tb = (TranslationBlock *)tb_ptr;
 
     char file_name[] = "tb-ir.txt";
     FILE *f = fopen(file_name, "a");
     assert(f);
 
     fprintf(f, "qemu-ir-tb-%llu-%p:\n",
-            (unsigned long long )(nb_captured_llvm_tb - 1), (void *)(uint64_t)ir_tb_pc);
+            (unsigned long long )(nb_captured_llvm_tb - 1), (void *)(uint64_t)tb->pc);
+    fprintf(f, "last-opc = 0x%x\n", tb->last_opc);
+    tcg_dump_ops_file(s, f);
+    fprintf(f, "\n");
+
+    fclose(f);
+}
+
+void dump_dbg_ir(const void *cpuState, const void *tb_ptr)
+{
+    TranslationBlock *tb = (TranslationBlock *)tb_ptr;
+
+    if(!is_in_list_crete_dbg_tb_pc(tb->pc))
+    {
+        return;
+    }
+
+    // Dump the tcg_ctx for the current tb
+    CPUArchState *env = (CPUArchState*) cpuState;
+    TCGContext *s = &tcg_ctx;
+    assert(s);
+
+
+    tcg_func_start(s);
+    gen_intermediate_code_crete(env, tb, 0);
+
+    char file_name[] = "dbg-tb-ir.txt";
+    FILE *f = fopen(file_name, "a");
+    assert(f);
+
+    fprintf(f, "qemu-ir-tb-%llu-%p:\n",
+            (unsigned long long )(nb_captured_llvm_tb - 1), (void *)(uint64_t)tb->pc);
+    fprintf(f, "last-opc = 0x%x\n", tb->last_opc);
     tcg_dump_ops_file(s, f);
     fprintf(f, "\n");
 
@@ -868,4 +905,51 @@ void crete_verify_cpuState_offset_c_cxx()
     runtime_env->init_debug_cpuState_offsets(cxx_cpuState_offset);
 }
 #endif //#if defined(CRETE_CROSS_CHECK)
+
+static bool disabled_stderr_stdout = false;
+static int fd_stdout = -1;
+static fpos_t pos_stdout;
+static int fd_stderr = -1;
+static fpos_t pos_stderr;
+
+void crete_dbg_disable_stderr_stdout(void)
+{
+    if(disabled_stderr_stdout)
+        return;
+
+    fflush(stdout);
+    fgetpos(stdout, &pos_stdout);
+    fd_stdout = dup(fileno(stdout));
+    freopen("/dev/null", "w", stdout);
+
+    fflush(stderr);
+    fgetpos(stderr, &pos_stderr);
+    fd_stderr = dup(fileno(stderr));
+    freopen("/dev/null", "w", stderr);
+
+    disabled_stderr_stdout = true;
+}
+
+void crete_dbg_enable_stderr_stdout(void)
+{
+    if(!disabled_stderr_stdout)
+        return;
+
+    fflush(stdout);
+    dup2(fd_stdout, fileno(stdout));
+    close(fd_stdout);
+    clearerr(stdout);
+    fsetpos(stdout, &pos_stdout);        /* for C9X */
+
+    fflush(stderr);
+    dup2(fd_stderr, fileno(stderr));
+    close(fd_stderr);
+    clearerr(stderr);
+    fsetpos(stderr, &pos_stderr);        /* for C9X */
+
+    disabled_stderr_stdout = false;
+
+    fprintf(stderr, "crete_dbg_enable_stderr_stdout()\n");
+
+}
 

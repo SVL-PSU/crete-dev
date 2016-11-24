@@ -6,7 +6,7 @@
 
 echo "  LLVMCC    bc_i386_helpers.bc" && clang      \
     -c                                              \
-    -O2                                             \
+    -O0 -fno-inline                                 \
     -I./ 	                                    \
     -I../ 	                                    \
     -I../include 	                            \
@@ -27,8 +27,8 @@ echo "  LLVMCC    bc_i386_helpers.bc" && clang      \
     ../target-i386/bc_i386_helpers.c                \
     -o bc_i386_helpers.bc
 
+    # -O2                                             \
 
-    # -O0 -fno-inline                                 \
 
 ### old flags
     # -DPIE -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -DHAS_AUDIO -DHAS_AUDIO_CHOICE -DTARGET_PHYS_ADDR_BITS=64 \
