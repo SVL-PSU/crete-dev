@@ -1,5 +1,7 @@
 #CRETE User Guide
 
+[![Build Status](https://travis-ci.org/SVL-PSU/crete-dev.svg?branch=master)](https://travis-ci.org/SVL-PSU/crete-dev)
+
 ## 1. Prerequisites
 ### 1.1. Terminology
 Virtual Machine (VM)
