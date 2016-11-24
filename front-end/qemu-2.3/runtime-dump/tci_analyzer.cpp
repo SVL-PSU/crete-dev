@@ -223,8 +223,8 @@ bool Analyzer::is_guest_mem_symbolic(uint64_t addr, uint64_t size, uint64_t data
 
 #if defined(CRETE_DBG_TA)
             if(is_in_list_crete_dbg_ta_guest_addr(addr+i))
-                fprintf(stderr, "is_guest_mem_symbolic() is true for address %p\n",
-                        (void *)(addr+i));
+                fprintf(stderr, "is_guest_mem_symbolic() is true for address %p, value = %d\n",
+                        (void *)(addr+i), guest_mem_[addr+i]);
 #endif
         } else {
             CRETE_DBG_GEN(
@@ -247,8 +247,8 @@ void Analyzer::make_guest_mem_symbolic(uint64_t addr, uint64_t size, uint64_t da
 
 #if defined(CRETE_DBG_TA)
         if(is_in_list_crete_dbg_ta_guest_addr(addr+i))
-            fprintf(stderr, "make_guest_mem_symbolic() for address %p\n",
-                    (void *)(addr+i));
+            fprintf(stderr, "make_guest_mem_symbolic() for address %p, value = %d\n",
+                    (void *)(addr+i), (int)guest_mem_[addr+i]);
 #endif
     }
 

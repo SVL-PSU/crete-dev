@@ -140,7 +140,7 @@ void RuntimeEnv::dump_tloCtx(void *cpuState, TranslationBlock *tb, uint64_t cret
     tb->index_captured_llvm_tb = nb_captured_llvm_tb++;
 
     //for debug purpsoe, qemu ir
-//    dump_IR(s, tb->pc);
+    dump_IR(s, tb);
 }
 
 void RuntimeEnv::addInitialCpuState()
@@ -555,10 +555,8 @@ void RuntimeEnv::reverseTBDump(void *qemuCpuState)
 #if defined(CRETE_DEBUG)
     cerr << "reverseTBDump(): \n"
          << dec << "rt_dump_tb_count = " << rt_dump_tb_count
-         << ", m_prolog_regs.size() = " << m_prolog_regs.size()
          << ", m_debug_memoSyncTables.size() = " << m_debug_memoSyncTables.size()
          << ", m_debug_memoMergePoints.size() = " << m_debug_memoMergePoints.size()
-         <<", m_tbExecSequ.size() = " << m_tbExecSequ.size()
          << ", m_interruptStates.size() = " << m_interruptStates.size() << endl;
 #endif //#if defined(CRETE_DEBUG)
 
@@ -613,7 +611,10 @@ void RuntimeEnv::verifyDumpData() const
 
 string RuntimeEnv::get_tcoHelper_name(uint64_t func_addr) const
 {
-
+    if(m_debug_helper_names.empty())
+    {
+        return string();
+    }
     map<uint64_t, string>::const_iterator it = m_debug_helper_names.find(func_addr);
     assert(it != m_debug_helper_names.end());
     return it->second;
@@ -1189,10 +1190,10 @@ void RuntimeEnv::checkEmptyCPUStateSyncTables()
         if(it->first && it->second.empty()) {
             it->first = false;
 
-#if defined(CRETE_DBG_CK)
+            CRETE_DBG_GEN(
             fprintf(stderr, "CPUState is not changed between tb-%lu, and tb-%lu\n",
                     tb_count - 1, tb_count);
-#endif
+            );
         }
 
         ++tb_count;
@@ -1524,9 +1525,9 @@ void crete_pre_cpu_tb_exec(void *qemuCpuState, TranslationBlock *tb)
     f_crete_enabled = is_target_pid && !is_processing_interrupt;
 
     // 3. manual code selection
-    //bool is_user_code = (tb->pc < USER_CODE_RANGE);
-    //bool manual_code_selection_passed = is_user_code;
-    bool manual_code_selection_passed = true;
+    bool is_user_code = (tb->pc < USER_CODE_RANGE);
+    bool manual_code_selection_passed = is_user_code;
+//    bool manual_code_selection_passed = true;
 
     // 4. the current tb is pre-interested, if f_crete_enabled and pass manual code selection
     bool tb_pre_interested = f_crete_enabled && manual_code_selection_passed;
@@ -1746,7 +1747,7 @@ int crete_post_cpu_tb_exec(void *qemuCpuState, TranslationBlock *input_tb, uint6
 //    }
 
 #if defined(CRETE_DEBUG_GENERAL)
-    if(dbg_input_static_flag_interested_tb)
+    if(!dbg_input_static_flag_interested_tb)
     {
         fprintf(stderr, "0 - [POST] uninterested-pre tb-%lu (pc-%p): pre uninterested. ",
                 rt_dump_tb_count - 1, (void *)(uint64_t)rt_dump_tb->pc);
@@ -1803,6 +1804,13 @@ int crete_post_cpu_tb_exec(void *qemuCpuState, TranslationBlock *input_tb, uint6
             else
                 assert(0);
         }
+    }
+
+    if(CRETE_DBG_GEN_PRINT_TB_RANGE(rt_dump_tb_count))
+    {
+        crete_dbg_enable_stderr_stdout();
+    } else {
+        crete_dbg_disable_stderr_stdout();
     }
 #endif
 

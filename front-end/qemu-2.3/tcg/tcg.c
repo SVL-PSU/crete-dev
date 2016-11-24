@@ -1050,7 +1050,7 @@ void tcg_dump_ops_file(TCGContext *s, FILE *outfile)
                     "\nnb_oargs = $%d\n"
                     "nb_iargs = $%d\n"
                     "nb_cargs = $%d\n"
-                    "=========================",
+                    "=========================\n",
                     def->name,
                     tcg_find_helper(s, args[nb_oargs + nb_iargs]),
                     args[nb_oargs + nb_iargs + 1],

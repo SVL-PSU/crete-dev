@@ -411,8 +411,8 @@ void QemuRuntimeInfo::cross_check_cpuState(klee::ExecutionState &state,
     for(vector<CPUStateElement>::const_iterator it = correct_cpuStates.begin();
             it != correct_cpuStates.end(); ++it) {
 
-//        if(it->m_name.find("cc_src") != string::npos)
-//            continue;
+        if(it->m_name.find("debug_cc_src") != string::npos)
+            continue;
 
         vector<uint8_t> current_value;
         for(uint64_t i = 0; i < it->m_size; ++i) {

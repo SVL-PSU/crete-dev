@@ -185,7 +185,7 @@ static inline tcg_target_ulong cpu_tb_exec(CPUState *cpu, uint8_t *tb_ptr)
     CPUArchState *env = cpu->env_ptr;
     uintptr_t next_tb;
 
-#if defined(CRETE_DBG_CK)
+#if defined(CRETE_DEBUG_GENERAL)
     if( is_in_list_crete_dbg_tb_pc(rt_dump_tb->pc))
     {
         fprintf(stderr, "\tcpu_tb_exec(): ");
