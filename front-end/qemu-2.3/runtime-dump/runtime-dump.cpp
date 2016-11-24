@@ -65,7 +65,8 @@ static const uint32_t CRETE_TRACING_WINDOW_SIZE = 10000;
 /* External interface for C++ code */
 RuntimeEnv::RuntimeEnv()
 : m_streamed(false), m_pending_stream(false),
-  m_streamed_tb_count(0), m_streamed_index(0)
+  m_streamed_tb_count(0), m_streamed_index(0),
+  m_current_tb_last_br_taken(-1)
 {
     m_cpuState_post_insterest.first = false;
     m_cpuState_post_insterest.second = new uint8_t [sizeof(CPUArchState)];
@@ -810,10 +811,15 @@ void RuntimeEnv::writeConcolics()
         tc.add_element(tce);
     }
 
+    // trace-tag
+    print_trace_tag();
+    tc.set_traceTag(m_trace_tag_explored, m_trace_tag_new);
+
     // Update "hostfile/input_arguments.bin" as there are more concolics than specified in xml
     ofstream ofs("hostfile/input_arguments.bin", ios_base::out | ios_base::binary);
     assert(ofs);
-    tc.write(ofs);
+//    tc.write(ofs);
+    crete::write_serialized(ofs, tc);
 }
 
 void RuntimeEnv::setCPUStatePostInterest(const void *src)
@@ -1393,6 +1399,57 @@ bool RuntimeEnv::check_interrupt_process_info(uint64_t current_tb_pc)
     return true;
 }
 
+void RuntimeEnv::set_last_br_taken(int br_taken)
+{
+    m_current_tb_last_br_taken = br_taken;
+}
+
+inline static bool is_conditional_branch_opc(int last_opc);
+
+void RuntimeEnv::add_trace_tag(const TranslationBlock *tb, uint64_t tb_count)
+{
+    assert(m_current_tb_last_br_taken != -1);
+
+    if(is_conditional_branch_opc(tb->last_opc))
+    {
+        // xxx: add check on m_trace_tag_explored
+
+        crete::CreteTraceTagNode tag_node;
+        tag_node.m_tb_pc = tb->pc;
+        tag_node.m_last_opc = tb->last_opc;
+        tag_node.m_br_taken = m_current_tb_last_br_taken;
+        tag_node.m_tb_count = tb_count;
+        m_trace_tag_new.push_back(tag_node);
+    } else {
+        // xxx: potential reasons:
+        //      1. the list_crete_cond_jump_opc is not complete
+        //      2.
+        assert(m_current_tb_last_br_taken == 0 &&
+                "Assumption broken: a non-cond-br tb sets the flag m_current_tb_last_br_taken.\n");
+    }
+
+    m_current_tb_last_br_taken = -1;
+}
+
+void RuntimeEnv::print_trace_tag() const
+{
+    fprintf(stderr, "m_trace_tag_explored: \n");
+    for(crete::creteTraceTag_ty::const_iterator it = m_trace_tag_explored.begin();
+            it != m_trace_tag_explored.end(); ++it) {
+        fprintf(stderr, "tb-%lu: pc=%p, last_opc = %p, br_taken = %d\n",
+                it->m_tb_count, (void *)it->m_tb_pc,
+                (void *)(uint64_t)it->m_last_opc, (int)it->m_br_taken);
+    }
+
+    fprintf(stderr, "m_trace_tag_new: \n");
+    for(crete::creteTraceTag_ty::const_iterator it = m_trace_tag_new.begin();
+            it != m_trace_tag_new.end(); ++it) {
+        fprintf(stderr, "tb-%lu: pc=%p, last_opc = %p, br_taken = %d\n",
+                it->m_tb_count, (void *)it->m_tb_pc,
+                (void *)(uint64_t)it->m_last_opc, (int)it->m_br_taken);
+    }
+}
+
 CreteFlags::CreteFlags()
 : m_cpuState(NULL), m_tb(NULL),
   m_target_pid(0), m_capture_started(false),
@@ -1726,6 +1783,9 @@ int crete_post_cpu_tb_exec(void *qemuCpuState, TranslationBlock *input_tb, uint6
 	        {
 	            runtime_env->set_pending_stream();
 	        }
+
+	        // 6. trace tag
+	        runtime_env->add_trace_tag(&tb, rt_dump_tb_count);
 	    }
 
 	    CRETE_DBG_GEN(
@@ -2323,4 +2383,69 @@ static vector<CPUStateElement> x86_cpuState_compuate_side_effect(const CPUArchSt
 */
 
     return ret;
+}
+
+void set_last_br_taken(int br_taken)
+{
+    runtime_env->set_last_br_taken(br_taken);
+}
+
+
+#include "boost/unordered_set.hpp"
+
+static boost::unordered_set<int> init_list_crete_cond_jump_opc() {
+    boost::unordered_set<int> list;
+#if defined(TARGET_X86_64) || defined(TARGET_I386)
+    // short jump opcodes
+    list.insert(0x70);
+    list.insert(0x71);
+    list.insert(0x72);
+    list.insert(0x73);
+    list.insert(0x74);
+    list.insert(0x75);
+    list.insert(0x76);
+    list.insert(0x77);
+    list.insert(0x78);
+    list.insert(0x79);
+
+    list.insert(0x7A);
+    list.insert(0x7B);
+    list.insert(0x7C);
+    list.insert(0x7D);
+    list.insert(0x7E);
+    list.insert(0x7F);
+
+    list.insert(0xE3);
+
+    // near jump opcodes
+    list.insert(0x180);
+    list.insert(0x181);
+    list.insert(0x182);
+    list.insert(0x183);
+    list.insert(0x184);
+    list.insert(0x185);
+    list.insert(0x186);
+    list.insert(0x187);
+    list.insert(0x188);
+    list.insert(0x189);
+    list.insert(0x18A);
+    list.insert(0x18B);
+    list.insert(0x18C);
+    list.insert(0x18D);
+    list.insert(0x18E);
+    list.insert(0x18F);
+
+#else
+    #error CRETE: Only I386 and x64 supported!
+#endif // defined(TARGET_X86_64) || defined(TARGET_I386)
+
+    return list;
+}
+
+const static boost::unordered_set<int> list_crete_cond_jump_opc =
+        init_list_crete_cond_jump_opc();
+
+inline static bool is_conditional_branch_opc(int last_opc)
+{
+    return (list_crete_cond_jump_opc.find(last_opc) != list_crete_cond_jump_opc.end());
 }

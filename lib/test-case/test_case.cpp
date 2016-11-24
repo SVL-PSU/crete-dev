@@ -5,7 +5,8 @@
 #include <external/alphanum.hpp>
 
 #include <boost/filesystem/fstream.hpp>
-
+#include <boost/archive/binary_oarchive.hpp>
+#include <boost/serialization/vector.hpp>
 
 #include <cassert>
 #include <iomanip>
@@ -78,6 +79,14 @@ namespace crete
     void TestCase::write(ostream& os) const
     {
         crete::write(os, elems_);
+    }
+
+    void TestCase::set_traceTag(const creteTraceTag_ty &explored_nodes,
+            const creteTraceTag_ty &new_nodes)
+    {
+        // TODO: XXX check the input explored_nodes is consistent with m_explored_nodes
+        m_explored_nodes = explored_nodes;
+        m_new_nodes = new_nodes;
     }
 
     TestCaseElement read_test_case_element(istream& is)
@@ -237,6 +246,17 @@ namespace crete
         CRETE_EXCEPTION_ASSERT(tests_file.good(), err::file_open_failed(entry.string()));
 
         return read_test_case(tests_file);
+    }
+
+    void write_serialized(ostream& os, const TestCase& tc)
+    {
+        try {
+            boost::archive::binary_oarchive oa(os);
+            oa << tc;
+        }
+        catch(std::exception &e){
+            BOOST_THROW_EXCEPTION(Exception() << err::msg("Serialization error in write_serialized()\n"));
+        };
     }
 
 }

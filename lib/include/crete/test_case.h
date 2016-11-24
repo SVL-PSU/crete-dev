@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <vector>
 #include <iterator>
+#include <crete/trace_tag.h>
 
 namespace crete
 {
@@ -42,6 +43,7 @@ namespace crete
         void write(std::ostream& os) const;
         Priority get_priority() const { return priority_; }
         void set_priority(const Priority& p) { priority_ = p; }
+        void set_traceTag(const creteTraceTag_ty &explored_nodes, const creteTraceTag_ty &new_nodes);
 
         friend std::ostream& operator<<(std::ostream& os, const TestCase& tc);
 
@@ -52,12 +54,18 @@ namespace crete
 
             ar & elems_;
             ar & priority_;
+
+            ar & m_explored_nodes;
+            ar & m_new_nodes;
         }
 
     protected:
     private:
         TestCaseElements elems_;
         Priority priority_; // TODO: meaningless now. In the future, can be used to sort tests.
+
+        creteTraceTag_ty m_explored_nodes;
+        creteTraceTag_ty m_new_nodes;
     };
 
     std::ostream& operator<<(std::ostream& os, const TestCaseElement& elem);
@@ -73,6 +81,11 @@ namespace crete
     uint32_t element_count_test_case(std::istream& is);
     std::vector<TestCase> retrieve_tests(const std::string& tc_dir);
     TestCase retrieve_test(const std::string& tc_path);
+
+    void write_serialized(ostream& os, const TestCase& tc);
+
+    TestCase read_serialized();
+
 }
 
 #endif // CRETE_TEST_CASE_H
