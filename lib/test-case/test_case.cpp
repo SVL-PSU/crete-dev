@@ -6,6 +6,7 @@
 
 #include <boost/filesystem/fstream.hpp>
 #include <boost/archive/binary_oarchive.hpp>
+#include <boost/archive/binary_iarchive.hpp>
 #include <boost/serialization/vector.hpp>
 
 #include <cassert>
@@ -258,5 +259,20 @@ namespace crete
             BOOST_THROW_EXCEPTION(Exception() << err::msg("Serialization error in write_serialized()\n"));
         };
     }
+
+    TestCase read_serialized(istream& is)
+    {
+        try {
+            TestCase tc;
+            boost::archive::binary_iarchive ia(is);
+            ia >> tc;
+
+            return tc;
+        }
+        catch(std::exception &e){
+            BOOST_THROW_EXCEPTION(Exception() << err::msg("Serialization error in read_serialized()\n"));
+        };
+    }
+
 
 }

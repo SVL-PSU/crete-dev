@@ -129,6 +129,8 @@ using namespace metaSMT::solver;
 #if defined(CRETE_CONFIG)
 #include "crete-replayer/qemu_macros.h"
 #include "crete-replayer/debug.h"
+
+#include <crete/trace_tag.h>
 #endif // CRETE_CONFIG
 
 namespace {
@@ -3840,10 +3842,28 @@ Executor::crete_concolic_fork(ExecutionState &current, ref<Expr> condition)
     assert(!RandomizeFork &&
             "RandomizeFork is enabled, which means the statePair returned by fork could be swapped.\n");
 
+    // Check against trace tag
+    // Only check trace tag when klee is executing the captured code
+    //  (code from helper functions and klee's own code for checking should
+    //  not check with trace tag)
+    bool check_trace_tag = (current.stack.size() == 2) ? true:false;
+
+    bool branch_taken;
+    bool explored_node;
+    if(check_trace_tag) {
+        current.check_trace_tag(branch_taken, explored_node);
+    }
+
     Executor::StatePair branches;
     // Fork now is only disabled when handling crete_assume()
     if(current.crete_fork_enabled)
-    	branches = fork(current, condition, false);
+    {
+        // Does not fork when "check_trace_tag" is valid and the node/branch has been not explored
+        if(!check_trace_tag || !explored_node)
+        {
+            branches = fork(current, condition, false);
+        }
+    }
 
     ExecutionState *trueState  = branches.first;
     ExecutionState *falseState = branches.second;
@@ -3851,6 +3871,20 @@ Executor::crete_concolic_fork(ExecutionState &current, ref<Expr> condition)
     ref<Expr> evalResult = current.concolics.evaluate(condition);
     assert(isa<ConstantExpr>(evalResult));
     ref<ConstantExpr> condition_value = dyn_cast<ConstantExpr>(evalResult);
+
+    if(check_trace_tag)
+    {
+        assert(branch_taken == condition_value->isTrue());
+    } else {
+        // FIXME: xxx
+        // klee may fork from outside captured bitcode, such as fork from
+        // qemu's helper functions, and KLEE's check (over_shift check, etc).
+        // Test cases generated from those forks should be treated specially,
+        // as they are not for exploring a new path back to the binary under
+        // test and should not be a part of the trace tag process.
+        assert(!(trueState && falseState) &&
+                "[CRETE FIXME] klee forks not from captured bitcode.\n");
+    }
 
     if(trueState && falseState){
         if (condition_value->isTrue()) {
@@ -4312,7 +4346,6 @@ void Executor::handleCreteQemuTbPrologue(klee::Executor* executor,
     );
 
     assert(state->m_qemu_tb_count == tb_index_value);
-    ++state->m_qemu_tb_count;
 
     // synchronize memory
     executor->crete_sync_memory(*state, tb_index_value);
@@ -4338,6 +4371,8 @@ void Executor::handleCreteQemuTbPrologue(klee::Executor* executor,
         state->crete_tb_tainted = false;
     }
     );
+
+    ++state->m_qemu_tb_count;
 }
 
 void Executor::handleCreteFinishReply(klee::Executor* executor,

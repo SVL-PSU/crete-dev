@@ -470,8 +470,13 @@ void KleeHandler::processTestCase(const ExecutionState &state,
         o->address = addresses[i];
 #endif //CRETE_CONFIG
       }
-
-      if (!kTest_toFile(&b, getOutputFilename(getTestFilename("ktest", id)).c_str())) {
+#if defined(CRETE_CONFIG)
+      crete::creteTraceTag_ty current_tt_explored = state.get_trace_tag_for_tc();
+      if (!crete_kTest_toFile(&b, getOutputFilename(getTestFilename("ktest", id)).c_str(), &current_tt_explored))
+#else
+      if (!kTest_toFile(&b, getOutputFilename(getTestFilename("ktest", id)).c_str()))
+#endif
+      {
         klee_warning("unable to write output test case, losing it");
       }
 

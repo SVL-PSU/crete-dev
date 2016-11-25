@@ -83,7 +83,8 @@ ExecutionState::ExecutionState(KFunction *kf)
     crete_cpu_state(NULL),
 	crete_fork_enabled(true),
 	crete_tb_tainted(false),
-	crete_dbg_ta_fail(false)
+	crete_dbg_ta_fail(false),
+	m_trace_tag_current_node_index(0)
 #endif
 {
   pushFrame(0, kf);
@@ -101,7 +102,8 @@ ExecutionState::ExecutionState(const std::vector<ref<Expr> > &assumptions)
     crete_cpu_state(NULL),
 	crete_fork_enabled(true),
 	crete_tb_tainted(false),
-	crete_dbg_ta_fail(false)
+	crete_dbg_ta_fail(false),
+	m_trace_tag_current_node_index(0)
 #endif
 {}
 
@@ -147,7 +149,8 @@ ExecutionState::ExecutionState(const ExecutionState& state)
     crete_cpu_state(state.crete_cpu_state),
 	crete_fork_enabled(state.crete_fork_enabled),
 	crete_tb_tainted(state.crete_tb_tainted),
-	crete_dbg_ta_fail(state.crete_dbg_ta_fail)
+	crete_dbg_ta_fail(state.crete_dbg_ta_fail),
+	m_trace_tag_current_node_index(state.m_trace_tag_current_node_index)
 #endif
 {
   for (unsigned int i=0; i<symbolics.size(); i++)
@@ -513,4 +516,22 @@ std::string ExecutionState::crete_get_unique_name(const std::string name)
     return uniqueName;
 }
 
+// return the branch is taken or not for consistency check
+void ExecutionState::check_trace_tag(bool &branch_taken, bool &explored_node)
+{
+    g_qemu_rt_Info->check_trace_tag(m_trace_tag_current_node_index, m_qemu_tb_count,
+            branch_taken, explored_node);
+
+    ++m_trace_tag_current_node_index;
+}
+
+crete::creteTraceTag_ty ExecutionState::get_trace_tag_for_tc() const
+{
+    crete::creteTraceTag_ty ret;
+    uint64_t tt_index_for_tc = m_trace_tag_current_node_index - 1;
+    ret.reserve(tt_index_for_tc);
+    g_qemu_rt_Info->get_trace_tag_for_tc(tt_index_for_tc, ret);
+
+    return ret;
+}
 #endif // CRETE_CONFIG

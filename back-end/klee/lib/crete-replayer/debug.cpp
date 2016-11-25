@@ -1,5 +1,6 @@
 #include "crete-replayer/debug.h"
 #include "crete-replayer/qemu_rt_info.h"
+
 #include "klee/util/ExprPPrinter.h"
 #include "klee/ExecutionState.h"
 #include "klee/Constraints.h"
@@ -96,6 +97,16 @@ std::string to_string(ExceptionFlag flag)
         break;
     default:
         assert(0);
+    }
+}
+
+void print_trace_tag(const crete::creteTraceTag_ty& trace_tag)
+{
+    for(crete::creteTraceTag_ty::const_iterator it = trace_tag.begin();
+            it != trace_tag.end(); ++it) {
+        fprintf(stderr, "tb-%lu: pc=%p, last_opc = %p, br_taken = %d\n",
+                it->m_tb_count, (void *)it->m_tb_pc,
+                (void *)(uint64_t)it->m_last_opc, (int)it->m_br_taken);
     }
 }
 
