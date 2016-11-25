@@ -818,7 +818,6 @@ void RuntimeEnv::writeConcolics()
     // Update "hostfile/input_arguments.bin" as there are more concolics than specified in xml
     ofstream ofs("hostfile/input_arguments.bin", ios_base::out | ios_base::binary);
     assert(ofs);
-//    tc.write(ofs);
     crete::write_serialized(ofs, tc);
 }
 

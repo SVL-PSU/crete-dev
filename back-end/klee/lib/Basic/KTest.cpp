@@ -15,6 +15,8 @@
 
 #if defined(CRETE_CONFIG)
 #include <crete/test_case.h>
+#include <crete/trace_tag.h>
+
 #include "crete-replayer/debug.h"
 #include "crete-replayer/qemu_rt_info.h"
 
@@ -186,7 +188,11 @@ KTest *kTest_fromFile(const char *path) {
   return 0;
 }
 
-int kTest_toFile(KTest *bo, const char *path) {
+int kTest_toFile(KTest *bo, const char *path, const void *trace_tag_explored) {
+#if defined(CRETE_CONFIG)
+  assert(0 && "[CRETE ERROR] native kTest_toFile is invoked\n");
+#endif // CRETE_CONFIG
+
   FILE *f = fopen(path, "wb");
   unsigned i;
 
@@ -221,19 +227,70 @@ int kTest_toFile(KTest *bo, const char *path) {
       goto error;
   }
 
+  fclose(f);
+
+  return 1;
+ error:
+  if (f) fclose(f);
+
+  return 0;
+}
+
 #if defined(CRETE_CONFIG)
+int crete_kTest_toFile(KTest *bo, const char *path,
+        const void *trace_tag_explored) {
+  FILE *f = fopen(path, "wb");
+  unsigned i;
+
+  if (!f)
+    goto error;
+  if (fwrite(KTEST_MAGIC, strlen(KTEST_MAGIC), 1, f)!=1)
+    goto error;
+  if (!write_uint32(f, KTEST_VERSION))
+    goto error;
+
+  if (!write_uint32(f, bo->numArgs))
+    goto error;
+  for (i=0; i<bo->numArgs; i++) {
+    if (!write_string(f, bo->args[i]))
+      goto error;
+  }
+
+  if (!write_uint32(f, bo->symArgvs))
+    goto error;
+  if (!write_uint32(f, bo->symArgvLen))
+    goto error;
+
+  if (!write_uint32(f, bo->numObjects))
+    goto error;
+  for (i=0; i<bo->numObjects; i++) {
+    KTestObject *o = &bo->objects[i];
+    if (!write_string(f, o->name))
+      goto error;
+    if (!write_uint32(f, o->numBytes))
+      goto error;
+    if (fwrite(o->bytes, o->numBytes, 1, f)!=1)
+      goto error;
+  }
+
   { // Special local scope required b/c goto use.
-	  static uint64_t g_test_case_count = 0;
+      static uint64_t g_test_case_count = 0;
+      assert(trace_tag_explored != NULL);
 
-	  ++g_test_case_count;
+      ++g_test_case_count;
 
-	  CRETE_DBG(
+      CRETE_DBG(
       for (i=0; i<bo->numObjects; i++) {
           KTestObject& obj = bo->objects[i];
 
           fprintf(stderr, "obj_%d(address = %p, obj.numObjects = %u\n",
                   i, (void *)obj.address, obj.numBytes);
       }
+      );
+
+      CRETE_DBG_TT(
+      fprintf(stderr, "tc-%lu: trace_tag:\n", g_test_case_count);
+      crete::debug::print_trace_tag(*(crete::creteTraceTag_ty *)trace_tag_explored);
       );
 
       crete::TestCase ctc;
@@ -263,11 +320,11 @@ int kTest_toFile(KTest *bo, const char *path) {
       kt_file_name << g_test_case_count;
       kt_file_name << ".bin";
 
+      ctc.set_traceTag(*(crete::creteTraceTag_ty *)trace_tag_explored, crete::creteTraceTag_ty());
       std::ofstream ktest_pool_file(kt_file_name.str().c_str(), std::ios_base::out | std::ios_base::binary);
       assert(ktest_pool_file);
-      ctc.write(ktest_pool_file);
+      write_serialized(ktest_pool_file, ctc);
   }
-#endif // CRETE_CONFIG
 
   fclose(f);
 
@@ -277,6 +334,7 @@ int kTest_toFile(KTest *bo, const char *path) {
 
   return 0;
 }
+#endif
 
 unsigned kTest_numBytes(KTest *bo) {
   unsigned i, res = 0;

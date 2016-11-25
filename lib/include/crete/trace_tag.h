@@ -1,6 +1,9 @@
 #ifndef LIB_INCLUDE_CRETE_TRACE_TAG_H_
 #define LIB_INCLUDE_CRETE_TRACE_TAG_H_
 
+#include <stdint.h>
+#include <vector>
+
 using namespace std;
 
 namespace crete
@@ -8,11 +11,12 @@ namespace crete
 
 struct CreteTraceTagNode
 {
-    int m_last_opc;
     bool m_br_taken;
     uint64_t m_tb_pc;
-
     uint64_t m_tb_count;
+
+    // For debugging:
+    int m_last_opc;
 
     template <class Archive>
     void serialize(Archive& ar, const unsigned int version)

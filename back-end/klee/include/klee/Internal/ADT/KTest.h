@@ -58,6 +58,12 @@ extern "C" {
   /* returns 1 on success, 0 on (unspecified) error */
   int   kTest_toFile(KTest *, const char *path);
   
+#if defined(CRETE_CONFIG)
+  /* returns 1 on success, 0 on (unspecified) error */
+  int crete_kTest_toFile(KTest *bo, const char *path,
+          const void *trace_tag_explored);
+#endif
+
   /* returns total number of object bytes */
   unsigned kTest_numBytes(KTest *);
 

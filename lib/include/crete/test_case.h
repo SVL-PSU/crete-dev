@@ -43,7 +43,10 @@ namespace crete
         void write(std::ostream& os) const;
         Priority get_priority() const { return priority_; }
         void set_priority(const Priority& p) { priority_ = p; }
+
         void set_traceTag(const creteTraceTag_ty &explored_nodes, const creteTraceTag_ty &new_nodes);
+        creteTraceTag_ty get_traceTag_explored_nodes() const { return m_explored_nodes; }
+        creteTraceTag_ty get_traceTag_new_nodes() const { return m_new_nodes; }
 
         friend std::ostream& operator<<(std::ostream& os, const TestCase& tc);
 
@@ -83,9 +86,7 @@ namespace crete
     TestCase retrieve_test(const std::string& tc_path);
 
     void write_serialized(ostream& os, const TestCase& tc);
-
-    TestCase read_serialized();
-
+    TestCase read_serialized(istream& is);
 }
 
 #endif // CRETE_TEST_CASE_H

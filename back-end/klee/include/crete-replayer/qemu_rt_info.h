@@ -8,6 +8,7 @@
 
 #include <boost/serialization/vector.hpp>
 #include <boost/serialization/map.hpp>
+#include <crete/trace_tag.h>
 
 using namespace std;
 
@@ -131,6 +132,10 @@ private:
     uint64_t m_streamed_tb_count;
     uint64_t m_streamed_index;
 
+    // For trace tag
+    crete::creteTraceTag_ty m_trace_tag_explored;
+    crete::creteTraceTag_ty m_trace_tag_new;
+
     // For Debugging Purpose:
     // The CPUState after each interested TB being executed for cross checking on klee side
     vector<cpuStateSyncTable_ty> m_debug_cpuStateSyncTables;
@@ -158,6 +163,12 @@ public:
 	        uint64_t tb_index)
 	__attribute__ ((deprecated));
 	void verify_CpuSate_offset(string name, uint64_t offset, uint64_t size);
+
+	//trace tag
+	void check_trace_tag(uint64_t tt_tag_index, uint64_t tb_index,
+	        bool &branch_taken, bool &explored_node) const;
+	void get_trace_tag_for_tc(uint64_t tt_tag_index,
+	        crete::creteTraceTag_ty &tt_tag_for_tc) const;
 
 private:
 	//TODO: xxx not a good solution
