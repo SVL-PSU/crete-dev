@@ -274,5 +274,47 @@ namespace crete
         };
     }
 
+    TestCase retrieve_test_serialized(const std::string& tc_path)
+    {
+        namespace fs = boost::filesystem;
+        fs::ifstream tests_file(tc_path);
+        CRETE_EXCEPTION_ASSERT(tests_file.good(), err::file_open_failed(tc_path));
 
+        return read_serialized(tests_file);
+    }
+
+    vector<TestCase> retrieve_tests_serialized(const string& tc_dir)
+    {
+        namespace fs = boost::filesystem;
+
+        const fs::path test_pool_dir(tc_dir);
+        CRETE_EXCEPTION_ASSERT(fs::exists(test_pool_dir),
+                err::file_missing(test_pool_dir.string()));
+        assert(fs::is_directory(test_pool_dir));
+
+        // Sort the files alphabetically
+        vector<string> v;
+        for ( fs::directory_iterator itr( test_pool_dir );
+              itr != fs::directory_iterator();
+              ++itr ){
+            v.push_back(itr->path().string());
+        }
+
+        sort(v.begin(), v.end(), doj::alphanum_less<string>());
+//        sort(v.begin(), v.end());
+        vector<TestCase> tests;
+
+        for (vector<string>::const_iterator it(v.begin()), it_end(v.end());
+                it != it_end; ++it)
+        {
+            fs::path entry(*it);
+
+            fs::ifstream tests_file(entry);
+            CRETE_EXCEPTION_ASSERT(tests_file.good(), err::file_open_failed(entry.string()));
+
+            tests.push_back(read_serialized(tests_file));
+        }
+
+        return tests;
+    }
 }

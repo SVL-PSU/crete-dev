@@ -273,7 +273,7 @@ void KleeFSM_::exception_caught(Event const&,FSM& fsm,std::exception& e)
                 *fsm.tests_ = se->tests_;
 
                 // Retrieve the input test case;
-                fsm.tests_->push_back(retrieve_test((fsm.trace_dir_ / "concrete_inputs.bin").string()));
+                fsm.tests_->push_back(retrieve_test_serialized((fsm.trace_dir_ / "concrete_inputs.bin").string()));
 
                 dump_log_file(ss, fsm.trace_dir_ / klee_dir_name / symbolic_log_name);
             }
@@ -701,12 +701,12 @@ struct KleeFSM_::execute_symbolic
 
             if(!process::is_exit_status_zero(status))
             {
-                BOOST_THROW_EXCEPTION(SymbolicExecException{retrieve_tests(kdir.string() + "/ktest_pool")} << err::process_exit_status{exe});
+                BOOST_THROW_EXCEPTION(SymbolicExecException{retrieve_tests_serialized(kdir.string() + "/ktest_pool")} << err::process_exit_status{exe});
             }
 
             if(!is_klee_log_correct(log_path))
             {
-                BOOST_THROW_EXCEPTION(SymbolicExecException{retrieve_tests(kdir.string() + "/ktest_pool")} << err::process{exe});
+                BOOST_THROW_EXCEPTION(SymbolicExecException{retrieve_tests_serialized(kdir.string() + "/ktest_pool")} << err::process{exe});
             }
         }
         , fsm.trace_dir_
@@ -726,10 +726,10 @@ struct KleeFSM_::retrieve_result
         {
             auto kdir = trace_dir / klee_dir_name;
 
-            *tests = retrieve_tests(kdir.string() + "/ktest_pool");
+            *tests = retrieve_tests_serialized(kdir.string() + "/ktest_pool");
 
             // Retrieve the input test case
-            tests->push_back(retrieve_test((trace_dir / "concrete_inputs.bin").string()));
+            tests->push_back(retrieve_test_serialized((trace_dir / "concrete_inputs.bin").string()));
 
         }, fsm.trace_dir_, fsm.tests_});
     }

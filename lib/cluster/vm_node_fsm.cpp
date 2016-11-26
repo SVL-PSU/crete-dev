@@ -748,7 +748,7 @@ struct QemuFSM_::start_test
             BOOST_THROW_EXCEPTION(Exception{} << err::file{in_args_path.string()});
         }
 
-        ev.tc_.write(ofs);
+        write_serialized(ofs, ev.tc_);
 
         try
         {
@@ -794,6 +794,8 @@ struct QemuFSM_::store_trace
 
             auto original_trace = pit->path();
 
+            // FIXME: xxx should be redundant, as the test case can be directly written by qemu
+            //            as a part of the trace
             fs::copy_file(vm_dir / hostfile_dir_name / input_args_name,
                           original_trace / "concrete_inputs.bin");
 
