@@ -701,7 +701,7 @@ void RuntimeEnv::init_concolics()
 
     inputs.clear();
     inputs.seekg(0, ios::beg);
-    TestCase tc = read_test_case(inputs);
+    TestCase tc = read_serialized(inputs);
 
     for(vector<TestCaseElement>::const_iterator tc_iter = tc.get_elements().begin();
         tc_iter !=  tc.get_elements().end();

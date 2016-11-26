@@ -87,6 +87,9 @@ namespace crete
 
     void write_serialized(ostream& os, const TestCase& tc);
     TestCase read_serialized(istream& is);
+
+    TestCase retrieve_test_serialized(const std::string& tc_path);
+    vector<TestCase> retrieve_tests_serialized(const string& tc_dir);
 }
 
 #endif // CRETE_TEST_CASE_H
