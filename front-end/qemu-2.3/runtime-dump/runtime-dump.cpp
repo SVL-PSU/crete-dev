@@ -66,6 +66,7 @@ static const uint32_t CRETE_TRACING_WINDOW_SIZE = 10000;
 RuntimeEnv::RuntimeEnv()
 : m_streamed(false), m_pending_stream(false),
   m_streamed_tb_count(0), m_streamed_index(0),
+  m_trace_tag_nodes_count(0),
   m_current_tb_last_br_taken(-1)
 {
     m_cpuState_post_insterest.first = false;
@@ -716,6 +717,14 @@ void RuntimeEnv::init_concolics()
 
         m_concolics.insert(make_pair(name, CreteMemoInfo(size, name, data)));
     }
+
+    m_trace_tag_explored = tc.get_traceTag_explored_nodes();
+    assert(tc.get_traceTag_new_nodes().empty());
+
+    CRETE_DBG_TT(
+    fprintf(stderr, "init_concolics():\n");
+    print_trace_tag();
+    );
 }
 
 void RuntimeEnv::dump_tloTbPc(const uint64_t pc)
@@ -812,7 +821,10 @@ void RuntimeEnv::writeConcolics()
     }
 
     // trace-tag
+    CRETE_DBG_TT(
+    fprintf(stderr, "writeConcolics():\n");
     print_trace_tag();
+    );
     tc.set_traceTag(m_trace_tag_explored, m_trace_tag_new);
 
     // Update "hostfile/input_arguments.bin" as there are more concolics than specified in xml
@@ -1411,14 +1423,48 @@ void RuntimeEnv::add_trace_tag(const TranslationBlock *tb, uint64_t tb_count)
 
     if(is_conditional_branch_opc(tb->last_opc))
     {
-        // xxx: add check on m_trace_tag_explored
-
         crete::CreteTraceTagNode tag_node;
-        tag_node.m_tb_pc = tb->pc;
         tag_node.m_last_opc = tb->last_opc;
         tag_node.m_br_taken = m_current_tb_last_br_taken;
+
         tag_node.m_tb_count = tb_count;
-        m_trace_tag_new.push_back(tag_node);
+        tag_node.m_tb_pc = tb->pc;
+
+        if(m_trace_tag_nodes_count < m_trace_tag_explored.size())
+        {
+            // Consistency check whether the input tc goes along with the trace tag
+            if(!(m_trace_tag_explored[m_trace_tag_nodes_count] == tag_node)) {
+                fprintf(stderr, "trace-tag-node: %lu\n"
+                        "current: tb-%lu: pc=%p, last_opc = %p, br_taken = %d\n"
+                        "from tc: tb-%lu: pc=%p, last_opc = %p, br_taken = %d\n",
+                        m_trace_tag_nodes_count,
+                        tag_node.m_tb_count, (void *)tag_node.m_tb_pc,
+                        (void *)(uint64_t)tag_node.m_last_opc, tag_node.m_br_taken,
+                        m_trace_tag_explored[m_trace_tag_nodes_count].m_tb_count,
+                        (void *)m_trace_tag_explored[m_trace_tag_nodes_count].m_tb_pc,
+                        (void *)(uint64_t)m_trace_tag_explored[m_trace_tag_nodes_count].m_last_opc,
+                        m_trace_tag_explored[m_trace_tag_nodes_count].m_br_taken);
+
+                assert(0);
+            }
+
+            if(m_trace_tag_explored[m_trace_tag_nodes_count].m_tb_pc != tag_node.m_tb_pc)
+            {
+                CRETE_DBG_TT(
+                fprintf(stderr, "[CRETE INFO][TRACE TAG] interrupt happened: "
+                        "tb-%lu, br-%lu, pc change from %p to %p\n",
+                        tb_count, m_trace_tag_nodes_count,
+                        (void *)m_trace_tag_explored[m_trace_tag_nodes_count].m_tb_pc,
+                        (void *)tag_node.m_tb_pc);
+                );
+
+                m_trace_tag_explored[m_trace_tag_nodes_count].m_tb_pc = tag_node.m_tb_pc;
+            }
+        } else {
+            m_trace_tag_new.push_back(tag_node);
+        }
+
+        ++m_trace_tag_nodes_count;
     } else {
         // xxx: potential reasons:
         //      1. the list_crete_cond_jump_opc is not complete

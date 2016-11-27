@@ -30,6 +30,13 @@ struct CreteTraceTagNode
 
 typedef vector<CreteTraceTagNode> creteTraceTag_ty;
 
+inline bool operator==(const CreteTraceTagNode& lhs,
+        const CreteTraceTagNode& rhs) {
+
+    // Not check m_tb_pc and m_tb_count as interrupt can change it
+    return (lhs.m_br_taken == rhs.m_br_taken) &&
+            (lhs.m_last_opc == rhs.m_last_opc);
+}
 }
 
 

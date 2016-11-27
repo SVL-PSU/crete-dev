@@ -248,6 +248,9 @@ private:
     crete::creteTraceTag_ty m_trace_tag_explored;
     crete::creteTraceTag_ty m_trace_tag_new;
 
+    uint64_t m_trace_tag_nodes_count;
+
+    // -1: invalid; 0: no taken; 1: taken
     int m_current_tb_last_br_taken;
 
     // crete miscs:
