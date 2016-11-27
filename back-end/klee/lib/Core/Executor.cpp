@@ -4400,6 +4400,8 @@ void Executor::handleCreteFinishReply(klee::Executor* executor,
     );
 
     CRETE_DBG_TA(assert(!state->crete_dbg_ta_fail););
+
+    executor->terminateState(*state);
 }
 
 
