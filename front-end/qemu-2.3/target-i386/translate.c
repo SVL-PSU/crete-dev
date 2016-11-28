@@ -1215,7 +1215,13 @@ static inline void gen_outs(DisasContext *s, TCGMemOp ot)
         gen_io_end();
     }
 }
-
+#if defined(CRETE_CONFIG) || 1
+#define CRETE_GEN_REPZ_END s->tb->last_opc = 0xFFFA
+#define CRETE_GEN_REPZ2_END s->tb->last_opc = 0xFFF9
+#else
+#define CRETE_GEN_REPZ_END
+#define CRETE_GEN_REPZ2_END
+#endif
 /* same method as Valgrind : we generate jumps to current or next
    instruction */
 #define GEN_REPZ(op)                                                          \
@@ -1232,6 +1238,7 @@ static inline void gen_repz_ ## op(DisasContext *s, TCGMemOp ot,              \
     if (s->repz_opt)                                                          \
         gen_op_jz_ecx(s->aflag, l2);                                          \
     gen_jmp(s, cur_eip);                                                      \
+    CRETE_GEN_REPZ_END;                                                       \
 }
 
 #define GEN_REPZ2(op)                                                         \
@@ -1250,6 +1257,7 @@ static inline void gen_repz_ ## op(DisasContext *s, TCGMemOp ot,              \
     if (s->repz_opt)                                                          \
         gen_op_jz_ecx(s->aflag, l2);                                          \
     gen_jmp(s, cur_eip);                                                      \
+    CRETE_GEN_REPZ2_END;                                                      \
 }
 
 GEN_REPZ(movs)

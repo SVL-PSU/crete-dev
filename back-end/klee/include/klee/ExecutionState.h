@@ -188,6 +188,11 @@ private:
   // trace tag
   uint64_t m_trace_tag_current_node_index;
 
+  bool m_current_node_explored;
+  vector<bool> m_current_node_br_taken;
+  vector<bool> m_current_node_br_taken_semi_explored;
+  uint64_t m_trace_tag_current_node_br_taken_index;
+
   // Debugging
 public:
   void print_stack() const;

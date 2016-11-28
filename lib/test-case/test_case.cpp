@@ -83,10 +83,11 @@ namespace crete
     }
 
     void TestCase::set_traceTag(const creteTraceTag_ty &explored_nodes,
-            const creteTraceTag_ty &new_nodes)
+            const creteTraceTag_ty &semi_explored_node, const creteTraceTag_ty &new_nodes)
     {
         // TODO: XXX check the input explored_nodes is consistent with m_explored_nodes
         m_explored_nodes = explored_nodes;
+        m_semi_explored_node = semi_explored_node;
         m_new_nodes = new_nodes;
     }
 

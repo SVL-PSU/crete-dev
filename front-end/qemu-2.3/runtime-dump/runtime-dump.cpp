@@ -67,7 +67,7 @@ RuntimeEnv::RuntimeEnv()
 : m_streamed(false), m_pending_stream(false),
   m_streamed_tb_count(0), m_streamed_index(0),
   m_trace_tag_nodes_count(0),
-  m_current_tb_last_br_taken(-1)
+  m_qemu_default_br_skipped(false)
 {
     m_cpuState_post_insterest.first = false;
     m_cpuState_post_insterest.second = new uint8_t [sizeof(CPUArchState)];
@@ -825,7 +825,8 @@ void RuntimeEnv::writeConcolics()
     fprintf(stderr, "writeConcolics():\n");
     print_trace_tag();
     );
-    tc.set_traceTag(m_trace_tag_explored, m_trace_tag_new);
+    assert(m_trace_tag_semi_explored.size() <= 1);
+    tc.set_traceTag(m_trace_tag_explored, m_trace_tag_semi_explored, m_trace_tag_new);
 
     // Update "hostfile/input_arguments.bin" as there are more concolics than specified in xml
     ofstream ofs("hostfile/input_arguments.bin", ios_base::out | ios_base::binary);
@@ -1410,44 +1411,46 @@ bool RuntimeEnv::check_interrupt_process_info(uint64_t current_tb_pc)
     return true;
 }
 
-void RuntimeEnv::set_last_br_taken(int br_taken)
+void RuntimeEnv::add_current_tb_br_taken(int br_taken)
 {
-    m_current_tb_last_br_taken = br_taken;
+    if(m_qemu_default_br_skipped)
+    {
+        m_current_tb_br_taken.push_back(br_taken);
+    } else {
+        m_qemu_default_br_skipped = true;
+    }
+}
+
+void RuntimeEnv::clear_current_tb_br_taken()
+{
+    m_current_tb_br_taken.clear();
+    m_qemu_default_br_skipped = false;
+}
+
+uint64_t RuntimeEnv::get_size_current_tb_br_taken()
+{
+    return m_current_tb_br_taken.size();
 }
 
 inline static bool is_conditional_branch_opc(int last_opc);
+inline static bool is_semi_explored(const vector<bool>& tc_br_taken,
+        const vector<bool>& current_br_taken);
 
 void RuntimeEnv::add_trace_tag(const TranslationBlock *tb, uint64_t tb_count)
 {
-    assert(m_current_tb_last_br_taken != -1);
-
     if(is_conditional_branch_opc(tb->last_opc))
     {
+        assert(m_current_tb_br_taken.size() != 0);
+
         crete::CreteTraceTagNode tag_node;
         tag_node.m_last_opc = tb->last_opc;
-        tag_node.m_br_taken = m_current_tb_last_br_taken;
+        tag_node.m_br_taken = m_current_tb_br_taken;
 
         tag_node.m_tb_count = tb_count;
         tag_node.m_tb_pc = tb->pc;
 
         if(m_trace_tag_nodes_count < m_trace_tag_explored.size())
         {
-            // Consistency check whether the input tc goes along with the trace tag
-            if(!(m_trace_tag_explored[m_trace_tag_nodes_count] == tag_node)) {
-                fprintf(stderr, "trace-tag-node: %lu\n"
-                        "current: tb-%lu: pc=%p, last_opc = %p, br_taken = %d\n"
-                        "from tc: tb-%lu: pc=%p, last_opc = %p, br_taken = %d\n",
-                        m_trace_tag_nodes_count,
-                        tag_node.m_tb_count, (void *)tag_node.m_tb_pc,
-                        (void *)(uint64_t)tag_node.m_last_opc, tag_node.m_br_taken,
-                        m_trace_tag_explored[m_trace_tag_nodes_count].m_tb_count,
-                        (void *)m_trace_tag_explored[m_trace_tag_nodes_count].m_tb_pc,
-                        (void *)(uint64_t)m_trace_tag_explored[m_trace_tag_nodes_count].m_last_opc,
-                        m_trace_tag_explored[m_trace_tag_nodes_count].m_br_taken);
-
-                assert(0);
-            }
-
             if(m_trace_tag_explored[m_trace_tag_nodes_count].m_tb_pc != tag_node.m_tb_pc)
             {
                 CRETE_DBG_TT(
@@ -1459,6 +1462,54 @@ void RuntimeEnv::add_trace_tag(const TranslationBlock *tb, uint64_t tb_count)
                 );
 
                 m_trace_tag_explored[m_trace_tag_nodes_count].m_tb_pc = tag_node.m_tb_pc;
+                m_trace_tag_explored[m_trace_tag_nodes_count].m_tb_count = tag_node.m_tb_count;
+            }
+
+            // Consistency check whether the input tc goes along with the trace tag
+            bool trace_tag_check_passed = false;
+
+            if(m_trace_tag_explored[m_trace_tag_nodes_count] == tag_node)
+            {
+                trace_tag_check_passed = true;
+            }
+            else if (m_trace_tag_nodes_count == (m_trace_tag_explored.size() - 1))
+            {
+                // The last explored_node is a potential semi-explored trace-tag-node, when the br_taken can be different
+                assert(m_trace_tag_explored.back().m_last_opc == tag_node.m_last_opc);
+                assert(m_trace_tag_explored.back().m_br_taken.size() < tag_node.m_br_taken.size());
+
+                if(is_semi_explored(m_trace_tag_explored.back().m_br_taken, tag_node.m_br_taken))
+                {
+                    // For semi-explored node, put the un-explored branches into "m_trace_tag_semi_explored"
+                    vector<bool> new_br_taken(tag_node.m_br_taken.begin() + m_trace_tag_explored.back().m_br_taken.size(),
+                            tag_node.m_br_taken.end());
+                    tag_node.m_br_taken = new_br_taken;
+                    m_trace_tag_semi_explored.push_back(tag_node);
+
+                    trace_tag_check_passed = true;
+                }
+            }
+
+            if(!trace_tag_check_passed)
+            {
+                fprintf(stderr, "trace-tag-node: %lu\n"
+                        "current: tb-%lu: pc=%p, last_opc = %p",
+                        m_trace_tag_nodes_count,
+                        tag_node.m_tb_count, (void *)tag_node.m_tb_pc,
+                        (void *)(uint64_t)tag_node.m_last_opc);
+                fprintf(stderr, ", br_taken = ");
+                crete::print_br_taken(tag_node.m_br_taken);
+                fprintf(stderr,"\n");
+
+                fprintf(stderr, "from tc: tb-%lu: pc=%p, last_opc = %p",
+                        m_trace_tag_explored[m_trace_tag_nodes_count].m_tb_count,
+                        (void *)(uint64_t)m_trace_tag_explored[m_trace_tag_nodes_count].m_tb_pc,
+                        (void *)(uint64_t)m_trace_tag_explored[m_trace_tag_nodes_count].m_last_opc);
+                fprintf(stderr, ", br_taken = ");
+                crete::print_br_taken(m_trace_tag_explored[m_trace_tag_nodes_count].m_br_taken);
+                fprintf(stderr,"\n");
+
+                assert(0);
             }
         } else {
             m_trace_tag_new.push_back(tag_node);
@@ -1469,26 +1520,26 @@ void RuntimeEnv::add_trace_tag(const TranslationBlock *tb, uint64_t tb_count)
         // xxx: potential reasons:
         //      1. the list_crete_cond_jump_opc is not complete
         //      2.
-        if(m_current_tb_last_br_taken != 0)
+        if(m_current_tb_br_taken.size() != 0)
         {
             fprintf(stderr, "=========================================================\n"
-                    "Assumption broken: a non-cond-br tb sets the flag m_current_tb_last_br_taken.\n"
+                    "Assumption broken: a non-cond-br tb contains conditional branch.\n"
                     "Captured trace-tag:\n");
 
             print_trace_tag();
 
-            fprintf(stderr, "current: tb-%lu: pc=%p, last_opc = %p, br_taken = %d\n",
+            fprintf(stderr, "current: tb-%lu: pc=%p, last_opc = %p",
                     tb_count, (void *)(uint64_t)tb->pc,
-                    (void *)(uint64_t)tb->last_opc, m_current_tb_last_br_taken);
+                    (void *)(uint64_t)tb->last_opc);
+            fprintf(stderr, ", br_taken = ");
+            crete::print_br_taken(m_current_tb_br_taken);
+            fprintf(stderr,"\n");
 
             fprintf(stderr, "=========================================================\n");
 
-            assert(m_current_tb_last_br_taken == 0 &&
-                    "Assumption broken: a non-cond-br tb sets the flag m_current_tb_last_br_taken.\n");
+            assert(0 && "Assumption broken: a non-cond-br tb contains conditional branch.\n");
         }
     }
-
-    m_current_tb_last_br_taken = -1;
 }
 
 void RuntimeEnv::print_trace_tag() const
@@ -1496,17 +1547,23 @@ void RuntimeEnv::print_trace_tag() const
     fprintf(stderr, "m_trace_tag_explored: \n");
     for(crete::creteTraceTag_ty::const_iterator it = m_trace_tag_explored.begin();
             it != m_trace_tag_explored.end(); ++it) {
-        fprintf(stderr, "tb-%lu: pc=%p, last_opc = %p, br_taken = %d\n",
+        fprintf(stderr, "tb-%lu: pc=%p, last_opc = %p",
                 it->m_tb_count, (void *)it->m_tb_pc,
-                (void *)(uint64_t)it->m_last_opc, (int)it->m_br_taken);
+                (void *)(uint64_t)it->m_last_opc);
+        fprintf(stderr, ", br_taken = ");
+        crete::print_br_taken(it->m_br_taken);
+        fprintf(stderr,"\n");
     }
 
     fprintf(stderr, "m_trace_tag_new: \n");
     for(crete::creteTraceTag_ty::const_iterator it = m_trace_tag_new.begin();
             it != m_trace_tag_new.end(); ++it) {
-        fprintf(stderr, "tb-%lu: pc=%p, last_opc = %p, br_taken = %d\n",
+        fprintf(stderr, "tb-%lu: pc=%p, last_opc = %p",
                 it->m_tb_count, (void *)it->m_tb_pc,
-                (void *)(uint64_t)it->m_last_opc, (int)it->m_br_taken);
+                (void *)(uint64_t)it->m_last_opc);
+        fprintf(stderr, ", br_taken = ");
+        crete::print_br_taken(it->m_br_taken);
+        fprintf(stderr,"\n");
     }
 }
 
@@ -1853,6 +1910,9 @@ int crete_post_cpu_tb_exec(void *qemuCpuState, TranslationBlock *input_tb, uint6
 	    dbg_is_current_tb_executed = is_current_tb_executed;
 	    );
 	}
+
+    // trace tag
+    runtime_env->clear_current_tb_br_taken();
 
     // Set runtime_env->m_cpuState_post_insterest
     if(static_flag_interested_tb_prev && !static_flag_interested_tb) {
@@ -2445,17 +2505,25 @@ static vector<CPUStateElement> x86_cpuState_compuate_side_effect(const CPUArchSt
     return ret;
 }
 
-void set_last_br_taken(int br_taken)
+void add_current_tb_br_taken(int br_taken)
 {
-    runtime_env->set_last_br_taken(br_taken);
+    runtime_env->add_current_tb_br_taken(br_taken);
 }
 
+uint64_t get_size_current_tb_br_taken()
+{
+    return runtime_env->get_size_current_tb_br_taken();
+}
 
 #include "boost/unordered_set.hpp"
 
 static boost::unordered_set<int> init_list_crete_cond_jump_opc() {
     boost::unordered_set<int> list;
 #if defined(TARGET_X86_64) || defined(TARGET_I386)
+    // crete cutomized instruction
+    list.insert(0xFFFA); // REP
+    list.insert(0xFFF9); // REPZ, which may contains multiple (2) conditional br
+
     // short jump opcodes
     list.insert(0x70);
     list.insert(0x71);
@@ -2508,4 +2576,23 @@ const static boost::unordered_set<int> list_crete_cond_jump_opc =
 inline static bool is_conditional_branch_opc(int last_opc)
 {
     return (list_crete_cond_jump_opc.find(last_opc) != list_crete_cond_jump_opc.end());
+}
+
+inline static bool is_semi_explored(const vector<bool>& tc_br_taken,
+        const vector<bool>& current_br_taken)
+{
+    assert(tc_br_taken.size() < current_br_taken.size());
+
+    bool ret = true;
+
+    for(uint64_t i = 0; i < tc_br_taken.size(); ++i)
+    {
+        if(tc_br_taken[i] != current_br_taken[i])
+        {
+            ret = false;
+            break;
+        }
+    }
+
+    return ret;
 }

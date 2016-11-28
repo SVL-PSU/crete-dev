@@ -44,8 +44,10 @@ namespace crete
         Priority get_priority() const { return priority_; }
         void set_priority(const Priority& p) { priority_ = p; }
 
-        void set_traceTag(const creteTraceTag_ty &explored_nodes, const creteTraceTag_ty &new_nodes);
+        void set_traceTag(const creteTraceTag_ty &explored_nodes,
+                const creteTraceTag_ty &semi_explored_node, const creteTraceTag_ty &new_nodes);
         creteTraceTag_ty get_traceTag_explored_nodes() const { return m_explored_nodes; }
+        creteTraceTag_ty get_traceTag_semi_explored_node() const { return m_semi_explored_node; }
         creteTraceTag_ty get_traceTag_new_nodes() const { return m_new_nodes; }
 
         friend std::ostream& operator<<(std::ostream& os, const TestCase& tc);
@@ -59,6 +61,7 @@ namespace crete
             ar & priority_;
 
             ar & m_explored_nodes;
+            ar & m_semi_explored_node;
             ar & m_new_nodes;
         }
 
@@ -68,6 +71,7 @@ namespace crete
         Priority priority_; // TODO: meaningless now. In the future, can be used to sort tests.
 
         creteTraceTag_ty m_explored_nodes;
+        creteTraceTag_ty m_semi_explored_node;
         creteTraceTag_ty m_new_nodes;
     };
 
