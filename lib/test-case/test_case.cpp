@@ -283,13 +283,18 @@ namespace crete
         return read_serialized(tests_file);
     }
 
+    // Return empty vector if the folder does not exist or is empty
     vector<TestCase> retrieve_tests_serialized(const string& tc_dir)
     {
         namespace fs = boost::filesystem;
 
         const fs::path test_pool_dir(tc_dir);
-        CRETE_EXCEPTION_ASSERT(fs::exists(test_pool_dir),
-                err::file_missing(test_pool_dir.string()));
+
+        if(!fs::exists(test_pool_dir))
+        {
+            return vector<TestCase>();
+        }
+
         assert(fs::is_directory(test_pool_dir));
 
         // Sort the files alphabetically

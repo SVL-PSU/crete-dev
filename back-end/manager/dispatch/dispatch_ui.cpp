@@ -173,7 +173,7 @@ auto DispatchUI::process_config(const pt::ptree& config) -> option::Dispatch
                 BOOST_THROW_EXCEPTION(Exception{} << err::file_open_failed{p.string()});
             }
 
-            return read_test_case(ifs);
+            return read_serialized(ifs);
         }();
 
         if(opts.mode.distributed)
