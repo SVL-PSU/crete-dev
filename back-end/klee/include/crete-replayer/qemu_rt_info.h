@@ -134,6 +134,7 @@ private:
 
     // For trace tag
     crete::creteTraceTag_ty m_trace_tag_explored;
+    crete::creteTraceTag_ty m_trace_tag_semi_explored;
     crete::creteTraceTag_ty m_trace_tag_new;
 
     // For Debugging Purpose:
@@ -166,9 +167,11 @@ public:
 
 	//trace tag
 	void check_trace_tag(uint64_t tt_tag_index, uint64_t tb_index,
-	        bool &branch_taken, bool &explored_node) const;
+	        vector<bool>& branch_taken, vector<bool>& current_node_br_taken_semi_explored,
+	        bool& explored_node) const;
 	void get_trace_tag_for_tc(uint64_t tt_tag_index,
-	        crete::creteTraceTag_ty &tt_tag_for_tc) const;
+	        crete::creteTraceTag_ty &tt_tag_for_tc,
+	        vector<bool>& current_node_br_taken_semi_explored) const;
 
 private:
 	//TODO: xxx not a good solution

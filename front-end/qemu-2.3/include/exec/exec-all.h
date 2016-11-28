@@ -202,6 +202,8 @@ struct TranslationBlock {
      *  0xFFFD, tb ended by calling gen_exception
      *  0xFFFC, tb ended by the size constraint of the TB
      *  0xFFFB, tb ended by crete_end_pc
+     *  0xFFFA, tb ended by GEN_REPZ() (This should be instructiont REP, which only branches based on ecx)
+     *  0xFFF9, tb ended by GEN_REPZ2() (This will branch based on ecx and ZF, and hence will have two conditional br in one tb)
      *  0xFF02, tb ended by "call Ev"
      *  0xFF03, tb ended by "lcall Ev"
      *  0x0000, tb finished without assigning last_opc

@@ -65,7 +65,8 @@ void crete_handle_raise_interrupt(void *env, int intno,
 void crete_handle_do_interrupt_all(void *qemuCPUState, int intno,
         int is_int, int error_code, uint64_t next_eip, int is_hw);
 
-void set_last_br_taken(int br_taken);
+void add_current_tb_br_taken(int br_taken);
+uint64_t get_size_current_tb_br_taken(void);
 
 void crete_set_capture_enabled(struct CreteFlags *cf, int capture_enabled);
 int  crete_flags_is_true(struct CreteFlags *cf);
@@ -246,12 +247,17 @@ private:
 
     // trace tag for annotating test case
     crete::creteTraceTag_ty m_trace_tag_explored;
+    crete::creteTraceTag_ty m_trace_tag_semi_explored;
     crete::creteTraceTag_ty m_trace_tag_new;
 
     uint64_t m_trace_tag_nodes_count;
 
-    // -1: invalid; 0: no taken; 1: taken
-    int m_current_tb_last_br_taken;
+    // A tb can have multiple multiple conditional branch, including:
+    // 1. "repz": up to two branches
+    vector<bool> m_current_tb_br_taken;     // false: no taken; true: taken
+    // Every TB has a conditional branch for checking interrupt injected by qemu.
+    // This conditional br is not a part of the program logic and hence should be skipped
+    bool m_qemu_default_br_skipped;
 
     // crete miscs:
     // <name, concolic CreteMemoInfo>
@@ -323,7 +329,9 @@ public:
     bool check_interrupt_process_info(uint64_t current_tb_pc);
 
     // Trace tag
-    void set_last_br_taken(int br_takend);
+    void add_current_tb_br_taken(int br_takend);
+    void clear_current_tb_br_taken();
+    uint64_t get_size_current_tb_br_taken();
     void add_trace_tag(const TranslationBlock *tb, uint64_t tb_count);
 
     //Misc

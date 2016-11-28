@@ -1,8 +1,11 @@
 #ifndef LIB_INCLUDE_CRETE_TRACE_TAG_H_
 #define LIB_INCLUDE_CRETE_TRACE_TAG_H_
 
+#include <iostream>
 #include <stdint.h>
 #include <vector>
+
+#include <boost/serialization/vector.hpp>
 
 using namespace std;
 
@@ -11,7 +14,7 @@ namespace crete
 
 struct CreteTraceTagNode
 {
-    bool m_br_taken;
+    vector<bool> m_br_taken;
     uint64_t m_tb_pc;
     uint64_t m_tb_count;
 
@@ -37,8 +40,16 @@ inline bool operator==(const CreteTraceTagNode& lhs,
     return (lhs.m_br_taken == rhs.m_br_taken) &&
             (lhs.m_last_opc == rhs.m_last_opc);
 }
+
+inline void print_br_taken(const vector<bool>& br_taken)
+{
+    cerr << " [";
+    for(vector<bool>::const_iterator it = br_taken.begin();
+            it != br_taken.end(); ++it) {
+        cerr << *it << " ";
+    }
+    cerr << "]";
 }
-
-
+}
 
 #endif /* LIB_INCLUDE_CRETE_TRACE_TAG_H_ */

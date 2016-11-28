@@ -320,7 +320,7 @@ int crete_kTest_toFile(KTest *bo, const char *path,
       kt_file_name << g_test_case_count;
       kt_file_name << ".bin";
 
-      ctc.set_traceTag(*(crete::creteTraceTag_ty *)trace_tag_explored, crete::creteTraceTag_ty());
+      ctc.set_traceTag(*(crete::creteTraceTag_ty *)trace_tag_explored, crete::creteTraceTag_ty(), crete::creteTraceTag_ty());
       std::ofstream ktest_pool_file(kt_file_name.str().c_str(), std::ios_base::out | std::ios_base::binary);
       assert(ktest_pool_file);
       write_serialized(ktest_pool_file, ctc);

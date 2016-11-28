@@ -500,9 +500,9 @@ uintptr_t crete_tcg_qemu_tb_exec(CPUArchState *env, uint8_t *tb_ptr)
     int temp_crete_read_was_symbolic = 0;
 #endif
 
-#if defined(CRETE_TRACE_TAG) || 1
-    int last_br_taken = 0;
-#endif
+    CRETE_DBG_TT(
+    assert(get_size_current_tb_br_taken() == 0);
+    );
 
     for (;;) {
         TCGOpcode opc = tb_ptr[0];
@@ -944,11 +944,17 @@ uintptr_t crete_tcg_qemu_tb_exec(CPUArchState *env, uint8_t *tb_ptr)
                 tb_ptr = (uint8_t *)label;
 
 #if defined(CRETE_TRACE_TAG) || 1
-                last_br_taken = 1;
+                add_current_tb_br_taken(1);
 #endif
 
                 continue;
             }
+#if defined(CRETE_TRACE_TAG) || 1
+            else {
+                add_current_tb_br_taken(0);
+            }
+#endif
+
 
             break;
 #if TCG_TARGET_REG_BITS == 32
@@ -976,11 +982,16 @@ uintptr_t crete_tcg_qemu_tb_exec(CPUArchState *env, uint8_t *tb_ptr)
                 tb_ptr = (uint8_t *)label;
 
 #if defined(CRETE_TRACE_TAG) || 1
-                last_br_taken = 1;
+                add_current_tb_br_taken(1);
 #endif
 
                 continue;
             }
+#if defined(CRETE_TRACE_TAG) || 1
+            else {
+                add_current_tb_br_taken(0);
+            }
+#endif
 
             break;
         case INDEX_op_mulu2_i32:
@@ -1320,11 +1331,16 @@ uintptr_t crete_tcg_qemu_tb_exec(CPUArchState *env, uint8_t *tb_ptr)
                 tb_ptr = (uint8_t *)label;
 
 #if defined(CRETE_TRACE_TAG) || 1
-                last_br_taken = 1;
+                add_current_tb_br_taken(1);
 #endif
 
                 continue;
             }
+#if defined(CRETE_TRACE_TAG) || 1
+            else {
+                add_current_tb_br_taken(0);
+            }
+#endif
 
             break;
 #if TCG_TARGET_HAS_ext8u_i64
@@ -1743,10 +1759,6 @@ uintptr_t crete_tcg_qemu_tb_exec(CPUArchState *env, uint8_t *tb_ptr)
         assert(tb_ptr == old_code_ptr + op_size);
     }
 exit:
-
-#if defined(CRETE_TRACE_TAG) || 1
-    set_last_br_taken(last_br_taken);
-#endif
 
     return next_tb;
 }
