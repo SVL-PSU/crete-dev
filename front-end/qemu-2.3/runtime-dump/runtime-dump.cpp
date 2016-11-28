@@ -1469,8 +1469,23 @@ void RuntimeEnv::add_trace_tag(const TranslationBlock *tb, uint64_t tb_count)
         // xxx: potential reasons:
         //      1. the list_crete_cond_jump_opc is not complete
         //      2.
-        assert(m_current_tb_last_br_taken == 0 &&
-                "Assumption broken: a non-cond-br tb sets the flag m_current_tb_last_br_taken.\n");
+        if(m_current_tb_last_br_taken != 0)
+        {
+            fprintf(stderr, "=========================================================\n"
+                    "Assumption broken: a non-cond-br tb sets the flag m_current_tb_last_br_taken.\n"
+                    "Captured trace-tag:\n");
+
+            print_trace_tag();
+
+            fprintf(stderr, "current: tb-%lu: pc=%p, last_opc = %p, br_taken = %d\n",
+                    tb_count, (void *)(uint64_t)tb->pc,
+                    (void *)(uint64_t)tb->last_opc, m_current_tb_last_br_taken);
+
+            fprintf(stderr, "=========================================================\n");
+
+            assert(m_current_tb_last_br_taken == 0 &&
+                    "Assumption broken: a non-cond-br tb sets the flag m_current_tb_last_br_taken.\n");
+        }
     }
 
     m_current_tb_last_br_taken = -1;
