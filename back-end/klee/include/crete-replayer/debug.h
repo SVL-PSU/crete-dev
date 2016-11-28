@@ -3,7 +3,7 @@
 
 #define CRETE_CROSS_CHECK
 
-#define CRETE_DEBUG_GENERAL
+//#define CRETE_DEBUG_GENERAL
 //#define CRETE_DEBUG_MEMORY
 
 //#define CRETE_DEBUG_XMM
@@ -11,7 +11,7 @@
 
 //#define CRETE_DEBUG_TAINT_ANALYSIS
 
-#define CRETE_DEBUG_TRACE_TAG
+//#define CRETE_DEBUG_TRACE_TAG
 
 #define PRINT_TB_INDEX 0xfffffff
 
