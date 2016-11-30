@@ -1435,6 +1435,8 @@ uint64_t RuntimeEnv::get_size_current_tb_br_taken()
 inline static bool is_conditional_branch_opc(int last_opc);
 inline static bool is_semi_explored(const vector<bool>& tc_br_taken,
         const vector<bool>& current_br_taken);
+inline static void adjust_trace_tag_tb_count(crete::creteTraceTag_ty &trace_tag,
+        uint64_t start_node_index, int64_t offset_to_adjust);
 
 void RuntimeEnv::add_trace_tag(const TranslationBlock *tb, uint64_t tb_count)
 {
@@ -1454,7 +1456,8 @@ void RuntimeEnv::add_trace_tag(const TranslationBlock *tb, uint64_t tb_count)
             if(m_trace_tag_explored[m_trace_tag_nodes_count].m_tb_pc != tag_node.m_tb_pc)
             {
                 CRETE_DBG_TT(
-                fprintf(stderr, "[CRETE INFO][TRACE TAG] interrupt happened: "
+                fprintf(stderr, "[CRETE INFO][TRACE TAG] potential interrupt happened "
+                        "(or inconsistent trace-tag): "
                         "tb-%lu, br-%lu, pc change from %p to %p\n",
                         tb_count, m_trace_tag_nodes_count,
                         (void *)m_trace_tag_explored[m_trace_tag_nodes_count].m_tb_pc,
@@ -1462,7 +1465,9 @@ void RuntimeEnv::add_trace_tag(const TranslationBlock *tb, uint64_t tb_count)
                 );
 
                 m_trace_tag_explored[m_trace_tag_nodes_count].m_tb_pc = tag_node.m_tb_pc;
-                m_trace_tag_explored[m_trace_tag_nodes_count].m_tb_count = tag_node.m_tb_count;
+
+                adjust_trace_tag_tb_count(m_trace_tag_explored, m_trace_tag_nodes_count,
+                        tag_node.m_tb_count - m_trace_tag_explored[m_trace_tag_nodes_count].m_tb_count);
             }
 
             // Consistency check whether the input tc goes along with the trace tag
@@ -2595,4 +2600,13 @@ inline static bool is_semi_explored(const vector<bool>& tc_br_taken,
     }
 
     return ret;
+}
+
+inline static void adjust_trace_tag_tb_count(crete::creteTraceTag_ty &trace_tag,
+        uint64_t start_node_index, int64_t offset_to_adjust)
+{
+    for(uint64_t i = start_node_index; i < trace_tag.size(); ++i)
+    {
+        trace_tag[i].m_tb_count += offset_to_adjust;
+    }
 }

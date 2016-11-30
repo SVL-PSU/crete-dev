@@ -38,7 +38,9 @@ inline bool operator==(const CreteTraceTagNode& lhs,
 
     // Not check m_tb_pc and m_tb_count as interrupt can change it
     return (lhs.m_br_taken == rhs.m_br_taken) &&
-            (lhs.m_last_opc == rhs.m_last_opc);
+            (lhs.m_last_opc == rhs.m_last_opc) &&
+            (lhs.m_tb_pc == rhs.m_tb_pc) &&
+            (lhs.m_tb_count == rhs.m_tb_count);
 }
 
 inline void print_br_taken(const vector<bool>& br_taken)
