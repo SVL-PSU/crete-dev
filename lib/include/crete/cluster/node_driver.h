@@ -299,7 +299,8 @@ auto transmit_trace(Node& node,
                              0,
                              packet_type::cluster_trace};
 
-    auto trace = node.acquire()->pop_trace();
+    auto lock = node.acquire();
+    auto trace = lock->pop_trace();
 
     archive_directory(trace);
 

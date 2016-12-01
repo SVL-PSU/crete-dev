@@ -67,19 +67,22 @@ struct start // Basically, serves as constructor.
                    vm_dir,
                    "",
                    false,
-                   ""} {}
+                   "",
+                   true} {}
     start(const cluster::option::Dispatch& dispatch_options,
           const node::option::VMNode& node_options,
           const fs::path& vm_dir,
           const fs::path& image_path,
           bool first_vm,
-          const std::string& target)
+          const std::string& target,
+          const bool clear_trace_folder)
         : dispatch_options_(dispatch_options) // TODO: seems to be an error in Clang 3.2 initializer syntax. Workaround: using parenthesese.
         , node_options_{node_options}
         , vm_dir_{vm_dir}
         , image_path_{image_path}
         , first_vm_{first_vm}
-        , target_{target} {}
+        , target_{target}
+        , clear_trace_folder_(clear_trace_folder){}
 
     cluster::option::Dispatch dispatch_options_;
     node::option::VMNode node_options_;
@@ -87,6 +90,7 @@ struct start // Basically, serves as constructor.
     fs::path image_path_;
     bool first_vm_;
     std::string target_;
+    bool clear_trace_folder_;
 };
 
 struct next_test
@@ -556,7 +560,11 @@ struct QemuFSM_::clean
     {
         auto hostfile_dir = ev.vm_dir_ / hostfile_dir_name;
 
-        fs::remove_all(ev.vm_dir_ / trace_dir_name);
+        if(ev.clear_trace_folder_)
+        {
+            fs::remove_all(ev.vm_dir_ / trace_dir_name);
+        }
+
         fs::remove_all(ev.vm_dir_ / log_dir_name);
         fs::remove(hostfile_dir / input_args_name);
         fs::remove(hostfile_dir / trace_ready_name);
