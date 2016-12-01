@@ -49,6 +49,18 @@ auto TestPool::next() -> boost::optional<TestCase>
 //    return tc;
 }
 
+// The initial test case extracted from config will only be used to start the test,
+// as it is open to change, such as invocation of "crete_make_concolic()" within
+// the target exec under test
+auto TestPool::insert_initial_tc_from_config(const TestCase& tc) -> bool
+{
+    assert(test_tree_.empty());
+    assert(next_.empty());
+
+    next_.push_front(tc);
+    return true;
+}
+
 auto TestPool::insert(const TestCase& tc) -> bool
 {
     if(insert_tc_tree(tc))
@@ -81,6 +93,11 @@ auto TestPool::insert(const std::vector<TestCase>& tcs) -> void
 
 auto TestPool::insert(const std::vector<TestCase>& new_tcs, const TestCase& input_tc) -> void
 {
+    if(test_tree_.empty())
+    {
+        insert_tc_tree(input_tc);
+    }
+
     for(const auto& tc : new_tcs)
     {
         insert(tc, input_tc);

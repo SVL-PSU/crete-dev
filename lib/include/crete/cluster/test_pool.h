@@ -46,6 +46,8 @@ public:
 
     auto next() -> boost::optional<TestCase>;
 
+    auto insert_initial_tc_from_config(const TestCase& tc) -> bool;
+
     auto insert(const TestCase& tc) -> bool;
     auto insert(const TestCase& tc, const TestCase& input_tc) -> bool;
 
