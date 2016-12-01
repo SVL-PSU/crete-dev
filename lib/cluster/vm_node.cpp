@@ -79,7 +79,8 @@ auto VMNode::poll() -> void
                         pwd,
                         image_path(),
                         false,
-                        target_
+                        target_,
+                        (traces().size() == 0)
             };
 
             vm->process_event(start_ev);
@@ -145,7 +146,8 @@ auto VMNode::start_FSMs() -> void
         vm_path,
         image_path(),
         false,
-        target_
+        target_,
+        (traces().size() == 0)
     };
 
     auto vm_num = 1u;
