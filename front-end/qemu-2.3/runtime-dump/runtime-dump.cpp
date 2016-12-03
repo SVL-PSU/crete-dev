@@ -1413,6 +1413,11 @@ bool RuntimeEnv::check_interrupt_process_info(uint64_t current_tb_pc)
 
 void RuntimeEnv::add_current_tb_br_taken(int br_taken)
 {
+    CRETE_DBG_TT(
+    fprintf(stderr, "add_current_tb_br_taken(): m_qemu_default_br_skipped = %d\n",
+            m_qemu_default_br_skipped);
+    );
+
     if(m_qemu_default_br_skipped)
     {
         m_current_tb_br_taken.push_back(br_taken);
