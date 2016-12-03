@@ -52,11 +52,15 @@ error_summary()
     grep -c "KLEE: HaltTimer invoked" < $INPUT_DIR/log/node_error.log
     printf "Invalid test case: "
     grep -c "Invalid test case" < $INPUT_DIR/log/node_error.log
+    printf "Trace-tag: forking not from captured bitcode: "
+    grep -c "klee: Executor.cpp.*Executor::StatePair klee::Executor::crete_concolic_fork(klee::ExecutionState &, ref<klee::Expr>).*\[CRETE FIXME\] klee forks not from captured bitcode.* failed." < $INPUT_DIR/log/node_error.log
 
     printf "\nVM error: "
     grep -c -w 'Node:\sVM' $INPUT_DIR/log/node_error.log
     printf "getHostAddress() error: "
     grep -c -w 'getHostAddress\(\)' $INPUT_DIR/log/node_error.log
+    printf "trace-tag-error: "
+    grep -c "crete-qemu-2.3-system-i386:.*void RuntimeEnv::add_trace_tag(const TranslationBlock\*, uint64_t): Assertion .* failed."  < $INPUT_DIR/log/node_error.log
 }
 
 error_detail()
