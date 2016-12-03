@@ -3882,8 +3882,12 @@ Executor::crete_concolic_fork(ExecutionState &current, ref<Expr> condition)
         // Test cases generated from those forks should be treated specially,
         // as they are not for exploring a new path back to the binary under
         // test and should not be a part of the trace tag process.
-        assert(!(trueState && falseState) &&
-                "[CRETE FIXME] klee forks not from captured bitcode.\n");
+        if(trueState && falseState){
+            current.print_stack();
+
+            assert(!(trueState && falseState) &&
+                    "[CRETE FIXME] klee forks not from captured bitcode.\n");
+        }
     }
 
     if(trueState && falseState){
