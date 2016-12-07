@@ -261,6 +261,9 @@ private:
     // name, offset, size
     map<string, pair<uint64_t, uint64_t> > m_debug_cpuState_offsets;
 
+    //
+    void *m_dbg_cpuState_post_interest;
+
 public:
 	RuntimeEnv();
 	~RuntimeEnv();
@@ -322,6 +325,9 @@ public:
     string get_tcoHelper_name(uint64_t) const;
 
     void init_debug_cpuState_offsets(const vector<pair<string, pair<uint64_t, uint64_t> > >& offsets);
+
+    void set_dbgCPUStatePostInterest(const void *cpuState);
+    void check_dbgCPUStatePostInterest(const void *cpuState);
 
 private:
     void init_concolics();

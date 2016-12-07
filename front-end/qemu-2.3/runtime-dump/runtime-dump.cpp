@@ -73,6 +73,8 @@ RuntimeEnv::RuntimeEnv()
 
     m_tcg_llvm_offline_ctx.dump_cpuState_size(sizeof(CPUArchState));
     m_initial_CpuState.reserve(sizeof(CPUArchState));
+
+    CRETE_DBG_INT(m_dbg_cpuState_post_interest = new uint8_t [sizeof(CPUArchState)];);
 }
 
 RuntimeEnv::~RuntimeEnv()
@@ -82,6 +84,11 @@ RuntimeEnv::~RuntimeEnv()
 
     assert(m_cpuState_pre_interest.second);
     delete [] (uint8_t *)m_cpuState_pre_interest.second;
+
+    CRETE_DBG_INT(
+    assert(m_dbg_cpuState_post_interest);
+    delete [] (uint8_t *)m_dbg_cpuState_post_interest;
+    );
 }
 
 // Dump the context for offline translation from qemu-ir to llvm bitcode
@@ -620,6 +627,44 @@ void RuntimeEnv::init_debug_cpuState_offsets(const vector<pair<string, pair<uint
             fprintf(stderr, "insert %s failed in init_debug_cpuState_offsets()\n",
                     it->first.c_str());
         }
+    }
+}
+
+void RuntimeEnv::set_dbgCPUStatePostInterest(const void *src)
+{
+    assert(src);
+    memcpy(m_dbg_cpuState_post_interest, src,
+            sizeof(CPUArchState));
+}
+
+void RuntimeEnv::check_dbgCPUStatePostInterest(const void *src)
+{
+    vector<CPUStateElement> differs = x86_cpuState_compuate_side_effect((const CPUArchState *)m_dbg_cpuState_post_interest,
+            (const CPUArchState *)src);
+    if(differs.empty())
+    {
+        return;
+    }
+
+    cerr << "[CRETE ERROR] CPUState is changed after an interested tb being dumped and before the next tb starts to execute\n";
+    uint8_t* post_interest_cpuState = (uint8_t*)m_dbg_cpuState_post_interest;
+    uint8_t* current_cpuState = (uint8_t*)src;
+
+    for(vector<CPUStateElement>::const_iterator it = differs.begin();
+            it != differs.end(); ++it) {
+        cerr << it->m_name << ": " << it->m_size << " bytes\n";
+        cerr << " post_interest_value :[";
+        for(uint64_t i = 0; i < it->m_size; ++i) {
+            cerr << " 0x"<< hex << (uint32_t)*(post_interest_cpuState + it->m_offset + i);
+        }
+        cerr << "]\n";
+
+        cerr << " current_value :[";
+        for(uint64_t i = 0; i < it->m_size; ++i) {
+            cerr << " 0x"<< hex << (uint32_t)*(current_cpuState + it->m_offset + i);
+        }
+
+        cerr << "]\n";
     }
 }
 
@@ -1457,6 +1502,13 @@ void crete_pre_cpu_tb_exec(void *qemuCpuState, TranslationBlock *tb)
             }
         }
     }
+
+    CRETE_DBG_INT(
+    if(is_begin_capture && is_target_pid)
+    {
+        runtime_env->check_dbgCPUStatePostInterest(qemuCpuState);
+    }
+    );
 #endif
 
     // Set flags: flag_rt_dump_start/ flag_rt_dump_enable/ flag_interested_tb
@@ -1513,6 +1565,12 @@ int crete_post_cpu_tb_exec(void *qemuCpuState, TranslationBlock *input_tb, uint6
 {
     assert(crete_pre_post_flag);
     crete_pre_post_flag = false;
+    CRETE_DBG_INT(
+    if(is_begin_capture && is_target_pid)
+    {
+        runtime_env->set_dbgCPUStatePostInterest(qemuCpuState);
+    }
+    );
 
 	if(!flag_interested_tb) {
 	    // Set runtime_env->m_cpuState_post_insterest
