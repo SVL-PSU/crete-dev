@@ -1481,7 +1481,9 @@ void crete_runtime_dump_close()
 
 void crete_pre_cpu_tb_exec(void *qemuCpuState, TranslationBlock *tb)
 {
-    crete_pre_post_flag = true;
+#if defined(CRETE_DBG_CK)
+    dump_dbg_ir(qemuCpuState, tb);
+#endif
 
     CPUArchState *env = (CPUArchState *)qemuCpuState;
 
@@ -1490,26 +1492,28 @@ void crete_pre_cpu_tb_exec(void *qemuCpuState, TranslationBlock *tb)
             "env->cr[3] should stay the same within one iteration of inner loop of cpu_exec()\n");
     assert(!use_icount);
 
-    // set globals for debug using
+    // set globals
     g_cpuState_bct = env;
     rt_dump_tb = tb;
 
+    is_target_pid = (env->cr[3] == g_crete_target_pid);
     is_begin_capture = (g_custom_inst_emit == 1);
+
+    if(is_target_pid)
+    {
+        is_processing_interrupt = runtime_env->check_interrupt_process_info(tb->pc);
+    }
 
     if(!is_begin_capture)
         return;
-
-//  if (flag_rt_dump_enable)
-//      printf("[Warning]: \"cpu-exec.c\" flag_rt_dump_enable = 1 before a TB is executed.\n");
 
     //1. Set flags related for runtime dump
     flag_rt_dump_enable = 0;
     flag_interested_tb_prev = flag_interested_tb;
 
     // set flags related to code selection
-    is_target_pid = (env->cr[3] == g_crete_target_pid);
     is_user_code = (tb->pc < USER_CODE_RANGE);
-
+    is_user_code = 1;
 //    bool is_in_include_filter = crete_is_pc_in_include_filter_range(tb->pc);
     bool is_in_exclude_filter = crete_is_pc_in_exclude_filter_range(tb->pc);
 
@@ -1520,15 +1524,16 @@ void crete_pre_cpu_tb_exec(void *qemuCpuState, TranslationBlock *tb)
 			is_user_code &&
 			!is_in_exclude_filter;
 
-#if defined(CRETE_DBG_CK)
-//    if(is_begin_capture && is_target_pid && is_user_code)
-    if(is_interested_tb)
+#if defined(CRETE_DEBUG_GENERAL)
+    //    if(is_begin_capture && is_target_pid && is_user_code)
+//    if(is_interested_tb)
     {
-        std::cerr << "\n[PRE] TB-PC = " << (void *)(uint64_t)tb->pc << std::endl;
+        std::cerr << "\n[PRE] TB-PC = " << (void *)(uint64_t)tb->pc
+                << " (interrupt = " << is_processing_interrupt << ")"<< std::endl;
 
-        if(is_in_list_crete_dbg_tb_pc(tb->pc)){
+        if(is_in_list_crete_dbg_tb_pc(tb->pc))
+        {
             fprintf(stderr, "crete_pre_cpu_tb_exec(): ");
-
             {
                 uint64_t i;
                 const uint8_t *ptr_addr = (const uint8_t*)(&env->CRETE_DBG_REG);
@@ -1550,6 +1555,8 @@ void crete_pre_cpu_tb_exec(void *qemuCpuState, TranslationBlock *tb)
     }
     );
 #endif
+
+    is_interested_tb = is_interested_tb && !is_processing_interrupt;
 
     // Set flags: flag_rt_dump_start/ flag_rt_dump_enable/ flag_interested_tb
     if(is_interested_tb)
@@ -1578,6 +1585,9 @@ void crete_pre_cpu_tb_exec(void *qemuCpuState, TranslationBlock *tb)
      *      3. empty SyncTable for Memory Monitor
      */
     if(flag_rt_dump_enable) {
+        assert(crete_pre_post_flag == false);
+        crete_pre_post_flag = true;
+
         //3. keep a copy of the cpuState before the execution of a potential insterested tb
         runtime_env->setCPUStatePreInterest((void *)env);
 
@@ -1603,8 +1613,12 @@ void crete_pre_cpu_tb_exec(void *qemuCpuState, TranslationBlock *tb)
 int crete_post_cpu_tb_exec(void *qemuCpuState, TranslationBlock *input_tb, uint64_t next_tb,
         uint64_t crete_interrupted_pc)
 {
-    assert(crete_pre_post_flag);
-    crete_pre_post_flag = false;
+    if(flag_rt_dump_enable)
+    {
+        assert(crete_pre_post_flag);
+        crete_pre_post_flag = false;
+    }
+
     CRETE_DBG_INT(
     if(is_begin_capture && is_target_pid)
     {
