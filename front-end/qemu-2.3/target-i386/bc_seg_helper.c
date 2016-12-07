@@ -47,23 +47,30 @@
 
 #define DATA_SIZE 8
 #include "exec/cpu_ldst_useronly_template.h"
+
+#error "CRETE should only work on system mode (not user mode) of qemu"
 #undef MEMSUFFIX
 #else
 #define CPU_MMU_INDEX (cpu_mmu_index_kernel(env))
 #define MEMSUFFIX _kernel
+
+#define CRETE_BC_MEMOP_KERNEL
+
 #define DATA_SIZE 1
-#include "exec/cpu_ldst_template.h"
+#include "exec/bc_cpu_ldst_template.h"
 
 #define DATA_SIZE 2
-#include "exec/cpu_ldst_template.h"
+#include "exec/bc_cpu_ldst_template.h"
 
 #define DATA_SIZE 4
-#include "exec/cpu_ldst_template.h"
+#include "exec/bc_cpu_ldst_template.h"
 
 #define DATA_SIZE 8
-#include "exec/cpu_ldst_template.h"
+#include "exec/bc_cpu_ldst_template.h"
 #undef CPU_MMU_INDEX
 #undef MEMSUFFIX
+
+#undef CRETE_BC_MEMOP_KERNEL
 #endif
 
 /* return non zero if error */
@@ -1543,22 +1550,13 @@ void helper_ltr(CPUX86State *env, int selector)
 void helper_load_seg(CPUX86State *env, int seg_reg, int selector)
 {
     uint32_t e1, e2;
-    int cpl, dpl, rpl;
     SegmentCache *dt;
     int index;
     target_ulong ptr;
 
     selector &= 0xffff;
-    cpl = env->hflags & HF_CPL_MASK;
     if ((selector & 0xfffc) == 0) {
         /* null selector case */
-        if (seg_reg == R_SS
-#ifdef TARGET_X86_64
-            && (!(env->hflags & HF_CS64_MASK) || cpl == 3)
-#endif
-            ) {
-            raise_exception_err(env, EXCP0D_GPF, 0);
-        }
         cpu_x86_load_seg_cache(env, seg_reg, selector, 0, 0, 0);
     } else {
 
@@ -1568,47 +1566,10 @@ void helper_load_seg(CPUX86State *env, int seg_reg, int selector)
             dt = &env->gdt;
         }
         index = selector & ~7;
-        if ((index + 7) > dt->limit) {
-            raise_exception_err(env, EXCP0D_GPF, selector & 0xfffc);
-        }
+
         ptr = dt->base + index;
         e1 = cpu_ldl_kernel(env, ptr);
         e2 = cpu_ldl_kernel(env, ptr + 4);
-
-        if (!(e2 & DESC_S_MASK)) {
-            raise_exception_err(env, EXCP0D_GPF, selector & 0xfffc);
-        }
-        rpl = selector & 3;
-        dpl = (e2 >> DESC_DPL_SHIFT) & 3;
-        if (seg_reg == R_SS) {
-            /* must be writable segment */
-            if ((e2 & DESC_CS_MASK) || !(e2 & DESC_W_MASK)) {
-                raise_exception_err(env, EXCP0D_GPF, selector & 0xfffc);
-            }
-            if (rpl != cpl || dpl != cpl) {
-                raise_exception_err(env, EXCP0D_GPF, selector & 0xfffc);
-            }
-        } else {
-            /* must be readable segment */
-            if ((e2 & (DESC_CS_MASK | DESC_R_MASK)) == DESC_CS_MASK) {
-                raise_exception_err(env, EXCP0D_GPF, selector & 0xfffc);
-            }
-
-            if (!(e2 & DESC_CS_MASK) || !(e2 & DESC_C_MASK)) {
-                /* if not conforming code, test rights */
-                if (dpl < cpl || dpl < rpl) {
-                    raise_exception_err(env, EXCP0D_GPF, selector & 0xfffc);
-                }
-            }
-        }
-
-        if (!(e2 & DESC_P_MASK)) {
-            if (seg_reg == R_SS) {
-                raise_exception_err(env, EXCP0C_STACK, selector & 0xfffc);
-            } else {
-                raise_exception_err(env, EXCP0B_NOSEG, selector & 0xfffc);
-            }
-        }
 
         /* set the access bit if not already set */
         if (!(e2 & DESC_A_MASK)) {
@@ -1620,10 +1581,6 @@ void helper_load_seg(CPUX86State *env, int seg_reg, int selector)
                        get_seg_base(e1, e2),
                        get_seg_limit(e1, e2),
                        e2);
-#if 0
-        qemu_log("load_seg: sel=0x%04x base=0x%08lx limit=0x%08lx flags=%08x\n",
-                selector, (unsigned long)sc->base, sc->limit, sc->flags);
-#endif
     }
 }
 

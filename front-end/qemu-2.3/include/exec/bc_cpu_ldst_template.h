@@ -72,9 +72,12 @@ glue(glue(cpu_ld, USUFFIX), MEMSUFFIX)(CPUArchState *env, target_ulong ptr)
     addr = ptr;
     mmu_idx = CPU_MMU_INDEX;
 
-#if defined(CRETE_BC_HELPERS_VALID)
+#if defined(CRETE_BC_MEMOP_USER)
     crete_bc_assert(mmu_idx == MMU_USER_IDX,
-            "[CRETE ERROR] Accessing kernel data! crete should now only work with user code\n");
+            "[CRETE ERROR] Helper function is not accessing userspace data!\n");
+#elif defined(CRETE_BC_MEMOP_KERNEL)
+    crete_bc_assert(mmu_idx != MMU_USER_IDX,
+            "[CRETE ERROR] Helper function is not accessing kernel data!\n");
 #else
     crete_bc_assert(0, "[CRETE ERROR] Unexpected helper function being used.\n");
 #endif
@@ -98,9 +101,12 @@ glue(glue(cpu_lds, SUFFIX), MEMSUFFIX)(CPUArchState *env, target_ulong ptr)
     res = (DATA_STYPE)glue(glue(helper_ld, SUFFIX),
                            MMUSUFFIX)(env, addr, mmu_idx);
 
-#if defined(CRETE_BC_HELPERS_VALID)
+#if defined(CRETE_BC_MEMOP_USER)
     crete_bc_assert(mmu_idx == MMU_USER_IDX,
-            "[CRETE ERROR] Accessing kernel data! crete should now only work with user code\n");
+            "[CRETE ERROR] Helper function is not accessing userspace data!\n");
+#elif defined(CRETE_BC_MEMOP_KERNEL)
+    crete_bc_assert(mmu_idx != MMU_USER_IDX,
+            "[CRETE ERROR] Helper function is not accessing kernel data!\n");
 #else
     crete_bc_assert(0, "[CRETE ERROR] Unexpected helper function being used.\n");
 #endif
@@ -123,9 +129,12 @@ glue(glue(cpu_st, SUFFIX), MEMSUFFIX)(CPUArchState *env, target_ulong ptr,
     addr = ptr;
     mmu_idx = CPU_MMU_INDEX;
 
-#if defined(CRETE_BC_HELPERS_VALID)
+#if defined(CRETE_BC_MEMOP_USER)
     crete_bc_assert(mmu_idx == MMU_USER_IDX,
-            "[CRETE ERROR] Accessing kernel data! crete should now only work with user code\n");
+            "[CRETE ERROR] Helper function is not accessing userspace data!\n");
+#elif defined(CRETE_BC_MEMOP_KERNEL)
+    crete_bc_assert(mmu_idx != MMU_USER_IDX,
+            "[CRETE ERROR] Helper function is not accessing kernel data!\n");
 #else
     crete_bc_assert(0, "[CRETE ERROR] Unexpected helper function being used.\n");
 #endif

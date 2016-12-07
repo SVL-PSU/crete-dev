@@ -23,6 +23,10 @@
 #include "exec/helper-proto.h"
 #include "exec/cpu_ldst.h"
 
+#if defined(CRETE_CONFIG) || 1
+#include "runtime-dump/crete-debug.h"
+#endif
+
 //#define DEBUG_PCALL
 
 #ifdef DEBUG_PCALL
@@ -49,6 +53,11 @@
 #include "exec/cpu_ldst_useronly_template.h"
 #undef MEMSUFFIX
 #else
+// memory operation being used by seg_helper functions, such as load_seg()
+#if defined(CRETE_CONFIG) || 1
+#define CRETE_ENABLE_MEMORY_MONITOR 1
+#endif // #if defined(CRETE_CONFIG)
+
 #define CPU_MMU_INDEX (cpu_mmu_index_kernel(env))
 #define MEMSUFFIX _kernel
 #define DATA_SIZE 1
@@ -64,6 +73,10 @@
 #include "exec/cpu_ldst_template.h"
 #undef CPU_MMU_INDEX
 #undef MEMSUFFIX
+
+#if defined(CRETE_CONFIG) || 1
+#undef CRETE_ENABLE_MEMORY_MONITOR
+#endif // #if defined(CRETE_CONFIG)
 #endif
 
 /* return non zero if error */
@@ -1627,6 +1640,30 @@ void helper_load_seg(CPUX86State *env, int seg_reg, int selector)
         qemu_log("load_seg: sel=0x%04x base=0x%08lx limit=0x%08lx flags=%08x\n",
                 selector, (unsigned long)sc->base, sc->limit, sc->flags);
 #endif
+
+        CRETE_DBG_TK(
+        if(is_in_list_crete_dbg_tb_pc(rt_dump_tb->pc))
+        {
+            fprintf(stderr, "helper_load_seg(): tb-pc = %p, seg_reg = %d, selector = %d, "
+                    "ptr = %p, e1 = %p, e2 = %p\n"
+                    "cpl = %d, dpl =%d, rpl=%d, env->hflags = %p\n",
+                    (void *)(uint64_t)rt_dump_tb->pc, seg_reg, selector, (void *)(uint64_t)ptr,
+                    (void *)(uint64_t)e1, (void *)(uint64_t)e2,
+                    cpl, dpl, rpl, (void *)(uint64_t)(env->hflags));
+            fprintf(stderr, "DESC_S_MASK=%d,DESC_DPL_SHIFT=%d,DESC_CS_MASK=%d,"
+                    "DESC_W_MASK=%d,DESC_R_MASK=%d,DESC_C_MASK=%d,DESC_CS_MASK=%d,"
+                    "DESC_P_MASK=%d,DESC_A_MASK=%d\n",
+                    DESC_S_MASK,
+                    DESC_DPL_SHIFT,
+                    DESC_CS_MASK,
+                    DESC_W_MASK,
+                    DESC_R_MASK,
+                    DESC_C_MASK,
+                    DESC_CS_MASK,
+                    DESC_P_MASK,
+                    DESC_A_MASK);
+        }
+        );
     }
 }
 
