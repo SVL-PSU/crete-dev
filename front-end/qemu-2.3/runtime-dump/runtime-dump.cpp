@@ -1438,8 +1438,8 @@ uint64_t RuntimeEnv::get_size_current_tb_br_taken()
 }
 
 inline static bool is_conditional_branch_opc(int last_opc);
-inline static bool is_semi_explored(const vector<bool>& tc_br_taken,
-        const vector<bool>& current_br_taken);
+inline static bool is_semi_explored(const crete::CreteTraceTagNode& tc_tt_node,
+        const crete::CreteTraceTagNode& current_tt_node);
 inline static void adjust_trace_tag_tb_count(crete::creteTraceTag_ty &trace_tag,
         uint64_t start_node_index, int64_t offset_to_adjust);
 
@@ -1447,7 +1447,11 @@ void RuntimeEnv::add_trace_tag(const TranslationBlock *tb, uint64_t tb_count)
 {
     if(is_conditional_branch_opc(tb->last_opc))
     {
-        assert(m_current_tb_br_taken.size() != 0);
+        // tcg/optimize.c: tcg_optimize() can optimize the tb with constant conditional br
+        if(m_current_tb_br_taken.empty())
+        {
+            return;
+        }
 
         crete::CreteTraceTagNode tag_node;
         tag_node.m_last_opc = tb->last_opc;
@@ -1458,37 +1462,43 @@ void RuntimeEnv::add_trace_tag(const TranslationBlock *tb, uint64_t tb_count)
 
         if(m_trace_tag_nodes_count < m_trace_tag_explored.size())
         {
-            if(m_trace_tag_explored[m_trace_tag_nodes_count].m_tb_pc != tag_node.m_tb_pc)
+            CRETE_DBG_TT(
+            if(m_trace_tag_explored[m_trace_tag_nodes_count].m_tb_count != tag_node.m_tb_count
+                    || m_trace_tag_explored[m_trace_tag_nodes_count].m_tb_pc != tag_node.m_tb_pc)
             {
-                CRETE_DBG_TT(
                 fprintf(stderr, "[CRETE INFO][TRACE TAG] potential interrupt happened "
-                        "(or inconsistent trace-tag): "
-                        "tb-%lu, br-%lu, pc change from %p to %p\n",
-                        tb_count, m_trace_tag_nodes_count,
-                        (void *)m_trace_tag_explored[m_trace_tag_nodes_count].m_tb_pc,
-                        (void *)tag_node.m_tb_pc);
-                );
+                "(or inconsistent trace-tag) on br-%lu: \n"
+                "Current: tb-%lu, pc-%p. From tc: tb-%lu, pc-%p\n",
+                m_trace_tag_nodes_count,
+                tag_node.m_tb_count, (void *)tag_node.m_tb_pc,
+                m_trace_tag_explored[m_trace_tag_nodes_count].m_tb_count,
+                (void *)m_trace_tag_explored[m_trace_tag_nodes_count].m_tb_pc);
+            }
+            );
 
-                m_trace_tag_explored[m_trace_tag_nodes_count].m_tb_pc = tag_node.m_tb_pc;
-
+            // Adjust the m_tb_count and m_tb_pc, assuming it is a result of interrupt
+            if(m_trace_tag_explored[m_trace_tag_nodes_count].m_tb_count != tag_node.m_tb_count)
+            {
                 adjust_trace_tag_tb_count(m_trace_tag_explored, m_trace_tag_nodes_count,
                         tag_node.m_tb_count - m_trace_tag_explored[m_trace_tag_nodes_count].m_tb_count);
             }
+            if(m_trace_tag_explored[m_trace_tag_nodes_count].m_tb_pc != tag_node.m_tb_pc)
+            {
+                m_trace_tag_explored[m_trace_tag_nodes_count].m_tb_pc = tag_node.m_tb_pc;
+            }
 
-            // Consistency check whether the input tc goes along with the trace tag
+            // Consistency check whether the input tc goes along with the same trace as in trace-tag
             bool trace_tag_check_passed = false;
 
             if(m_trace_tag_explored[m_trace_tag_nodes_count] == tag_node)
             {
                 trace_tag_check_passed = true;
             }
+            // The last explored_node is a potential semi-explored trace-tag-node,
+            // in which the trace-tag-node can be different, such as "repz movs"()
             else if (m_trace_tag_nodes_count == (m_trace_tag_explored.size() - 1))
             {
-                // The last explored_node is a potential semi-explored trace-tag-node, when the br_taken can be different
-                assert(m_trace_tag_explored.back().m_last_opc == tag_node.m_last_opc);
-                assert(m_trace_tag_explored.back().m_br_taken.size() < tag_node.m_br_taken.size());
-
-                if(is_semi_explored(m_trace_tag_explored.back().m_br_taken, tag_node.m_br_taken))
+                if(is_semi_explored(m_trace_tag_explored.back(), tag_node))
                 {
                     // For semi-explored node, put the un-explored branches into "m_trace_tag_semi_explored"
                     vector<bool> new_br_taken(tag_node.m_br_taken.begin() + m_trace_tag_explored.back().m_br_taken.size(),
@@ -1497,9 +1507,11 @@ void RuntimeEnv::add_trace_tag(const TranslationBlock *tb, uint64_t tb_count)
                     m_trace_tag_semi_explored.push_back(tag_node);
 
                     trace_tag_check_passed = true;
-                }
+                };
             }
 
+            // FIXME: xxx Potential reasons:
+            //    1. inconsistent taint analysis gives different trace
             if(!trace_tag_check_passed)
             {
                 fprintf(stderr, "trace-tag-node: %lu\n"
@@ -1519,7 +1531,7 @@ void RuntimeEnv::add_trace_tag(const TranslationBlock *tb, uint64_t tb_count)
                 crete::print_br_taken(m_trace_tag_explored[m_trace_tag_nodes_count].m_br_taken);
                 fprintf(stderr,"\n");
 
-                assert(0);
+                assert(0 && "[CRETE ERROR] Inconsistent tracing detected by trace-tag.\n");
             }
         } else {
             m_trace_tag_new.push_back(tag_node);
@@ -1529,7 +1541,6 @@ void RuntimeEnv::add_trace_tag(const TranslationBlock *tb, uint64_t tb_count)
     } else {
         // xxx: potential reasons:
         //      1. the list_crete_cond_jump_opc is not complete
-        //      2.
         if(m_current_tb_br_taken.size() != 0)
         {
             fprintf(stderr, "=========================================================\n"
@@ -1547,7 +1558,7 @@ void RuntimeEnv::add_trace_tag(const TranslationBlock *tb, uint64_t tb_count)
 
             fprintf(stderr, "=========================================================\n");
 
-            assert(0 && "Assumption broken: a non-cond-br tb contains conditional branch.\n");
+            assert(0 && "[CRETE ERROR] Assumption broken in trace-tag: a non-cond-br tb contains conditional branch.\n");
         }
     }
 }
@@ -1920,9 +1931,6 @@ int crete_post_cpu_tb_exec(void *qemuCpuState, TranslationBlock *input_tb, uint6
 	    dbg_is_current_tb_executed = is_current_tb_executed;
 	    );
 	}
-
-    // trace tag
-    runtime_env->clear_current_tb_br_taken();
 
     // Set runtime_env->m_cpuState_post_insterest
     if(static_flag_interested_tb_prev && !static_flag_interested_tb) {
@@ -2515,6 +2523,11 @@ static vector<CPUStateElement> x86_cpuState_compuate_side_effect(const CPUArchSt
     return ret;
 }
 
+void clear_current_tb_br_taken()
+{
+    runtime_env->clear_current_tb_br_taken();
+}
+
 void add_current_tb_br_taken(int br_taken)
 {
     runtime_env->add_current_tb_br_taken(br_taken);
@@ -2588,10 +2601,23 @@ inline static bool is_conditional_branch_opc(int last_opc)
     return (list_crete_cond_jump_opc.find(last_opc) != list_crete_cond_jump_opc.end());
 }
 
-inline static bool is_semi_explored(const vector<bool>& tc_br_taken,
-        const vector<bool>& current_br_taken)
+// It is a semi-explored trace-tag-node, only if the m_last_opc matches, and
+// m_br_taken from the tc is a subset of m_br_taken from the current trace
+inline static bool is_semi_explored(const crete::CreteTraceTagNode& tc_tt_node,
+        const crete::CreteTraceTagNode& current_tt_node)
 {
-    assert(tc_br_taken.size() < current_br_taken.size());
+    if(tc_tt_node.m_last_opc != current_tt_node.m_last_opc)
+    {
+        return false;
+    }
+
+    const vector<bool>& tc_br_taken = tc_tt_node.m_br_taken;
+    const vector<bool>& current_br_taken = current_tt_node.m_br_taken;
+
+    if(current_br_taken.size() < tc_br_taken.size())
+    {
+        return false;
+    }
 
     bool ret = true;
 

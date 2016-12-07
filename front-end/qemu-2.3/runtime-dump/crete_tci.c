@@ -500,6 +500,11 @@ uintptr_t crete_tcg_qemu_tb_exec(CPUArchState *env, uint8_t *tb_ptr)
     int temp_crete_read_was_symbolic = 0;
 #endif
 
+    // trace tag
+#if defined(CRETE_TRACE_TAG) || 1
+    clear_current_tb_br_taken();
+#endif
+
     CRETE_DBG_TT(
     assert(get_size_current_tb_br_taken() == 0);
     );
