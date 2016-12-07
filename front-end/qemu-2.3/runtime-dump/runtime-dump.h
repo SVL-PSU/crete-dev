@@ -65,6 +65,7 @@ void crete_handle_raise_interrupt(void *env, int intno,
 void crete_handle_do_interrupt_all(void *qemuCPUState, int intno,
         int is_int, int error_code, uint64_t next_eip, int is_hw);
 
+void clear_current_tb_br_taken(void);
 void add_current_tb_br_taken(int br_taken);
 uint64_t get_size_current_tb_br_taken(void);
 
