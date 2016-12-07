@@ -94,24 +94,7 @@ void helper_crete_assume(target_ulong eax)
     crete_tci_mark_block_symbolic();
 }
 
-#if defined(CRETE_LLVM_LIB)
-__attribute__ ((noinline)) void crete_debug_print_u8(uint8_t b)
-{
-//    (void)q;
-    // Apparently need some code here, or clang will optimize the entire call away.
-    printf("crete_debug_print_u8: %c\n", b);
-}
-__attribute__ ((noinline)) void crete_debug_print_u64(uint64_t q)
-{
-//    (void)q;
-    // Apparently need some code here, or clang will optimize the entire call away.
-    printf("crete_debug_print_u64: %lu\n", q);
-}
-#endif // !defined(CRETE_LLVM_LIB)
-
 void helper_crete_custom_instruction_handler(uint64_t arg)
 {
-#if !defined(CRETE_LLVM_LIB)
     crete_custom_instruction_handler(arg);
-#endif //#if !defined(CRETE_LLVM_LIB)
 }
