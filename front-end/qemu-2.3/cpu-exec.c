@@ -223,7 +223,7 @@ static inline tcg_target_ulong cpu_tb_exec(CPUState *cpu, uint8_t *tb_ptr)
 
 #if defined(CRETE_DEP_ANALYSIS) || 1
 //    if(crete_flags_is_true(g_crete_flags))
-    if(is_begin_capture && is_target_pid && is_user_code)
+    if(is_begin_capture && is_target_pid && !is_processing_interrupt)
     {
         next_tb = crete_tcg_qemu_tb_exec(env, tb_ptr);
 
