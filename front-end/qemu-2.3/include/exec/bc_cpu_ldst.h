@@ -282,7 +282,7 @@ uint64_t helper_ldq_cmmu(CPUArchState *env, target_ulong addr, int mmu_idx);
 #define MEMSUFFIX _data
 // cpu_ld/st*_data() should be the only helper functions being used
 // (by other helper functions, such as helper_fldt(), etc)
-#define CRETE_BC_HELPERS_VALID
+#define CRETE_BC_MEMOP_USER
 #define DATA_SIZE 1
 #include "exec/bc_cpu_ldst_template.h"
 
@@ -296,7 +296,7 @@ uint64_t helper_ldq_cmmu(CPUArchState *env, target_ulong addr, int mmu_idx);
 #include "exec/bc_cpu_ldst_template.h"
 #undef CPU_MMU_INDEX
 #undef MEMSUFFIX
-#undef CRETE_BC_HELPERS_VALID
+#undef CRETE_BC_MEMOP_USER
 
 #define CPU_MMU_INDEX (cpu_mmu_index(env))
 #define MEMSUFFIX _code
