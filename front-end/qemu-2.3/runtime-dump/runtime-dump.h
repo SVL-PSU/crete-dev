@@ -34,6 +34,7 @@ extern int crete_flag_capture_enabled;
 extern int is_begin_capture;
 extern int is_target_pid;
 extern int is_user_code;
+extern int is_processing_interrupt;
 
 extern uint64_t g_crete_target_pid;
 extern int g_custom_inst_emit;
@@ -64,6 +65,7 @@ void dump_memo_sync_table_entry(struct RuntimeEnv *rt, uint64_t addr,
 
 void add_qemu_interrupt_state(struct RuntimeEnv *rt,
 		int intno, int is_int, int error_code, int next_eip_addend);
+void set_interrupt_process_info(struct RuntimeEnv *rt, uint64_t next_eip);
 
 void crete_set_capture_enabled(struct CreteFlags *cf, int capture_enabled);
 int  crete_flags_is_true(struct CreteFlags *cf);
@@ -237,6 +239,9 @@ private:
     uint64_t m_streamed_tb_count;
     uint64_t m_streamed_index;
 
+    // For skipping tracing interrupt handling code
+    pair<bool, uint64_t> m_interrupt_process_info; // (interrupt_started, ret_eip)
+
     // crete miscs:
     // <name, concolic CreteMemoInfo>
     creteConcolics_ty m_concolics;
@@ -301,6 +306,10 @@ public:
     // Stream tracing
     void stream_writeRtEnvToFile(uint64_t tb_count);
     void set_pending_stream();
+
+    // For skipping tracing on interrupt handling code
+    void set_interrupt_process_info(uint64_t ret_eip);
+    bool check_interrupt_process_info(uint64_t current_tb_pc);
 
     //Misc
     void handlecreteMakeConcolic(string name, uint64_t guest_addr, uint64_t size);

@@ -1415,12 +1415,8 @@ uintptr_t crete_tcg_qemu_tb_exec(CPUArchState *env, uint8_t *tb_ptr)
             t0 = tci_read_i32(&tb_ptr);
 
 #if defined(CRETE_CONFIG) || 1
-            /* BOBO: xxx To disable the direct jump between TBs */
-            if(is_begin_capture && is_target_pid && is_user_code &&
-                    t0 != 0){
-//              printf("op_goto_tb: t0 = %ld.\n", t0);
-                t0 = 0;
-            }
+            /* To disable the direct jump between TBs */
+            t0 = 0;
 #endif //#if defined(CRETE_CONFIG)
 
             assert(tb_ptr == old_code_ptr + op_size);

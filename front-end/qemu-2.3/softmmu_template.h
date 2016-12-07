@@ -223,7 +223,7 @@ WORD_TYPE helper_le_ld_name(CPUArchState *env, target_ulong addr, int mmu_idx,
 #if defined(CRETE_DEBUG) || 1
             fprintf(stderr, "[Ld Memo Monitor] le IO access: addr = %p, size = %u, res = 0x%lu\n",
                     (void *)(uint64_t)addr, (uint32_t)DATA_SIZE, (uint64_t)res);
-            assert(0 && "[Ld Memo Monitor] le IO access");
+//            assert(0 && "[Ld Memo Monitor] le IO access");
 #endif // defined(CRETE_DEBUG)
             dump_memo_sync_table_entry(runtime_env, addr, DATA_SIZE, res);
         }
