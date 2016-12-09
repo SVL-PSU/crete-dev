@@ -24,6 +24,8 @@
 
 #if defined(CRETE_CONFIG) || 1
 #include "runtime-dump/runtime-dump.h"
+#include "runtime-dump/crete-debug.h"
+
 extern CPUArchState *g_cpuState_bct;
 #endif // #if defined(CRETE_CONFIG)
 
@@ -556,18 +558,14 @@ void helper_hlt(CPUX86State *env, int next_eip_addend)
     env->eip += next_eip_addend;
 
 #if defined(CRETE_CONFIG) || 1
-    if(flag_rt_dump_enable)
-    {
-        assert(env == g_cpuState_bct && "[CRETE ERROR] Global pointer to CPU State is changed.\n");
 
-        // 0 means the current TB is being executed (but being interrupted)
-        if(crete_post_cpu_tb_exec(env, rt_dump_tb, 0, env->eip))
-        {
-#if defined(CRETE_DEBUG)
-            fprintf(stderr, "tb-%lu (pc-%p) calls into helper_hlt().\n",
-                    rt_dump_tb_count - 1, (void *)(uint64_t)rt_dump_tb->pc);
-#endif
-        }
+    // 0 means the current TB has been executed but stopped in the middle (until env->eip)
+    if(crete_post_cpu_tb_exec(env, rt_dump_tb, 0, env->eip))
+    {
+        CRETE_DBG_GEN(
+        fprintf(stderr, "tb-%lu (pc-%p) calls into helper_hlt().\n",
+                rt_dump_tb_count - 1, (void *)(uint64_t)rt_dump_tb->pc);
+        );
     }
 #endif
 
@@ -595,18 +593,13 @@ void helper_mwait(CPUX86State *env, int next_eip_addend)
     env->eip += next_eip_addend;
 
 #if defined(CRETE_CONFIG) || 1
-    if(flag_rt_dump_enable)
+    // 0 means the current TB has been executed but stopped in the middle (until env->eip)
+    if(crete_post_cpu_tb_exec(env, rt_dump_tb, 0, env->eip))
     {
-        assert(env == g_cpuState_bct && "[CRETE ERROR] Global pointer to CPU State is changed.\n");
-
-        // 0 means the current TB is being executed (but being interrupted)
-        if(crete_post_cpu_tb_exec(env, rt_dump_tb, 0, env->eip))
-        {
-#if defined(CRETE_DEBUG)
-            fprintf(stderr, "tb-%lu (pc-%p) calls into helper_mwait().\n",
-                    rt_dump_tb_count - 1, (void *)(uint64_t)rt_dump_tb->pc);
-#endif
-        }
+        CRETE_DBG_GEN(
+        fprintf(stderr, "tb-%lu (pc-%p) calls into helper_mwait().\n",
+                rt_dump_tb_count - 1, (void *)(uint64_t)rt_dump_tb->pc);
+        );
     }
 #endif
 
@@ -628,18 +621,13 @@ void helper_pause(CPUX86State *env, int next_eip_addend)
     env->eip += next_eip_addend;
 
 #if defined(CRETE_CONFIG) || 1
-    if(flag_rt_dump_enable)
+    // 0 means the current TB has been executed but stopped in the middle (until env->eip)
+    if(crete_post_cpu_tb_exec(env, rt_dump_tb, 0, env->eip))
     {
-        assert(env == g_cpuState_bct && "[CRETE ERROR] Global pointer to CPU State is changed.\n");
-
-        // 0 means the current TB is being executed (but being interrupted)
-        if(crete_post_cpu_tb_exec(env, rt_dump_tb, 0, env->eip))
-        {
-#if defined(CRETE_DEBUG)
-            fprintf(stderr, "tb-%lu (pc-%p) calls into helper_pause().\n",
-                    rt_dump_tb_count - 1, (void *)(uint64_t)rt_dump_tb->pc);
-#endif
-        }
+        CRETE_DBG_GEN(
+        fprintf(stderr, "tb-%lu (pc-%p) calls into helper_pause().\n",
+                rt_dump_tb_count - 1, (void *)(uint64_t)rt_dump_tb->pc);
+        );
     }
 #endif
 

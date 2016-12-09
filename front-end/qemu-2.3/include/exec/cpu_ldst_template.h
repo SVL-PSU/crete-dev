@@ -64,6 +64,13 @@
 static inline RES_TYPE
 glue(glue(cpu_ld, USUFFIX), MEMSUFFIX)(CPUArchState *env, target_ulong ptr)
 {
+#if defined(CRETE_CONFIG) || 1
+#if defined(SOFTMMU_CODE_ACCESS)
+    assert(!f_crete_is_loading_code);
+    f_crete_is_loading_code = 1;
+#endif
+#endif
+
     int page_index;
     RES_TYPE res;
     target_ulong addr;
@@ -86,6 +93,14 @@ glue(glue(cpu_ld, USUFFIX), MEMSUFFIX)(CPUArchState *env, target_ulong ptr)
         }
 #endif
     }
+
+#if defined(CRETE_CONFIG) || 1
+#if defined(SOFTMMU_CODE_ACCESS)
+    assert(f_crete_is_loading_code);
+    f_crete_is_loading_code = 0;
+#endif
+#endif
+
     return res;
 }
 
@@ -93,6 +108,13 @@ glue(glue(cpu_ld, USUFFIX), MEMSUFFIX)(CPUArchState *env, target_ulong ptr)
 static inline int
 glue(glue(cpu_lds, SUFFIX), MEMSUFFIX)(CPUArchState *env, target_ulong ptr)
 {
+#if defined(CRETE_CONFIG) || 1
+#if defined(SOFTMMU_CODE_ACCESS)
+    assert(!f_crete_is_loading_code);
+    f_crete_is_loading_code = 1;
+#endif
+#endif
+
     int res, page_index;
     target_ulong addr;
     int mmu_idx;
@@ -115,6 +137,14 @@ glue(glue(cpu_lds, SUFFIX), MEMSUFFIX)(CPUArchState *env, target_ulong ptr)
         }
 #endif
     }
+
+#if defined(CRETE_CONFIG) || 1
+#if defined(SOFTMMU_CODE_ACCESS)
+    assert(f_crete_is_loading_code);
+    f_crete_is_loading_code = 0;
+#endif
+#endif
+
     return res;
 }
 #endif

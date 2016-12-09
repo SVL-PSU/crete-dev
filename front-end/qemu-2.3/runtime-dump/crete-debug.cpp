@@ -44,10 +44,6 @@ const static boost::unordered_set<uint64_t> list_crete_dbg_ta_guest_addr =
         init_list_crete_dbg_ta_guest_addr();
 
 
-// To guarantee every crete_post_cpu_tb_exec() is proceeded with a crete_pre_cpu_tb_exec
-// Not necessarily the other way around, as tb-linking/interrupt, etc
-bool crete_pre_post_flag = false;
-
 int is_in_list_crete_dbg_tb_pc(uint64_t tb_pc) {
     if (list_crete_dbg_tb_pc.find(tb_pc) == list_crete_dbg_tb_pc.end())
     {

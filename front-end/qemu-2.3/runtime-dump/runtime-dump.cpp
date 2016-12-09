@@ -22,15 +22,23 @@ namespace fs = boost::filesystem;
 using namespace std;
 
 RuntimeEnv *runtime_env = 0;
-CreteFlags *g_crete_flags = NULL;
-
+CreteFlags *g_crete_flags = 0;
 TranslationBlock *rt_dump_tb = 0;
+CPUArchState *g_cpuState_bct = 0;
 
-/* flags for code selection */
-int is_begin_capture = 0;
-int is_target_pid = 0;
-int is_user_code = 0;
-int is_processing_interrupt = 0;
+int f_crete_enabled = 0;
+int f_crete_is_loading_code = 0;
+
+// Static globals shared by crete_pre_cpu_tb_exec() and crete_post_cpu_tb_exec()
+// flag to indicate whether the current tb is of interest
+static bool static_flag_interested_tb = 0;
+// flag to indicate whether the previous tb is of interest
+static bool static_flag_interested_tb_prev = 0;
+// To guarantee every cpu_tb_exec() should be covered by a pair of
+// crete_pre_cpu_tb_exec() and crete_post_cpu_tb_exec()
+static bool crete_pre_post_flag = false;
+
+//======================
 
 /* TODO: xxx they are fairly messy, b/c
  * flags managed in custom-instruction
@@ -44,17 +52,10 @@ int crete_flag_capture_enabled = 0;
 /* flag for runtime tracing: */
 /* 0 = disable tracing, 1 = enable tracing */
 int	flag_rt_dump_enable = 0;
-/* flag to indicate whether the current tb is of interest*/
-int flag_interested_tb = 0;
-/* flag to indicate whether the previous tb is of interest*/
-int flag_interested_tb_prev = 0;
 
 /* count how many tb that is of interest has been executed including the current one*/
 uint64_t rt_dump_tb_count = 0;
 uint64_t nb_captured_llvm_tb = 0;
-
-/* global variable of CPUState, which will be used in custom instruction handler.*/
-CPUArchState *g_cpuState_bct = 0;
 
 #define CPU_OFFSET(field) offsetof(CPUArchState, field)
 
@@ -288,14 +289,14 @@ void RuntimeEnv::addMemoSyncTableEntry(uint64_t addr, uint32_t size, uint64_t va
 void RuntimeEnv::addMemoMergePoint(MemoMergePoint_ty type_MMP)
 {
     if(m_debug_memoMergePoints.empty()) {
-        assert(flag_interested_tb == 1);
+        assert(static_flag_interested_tb == 1);
 #if defined(CRETE_DEBUG)
         cerr << "[Ld Memo Monitor] First interested TB's mergePoint type is " << type_MMP << endl;
 #endif // defined(CRETE_DEBUG)
     }
 
     if(type_MMP == NormalTb || type_MMP == BackToInterestTb){
-        assert(flag_interested_tb == 1);
+        assert(static_flag_interested_tb == 1);
         m_debug_memoMergePoints.push_back(type_MMP);
 
 #if defined(CRETE_DEBUG)
@@ -307,7 +308,7 @@ void RuntimeEnv::addMemoMergePoint(MemoMergePoint_ty type_MMP)
     }
 
     assert(type_MMP == OutofInterestTb);
-    assert(flag_interested_tb == 0);
+    assert(static_flag_interested_tb == 0);
 
     // For the situation of OutofInterestTb, we need to update the last element in m_debug_memoMergePoints
     MemoMergePoint_ty &current_tb_MMP = m_debug_memoMergePoints.back();
@@ -566,8 +567,8 @@ void RuntimeEnv::reverseTBDump(void *qemuCpuState)
     m_debug_memoSyncTables.pop_back();
 
     m_debug_memoMergePoints.pop_back();
-    assert(flag_interested_tb == 0);
-    if(flag_interested_tb_prev == 1 && flag_interested_tb == 0) {
+    assert(static_flag_interested_tb == 0);
+    if(static_flag_interested_tb_prev == 1 && static_flag_interested_tb == 0) {
         runtime_env->addMemoMergePoint(OutofInterestTb);
     }
 #endif
@@ -1442,24 +1443,29 @@ void CreteFlags::check(bool valid) const
 
 void crete_runtime_dump_initialize()
 {
-    runtime_env = 0;
-    rt_dump_tb = 0;
-    rt_dump_tb_count = 0;
-    nb_captured_llvm_tb = 0;
-    flag_rt_dump_enable = 0;
-    flag_interested_tb = 0;
-    flag_interested_tb_prev = 0;
+    // 1. sanity check
+    assert(!runtime_env);
+    assert(!g_crete_flags);
 
-    is_begin_capture = 0;
-    is_target_pid = 0;
-    is_user_code = 0;
-    is_processing_interrupt = 0;
+    // 2. reset
+    f_crete_enabled = 0;
+    f_crete_is_loading_code = 0;
+
+//    rt_dump_tb = 0;
+//    g_cpuState_bct = 0;
 
     g_crete_flags = new CreteFlags;
-
     runtime_env = new RuntimeEnv;
 
     assert(runtime_env && g_crete_flags);
+
+//=========================================
+
+    rt_dump_tb_count = 0;
+    nb_captured_llvm_tb = 0;
+    flag_rt_dump_enable = 0;
+    static_flag_interested_tb = false;
+    static_flag_interested_tb_prev = false;
 
 #if defined(CRETE_CROSS_CHECK)
     crete_verify_cpuState_offset_c_cxx();
@@ -1481,48 +1487,59 @@ void crete_runtime_dump_close()
 
 void crete_pre_cpu_tb_exec(void *qemuCpuState, TranslationBlock *tb)
 {
-#if defined(CRETE_DBG_CK)
-    dump_dbg_ir(qemuCpuState, tb);
-#endif
+//    CRETE_DBG_GEN(cerr << "crete_pre_cpu_tb_exec()\n";);
 
-    CPUArchState *env = (CPUArchState *)qemuCpuState;
+    // 0. Sanity check
+    assert(!crete_pre_post_flag);
+    crete_pre_post_flag = true;
 
-    // check assumptions we made by assertions
-    assert(is_target_pid == (env->cr[3] == g_crete_target_pid) &&
-            "env->cr[3] should stay the same within one iteration of inner loop of cpu_exec()\n");
-    assert(!use_icount);
-
-    // set globals
-    g_cpuState_bct = env;
+    // 1. set globals
+    g_cpuState_bct = (CPUArchState *)qemuCpuState;
     rt_dump_tb = tb;
 
-    is_target_pid = (env->cr[3] == g_crete_target_pid);
-    is_begin_capture = (g_custom_inst_emit == 1);
+    bool is_begin_capture = (g_custom_inst_emit == 1);
+    if(!is_begin_capture) return;
 
+    // 2. set/reset f_crete_enabled: will only enable for the TBs:
+    //      1. the interested process.
+    //      2. not processing interrupt
+    CPUArchState *env = (CPUArchState *)qemuCpuState;
+    bool is_target_pid = (env->cr[3] == g_crete_target_pid);
+    bool is_processing_interrupt = false;
     if(is_target_pid)
     {
         is_processing_interrupt = runtime_env->check_interrupt_process_info(tb->pc);
     }
 
-    if(!is_begin_capture)
-        return;
+    f_crete_enabled = is_target_pid && !is_processing_interrupt;
 
-    //1. Set flags related for runtime dump
-    flag_rt_dump_enable = 0;
-    flag_interested_tb_prev = flag_interested_tb;
+    // 3. manual code selection
+    //bool is_user_code = (tb->pc < USER_CODE_RANGE);
+    //bool is_in_exclude_filter = crete_is_pc_in_exclude_filter_range(tb->pc);
+    //bool manual_code_selection_passed = is_user_code && !is_in_exclude_filter;
+    bool manual_code_selection_passed = true;
 
-    // set flags related to code selection
-    is_user_code = (tb->pc < USER_CODE_RANGE);
-    is_user_code = 1;
-//    bool is_in_include_filter = crete_is_pc_in_include_filter_range(tb->pc);
-    bool is_in_exclude_filter = crete_is_pc_in_exclude_filter_range(tb->pc);
+    // 4. the current tb is pre-interested, if f_crete_enabled and pass manual code selection
+    bool tb_pre_interested = f_crete_enabled && manual_code_selection_passed;
 
-    // 2. set flag of filter TB based on above flags (taint analysis)
-    int is_interested_tb =
-    		is_begin_capture &&
-			is_target_pid &&
-			is_user_code &&
-			!is_in_exclude_filter;
+    // 5. setup of tracing before cpu_tb_exec()
+    //  Memory Monitoring and CpuState Monitoring
+    if(tb_pre_interested)
+    {
+        runtime_env->clearCurrentMemoSyncTable();
+        runtime_env->setCPUStatePreInterest((void *)env);
+
+        ++rt_dump_tb_count;
+    } else {
+        runtime_env->resetCPUStatePreInterest();
+    }
+
+    // static flags
+    static_flag_interested_tb_prev = static_flag_interested_tb;
+    static_flag_interested_tb = tb_pre_interested;
+
+    // globals
+    flag_rt_dump_enable = tb_pre_interested;
 
 #if defined(CRETE_DEBUG_GENERAL)
     //    if(is_begin_capture && is_target_pid && is_user_code)
@@ -1556,51 +1573,20 @@ void crete_pre_cpu_tb_exec(void *qemuCpuState, TranslationBlock *tb)
     );
 #endif
 
-    is_interested_tb = is_interested_tb && !is_processing_interrupt;
-
-    // Set flags: flag_rt_dump_start/ flag_rt_dump_enable/ flag_interested_tb
-    if(is_interested_tb)
-    {
-        /* enable flg_rt_dump_enable */
-        flag_rt_dump_enable = 1;
-
-        flag_interested_tb = 1;
-    } else {
-        flag_interested_tb = 0;
-    }
-
 #if defined(CRETE_DBG_MEM_MONI)
-    // 4. Memory Monitor
-    if(flag_interested_tb_prev == 0 && flag_interested_tb == 1) {
+    if(static_flag_interested_tb_prev == 0 && static_flag_interested_tb == 1) {
         runtime_env->addMemoMergePoint(BackToInterestTb);
-    } else if(flag_interested_tb_prev == 1 && flag_interested_tb == 0) {
+    } else if(static_flag_interested_tb_prev == 1 && static_flag_interested_tb == 0) {
         runtime_env->addMemoMergePoint(OutofInterestTb);
-    } else if(flag_interested_tb_prev == 1 && flag_interested_tb == 1) {
+    } else if(static_flag_interested_tb_prev == 1 && static_flag_interested_tb == 1) {
         runtime_env->addMemoMergePoint(NormalTb);
     }
-#endif
 
-    /* 5. runtime information dumped before the exeuction of current TB
-     * Including:
-     *      3. empty SyncTable for Memory Monitor
-     */
-    if(flag_rt_dump_enable) {
-        assert(crete_pre_post_flag == false);
-        crete_pre_post_flag = true;
-
-        //3. keep a copy of the cpuState before the execution of a potential insterested tb
-        runtime_env->setCPUStatePreInterest((void *)env);
-
-        //4. MemosyncTable
-#if defined(CRETE_DBG_MEM_MONI)
+    if(tb_pre_interested)
+    {
         runtime_env->addMemoSyncTable();
+    }
 #endif
-        runtime_env->clearCurrentMemoSyncTable();
-
-        ++rt_dump_tb_count;
-    } else {
-        runtime_env->resetCPUStatePreInterest();
-    } // if(flag_rt_dump_enable)
 }
 
 // Ret: whether the current tb is interested after post_runtime_dump
@@ -1613,11 +1599,12 @@ void crete_pre_cpu_tb_exec(void *qemuCpuState, TranslationBlock *tb)
 int crete_post_cpu_tb_exec(void *qemuCpuState, TranslationBlock *input_tb, uint64_t next_tb,
         uint64_t crete_interrupted_pc)
 {
-    if(flag_rt_dump_enable)
-    {
-        assert(crete_pre_post_flag);
-        crete_pre_post_flag = false;
-    }
+//    CRETE_DBG_GEN(cerr << "crete_post_cpu_tb_exec()\n";);
+
+    // 0. Sanity check
+    assert(crete_pre_post_flag);
+    crete_pre_post_flag = false;
+    assert(qemuCpuState == g_cpuState_bct && "[CRETE ERROR] Global pointer to CPU State is changed.\n");
 
     CRETE_DBG_INT(
     if(is_begin_capture && is_target_pid)
@@ -1626,17 +1613,17 @@ int crete_post_cpu_tb_exec(void *qemuCpuState, TranslationBlock *input_tb, uint6
     }
     );
 
-	if(!flag_interested_tb) {
-	    // Set runtime_env->m_cpuState_post_insterest
-	    if(flag_interested_tb_prev == 1 && flag_interested_tb == 0) {
+	if(!static_flag_interested_tb)
+	{
+	    if(static_flag_interested_tb_prev)
+	    {
 	        runtime_env->setFlagCPUStatePostInterest();
 	    }
 
 	    return 0;
 	}
 
-	assert(flag_interested_tb);
-
+	// Use a copy of current input_tb for tracing, so that the input_tb will not be touched
 	TranslationBlock tb;
 	memcpy(&tb, input_tb, sizeof(TranslationBlock));
 
@@ -1645,15 +1632,14 @@ int crete_post_cpu_tb_exec(void *qemuCpuState, TranslationBlock *input_tb, uint6
 
     //reverse runtime tracing: initial cpuState/memory/Regs, if:
     // 1. the current tb was not executed OR
-    // 2. the current tb does not have symbolic operations
+    // 2. the current tb does not have symbolic operations OR
     // 3. the current tb was interrupted at the first instruction
     bool reverse = !is_current_tb_executed || !crete_tci_is_current_block_symbolic() ||
             (tb.pc == crete_interrupted_pc);
-//    bool reverse = !is_current_tb_executed || (!crete_tci_is_current_block_symbolic() &&
-//            !crete_tci_is_previous_block_symbolic());
 
-    if(reverse) {
-        flag_interested_tb = 0;
+    if(reverse)
+    {
+        static_flag_interested_tb = false;
     	flag_rt_dump_enable = 0;
     	--rt_dump_tb_count;
     	runtime_env->reverseTBDump(qemuCpuState);
@@ -1666,7 +1652,8 @@ int crete_post_cpu_tb_exec(void *qemuCpuState, TranslationBlock *input_tb, uint6
     } else {
     	// Otherwise, finish-up tracing: instruction sequence, translation context, interrupt states,
         // and CPUStateSyncTable
-        if(rt_dump_tb_count == 1) {
+        if(rt_dump_tb_count == 1)
+        {
             runtime_env->addInitialCpuState();
         }
 
@@ -1691,7 +1678,8 @@ int crete_post_cpu_tb_exec(void *qemuCpuState, TranslationBlock *input_tb, uint6
             // add empty table for the first interested tb
             runtime_env->addEmptyCPUStateSyncTable();
         } else {
-            if(flag_interested_tb_prev == 0){
+            if(!static_flag_interested_tb_prev)
+            {
                 runtime_env->addcpuStateSyncTable();
             } else {
                 runtime_env->addEmptyCPUStateSyncTable();
@@ -1707,7 +1695,8 @@ int crete_post_cpu_tb_exec(void *qemuCpuState, TranslationBlock *input_tb, uint6
         runtime_env->addDebugCpuStateSyncTable(qemuCpuState);
 
         // 3. Memory Monitoring
-        if(flag_interested_tb_prev == 0){
+        if(!static_flag_interested_tb_prev)
+        {
             runtime_env->addCurrentMemoSyncTable();
         } else {
             runtime_env->mergeCurrentMemoSyncTable();
@@ -1729,7 +1718,7 @@ int crete_post_cpu_tb_exec(void *qemuCpuState, TranslationBlock *input_tb, uint6
     }
 
     // Set runtime_env->m_cpuState_post_insterest
-    if(flag_interested_tb_prev == 1 && flag_interested_tb == 0) {
+    if(static_flag_interested_tb_prev && !static_flag_interested_tb) {
         runtime_env->setFlagCPUStatePostInterest();
     }
 

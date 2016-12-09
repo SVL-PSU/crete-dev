@@ -223,7 +223,7 @@ static inline tcg_target_ulong cpu_tb_exec(CPUState *cpu, uint8_t *tb_ptr)
 
 #if defined(CRETE_DEP_ANALYSIS) || 1
 //    if(crete_flags_is_true(g_crete_flags))
-    if(is_begin_capture && is_target_pid && !is_processing_interrupt)
+    if(f_crete_enabled)
     {
         next_tb = crete_tcg_qemu_tb_exec(env, tb_ptr);
 
@@ -476,11 +476,6 @@ int cpu_exec(CPUArchState *env)
 
             next_tb = 0; /* force lookup of first TB */
             for(;;) {
-#if defined(CRETE_CONFIG) || 1
-                is_target_pid = (env->cr[3] == g_crete_target_pid);
-                is_begin_capture = (g_custom_inst_emit == 1);
-#endif //#if defined(CRETE_CONFIG)
-
                 interrupt_request = cpu->interrupt_request;
                 if (unlikely(interrupt_request)) {
                     if (unlikely(cpu->singlestep_enabled & SSTEP_NOIRQ)) {
@@ -580,6 +575,7 @@ int cpu_exec(CPUArchState *env)
 #if defined(CRETE_CONFIG) || 1
                     if(cpu->env_ptr != env)
                         assert(0);
+
                     crete_post_cpu_tb_exec(cpu->env_ptr, tb, next_tb, 0);
                     assert((next_tb&TB_EXIT_MASK) != TB_EXIT_ICOUNT_EXPIRED);
 

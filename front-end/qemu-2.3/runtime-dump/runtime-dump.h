@@ -17,6 +17,8 @@ struct CreteFlags;
 
 /*****************************/
 /* Globals for QEMU c code */
+extern int f_crete_enabled;
+
 extern struct RuntimeEnv *runtime_env;
 extern struct CreteFlags *g_crete_flags;
 
@@ -24,17 +26,12 @@ extern struct TranslationBlock *rt_dump_tb;
 extern uint64_t rt_dump_tb_count;
 extern uint64_t nb_captured_llvm_tb;
 
+extern int f_crete_is_loading_code;
+
 extern int flag_rt_dump_enable;
-extern int flag_interested_tb;
-extern int flag_interested_tb_prev;
 
 // Enabled/Disabled on capture_begin/end. Can be disabled on command (e.g., crete_debug_capture()).
 extern int crete_flag_capture_enabled;
-
-extern int is_begin_capture;
-extern int is_target_pid;
-extern int is_user_code;
-extern int is_processing_interrupt;
 
 extern uint64_t g_crete_target_pid;
 extern int g_custom_inst_emit;
