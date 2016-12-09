@@ -34,8 +34,6 @@ void crete_add_c_cpuState_offset(uint64_t offset, uint64_t size);
 
 void crete_verify_cpuState_offset_c_cxx(void);
 
-extern bool crete_pre_post_flag;
-
 #ifdef __cplusplus
 }
 #endif
