@@ -1190,6 +1190,18 @@ static void handle_even_inj(CPUX86State *env, int intno, int is_int,
 static void do_interrupt_all(X86CPU *cpu, int intno, int is_int,
                              int error_code, target_ulong next_eip, int is_hw)
 {
+#if defined(CONFIG_CRETE) || 1
+    CRETE_DBG_INT(
+    fprintf(stderr, "do_interrupt_all() entered: intno = %d, is_int = %d, "
+            "error_code = %d, next_eip = %lu, is_hw = %d, "
+            "env->eip = %p\n",
+            intno, is_int, error_code, (uint64_t)next_eip, is_hw,
+            (void *)(uint64_t)cpu->env.eip);
+    );
+
+    crete_handle_do_interrupt_all(&cpu->env, intno, is_int, error_code, next_eip, is_hw);
+#endif
+
     CPUX86State *env = &cpu->env;
 
     if (qemu_loglevel_mask(CPU_LOG_INT)) {

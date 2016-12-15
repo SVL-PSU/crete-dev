@@ -172,11 +172,11 @@ bool Analyzer::is_tcg_reg_symbolic(uint64_t index, uint64_t data)
         } else {
             tcg_regs_[index].first = false;
 
-#if defined(CRETE_DBG_CK)
+            CRETE_DBG_GEN(
             fprintf(stderr, "[CRETE Warning] TA: is_tcg_reg_symbolic() "
                     "potential under-taint-analysis: tcg_regs_[%lu] is changed "
                     "while is tainted.\n", index);
-#endif
+            );
         }
     }
 
@@ -227,13 +227,13 @@ bool Analyzer::is_guest_mem_symbolic(uint64_t addr, uint64_t size, uint64_t data
                         (void *)(addr+i));
 #endif
         } else {
-            guest_mem_.erase(it);
-
-#if defined(CRETE_DBG_CK)
+            CRETE_DBG_GEN(
             fprintf(stderr, "[CRETE Warning] TA: is_guest_mem_symbolic() "
-                    "potential under-taint-analysis: (%p) is changed "
-                    "while is tainted.\n", (void *)(addr + i));
-#endif
+                    "potential under-taint-analysis: (%p) is changed (from %d to %d)"
+                    "while is tainted.\n", (void *)(addr + i), guest_mem_[addr+i], byte_value);
+            );
+
+            guest_mem_.erase(it);
         }
     }
 
@@ -280,9 +280,9 @@ bool Analyzer::is_previous_block_symbolic()
 
 void Analyzer::mark_block_symbolic()
 {
-#if defined(CRETE_DBG_CK)
+    CRETE_DBG_GEN(
     fprintf(stderr, "Analyzer::mark_block_symbolic()\n");
-#endif
+    );
 
     current_block_.symbolic_block_ = true;
 }
@@ -322,11 +322,11 @@ bool Analyzer::is_host_mem_symbolic(uint64_t base_addr, uint64_t offset, uint64_
             } else {
                 guest_vcpu_regs_[offset + i].first = false;
 
-#if defined(CRETE_DBG_CK)
-            fprintf(stderr, "[CRETE Warning] TA: vcpu in is_host_mem_symbolic() "
-                    "potential under-taint-analysis: offset = %lu is changed while is tainted.\n",
-                    (offset + i));
-#endif
+                CRETE_DBG_GEN(
+                fprintf(stderr, "[CRETE Warning] TA: vcpu in is_host_mem_symbolic() "
+                        "potential under-taint-analysis: offset = %lu is changed while is tainted.\n",
+                        (offset + i));
+                );
             }
         }
 
@@ -352,11 +352,11 @@ bool Analyzer::is_host_mem_symbolic(uint64_t base_addr, uint64_t offset, uint64_
             } else {
                 tcg_call_stack_mem_.erase(it);
 
-#if defined(CRETE_DBG_CK)
+                CRETE_DBG_GEN(
                 fprintf(stderr, "[CRETE Warning] TA: tcg_call_stack_mem_ in is_host_mem_symbolic() "
                         "potential under-taint-analysis: (%ld) is changed "
                         "while is tainted.\n", (int64_t)(offset + i));
-#endif
+                );
             }
         }
     } else {

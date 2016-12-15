@@ -102,49 +102,7 @@ static void QEMU_NORETURN raise_interrupt2(CPUX86State *env, int intno,
                                            int next_eip_addend)
 {
 #if defined(CRETE_CONFIG) || 1
-    // Ignore all the interrupts caused by loading code:
-    // Neither log it, nor call crete_post_cpu_tb_exec()
-    if(!f_crete_is_loading_code)
-    {
-        CRETE_DBG_INT(
-        fprintf(stderr, "[Interrupt] f_crete_enabled = %d: "
-                "tb-%lu (pc-%p) calls into raise_interrupt2().\n",
-                f_crete_enabled, rt_dump_tb_count - 1, (void *)(uint64_t)rt_dump_tb->pc);
-
-        fprintf(stderr, "Interrupt Info: intno = %d, is_int = %d, "
-                "error_code = %d, next_eip_addend = %d,"
-                "env->eip = %p\n",
-                intno, is_int, error_code,
-                next_eip_addend, (void *)(uint64_t)env->eip);
-
-        if(is_int && next_eip_addend)
-        {
-            fprintf(stderr, "[CRETE Warning] next_eip_addend is not zero. Check whether the precise "
-                    "interrupt reply is correct. [check gen_intermediate_code_crete()]\n");
-        }
-        );
-
-        // All the other interrupts from the middle of a TB execution
-        // should go into the same closure (crete_post_cpu_tb_exec())
-        // 0 means the current TB has been executed but stopped in the middle (until env->eip)
-        if(crete_post_cpu_tb_exec(env, rt_dump_tb, 0, env->eip))
-        {
-            // FIXME: xxx should not be necessary, as interrupt should be totally invisible while replay
-            add_qemu_interrupt_state(runtime_env, intno, is_int, error_code, next_eip_addend);
-        }
-
-        // When the interrupt is raised while g_crete_enabled is on,
-        // call set_interrupt_process_info() to set the return-pc of the interrupt.
-        // g_crete_enabled is being turned off until the interrupt returns to the return-pc
-        if(f_crete_enabled)
-        {
-            // FIXME: xxx check whether next_eip_addend should always be added to the current eip for
-            //      calculating the return addr of the interrupt
-            set_interrupt_process_info(runtime_env, (target_ulong)(env->eip + next_eip_addend));
-        }
-    } else {
-        f_crete_is_loading_code = 0;
-    }
+    crete_handle_raise_interrupt(env, intno, is_int, error_code, next_eip_addend);
 #endif
 
     CPUState *cs = CPU(x86_env_get_cpu(env));

@@ -60,9 +60,10 @@ int  crete_post_cpu_tb_exec(void *qemuCpuState, TranslationBlock *tb,
 void dump_memo_sync_table_entry(struct RuntimeEnv *rt, uint64_t addr,
 		uint32_t size, uint64_t value);
 
-void add_qemu_interrupt_state(struct RuntimeEnv *rt,
-		int intno, int is_int, int error_code, int next_eip_addend);
-void set_interrupt_process_info(struct RuntimeEnv *rt, uint64_t next_eip);
+void crete_handle_raise_interrupt(void *env, int intno,
+        int is_int, int error_code, int next_eip_addend);
+void crete_handle_do_interrupt_all(void *qemuCPUState, int intno,
+        int is_int, int error_code, uint64_t next_eip, int is_hw);
 
 void crete_set_capture_enabled(struct CreteFlags *cf, int capture_enabled);
 int  crete_flags_is_true(struct CreteFlags *cf);
