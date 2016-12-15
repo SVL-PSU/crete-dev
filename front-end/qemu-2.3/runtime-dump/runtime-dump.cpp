@@ -1487,8 +1487,6 @@ void crete_runtime_dump_close()
 
 void crete_pre_cpu_tb_exec(void *qemuCpuState, TranslationBlock *tb)
 {
-//    CRETE_DBG_GEN(cerr << "crete_pre_cpu_tb_exec()\n";);
-
     // 0. Sanity check
     assert(!crete_pre_post_flag);
     crete_pre_post_flag = true;
@@ -1542,11 +1540,9 @@ void crete_pre_cpu_tb_exec(void *qemuCpuState, TranslationBlock *tb)
     flag_rt_dump_enable = tb_pre_interested;
 
 #if defined(CRETE_DEBUG_GENERAL)
-    //    if(is_begin_capture && is_target_pid && is_user_code)
-//    if(is_interested_tb)
     {
         std::cerr << "\n[PRE] TB-PC = " << (void *)(uint64_t)tb->pc
-                << " (interrupt = " << is_processing_interrupt << ")"<< std::endl;
+                << "(" << f_crete_enabled << " " << (void *)(uint64_t)env->eip << ")" << endl;
 
         if(is_in_list_crete_dbg_tb_pc(tb->pc))
         {
@@ -1564,14 +1560,17 @@ void crete_pre_cpu_tb_exec(void *qemuCpuState, TranslationBlock *tb)
             }
         }
     }
+#endif
 
     CRETE_DBG_INT(
-    if(is_begin_capture && is_target_pid)
+    if(f_crete_enabled)
     {
+        dump_dbg_ir(env, tb);
+
         runtime_env->check_dbgCPUStatePostInterest(qemuCpuState);
     }
+
     );
-#endif
 
 #if defined(CRETE_DBG_MEM_MONI)
     if(static_flag_interested_tb_prev == 0 && static_flag_interested_tb == 1) {
@@ -1599,15 +1598,13 @@ void crete_pre_cpu_tb_exec(void *qemuCpuState, TranslationBlock *tb)
 int crete_post_cpu_tb_exec(void *qemuCpuState, TranslationBlock *input_tb, uint64_t next_tb,
         uint64_t crete_interrupted_pc)
 {
-//    CRETE_DBG_GEN(cerr << "crete_post_cpu_tb_exec()\n";);
-
     // 0. Sanity check
     assert(crete_pre_post_flag);
     crete_pre_post_flag = false;
     assert(qemuCpuState == g_cpuState_bct && "[CRETE ERROR] Global pointer to CPU State is changed.\n");
 
     CRETE_DBG_INT(
-    if(is_begin_capture && is_target_pid)
+    if(f_crete_enabled)
     {
         runtime_env->set_dbgCPUStatePostInterest(qemuCpuState);
     }
@@ -1619,6 +1616,12 @@ int crete_post_cpu_tb_exec(void *qemuCpuState, TranslationBlock *input_tb, uint6
 	    {
 	        runtime_env->setFlagCPUStatePostInterest();
 	    }
+
+	    CRETE_DBG_GEN(
+	    fprintf(stderr, "0 - [POST] uninterested-pre tb-%lu (pc-%p): pre uninterested. ",
+                rt_dump_tb_count - 1, (void *)(uint64_t)rt_dump_tb->pc);
+	    cerr << "(env->eip:" << (void *)(uint64_t)((CPUArchState *)qemuCpuState)->eip << ")" << endl;
+	    );
 
 	    return 0;
 	}
@@ -1732,9 +1735,12 @@ int crete_post_cpu_tb_exec(void *qemuCpuState, TranslationBlock *input_tb, uint6
 
 #if defined(CRETE_DEBUG_GENERAL)
     if(is_post_interested_tb) {
-        fprintf(stderr, "1 - [POST] interested tb-%lu (pc-%p), crete_interrupted_pc = %p\n",
+        fprintf(stderr, "1 - [POST] interested tb-%lu (pc-%p), crete_interrupted_pc = %p",
                 rt_dump_tb_count - 1, (void *)(uint64_t)rt_dump_tb->pc, (void *)crete_interrupted_pc);
-        if(is_in_list_crete_dbg_tb_pc(tb.pc)){
+        cerr << "(env->eip:" << (void *)(uint64_t)((CPUArchState *)qemuCpuState)->eip << ")" << endl;
+
+        if(is_in_list_crete_dbg_tb_pc(tb.pc))
+        {
             CPUArchState* env = (CPUArchState *)qemuCpuState;
             fprintf(stderr, "crete_post_cpu_tb_exec():");
 
@@ -1759,17 +1765,25 @@ int crete_post_cpu_tb_exec(void *qemuCpuState, TranslationBlock *input_tb, uint6
         assert(reverse);
 
         if(!is_current_tb_executed)
-            fprintf(stderr, "0 - [POST] reversing tb-%lu (pc-%p): TB not executed\n",
+        {
+            fprintf(stderr, "0 - [POST] reversing tb-%lu (pc-%p): TB not executed.",
                                         rt_dump_tb_count, (void *)(uint64_t)rt_dump_tb->pc);
+            cerr << "(env->eip:" << (void *)(uint64_t)((CPUArchState *)qemuCpuState)->eip << ")" << endl;
+        }
         else if (!crete_tci_is_current_block_symbolic())
-            fprintf(stderr, "0 - [POST] reversing tb-%lu (pc-%p): TB not symbolic.\n",
+        {
+            fprintf(stderr, "0 - [POST] reversing tb-%lu (pc-%p): TB not symbolic.",
                                         rt_dump_tb_count, (void *)(uint64_t)rt_dump_tb->pc);
+            cerr << "(env->eip:" << (void *)(uint64_t)((CPUArchState *)qemuCpuState)->eip << ")" << endl;
+        }
         else if (tb.pc == crete_interrupted_pc)
-            fprintf(stderr, "0 - [POST] reversing tb-%lu (pc-%p): TB being interrupted at the first instruction.\n",
+        {
+            fprintf(stderr, "0 - [POST] reversing tb-%lu (pc-%p): TB being interrupted at the first instruction.",
                                         rt_dump_tb_count, (void *)(uint64_t)rt_dump_tb->pc);
+            cerr << "(env->eip:" << (void *)(uint64_t)((CPUArchState *)qemuCpuState)->eip << ")" << endl;
+        }
         else
             assert(0);
-
     }
 #endif
 
@@ -1782,17 +1796,145 @@ int crete_post_cpu_tb_exec(void *qemuCpuState, TranslationBlock *input_tb, uint6
     return is_post_interested_tb;
 }
 
-void add_qemu_interrupt_state(struct RuntimeEnv *rt,
-        int intno, int is_int, int error_code, int next_eip_addend)
+// Record the entry of interrupt if it is raised from the interested PID,
+// and the current process is not hanlding interrupt
+static void crete_process_int_load_code(void *qemuCPUState, int intno,
+        int is_int, int error_code, int next_eip_addend)
 {
-    QemuInterruptInfo interrup_info(intno, is_int, error_code, next_eip_addend);
+    // runtime_env is not initialized until is_begin_capture
+    bool is_begin_capture = (g_custom_inst_emit == 1);
+    if(!is_begin_capture) return;
 
-    rt->addQemuInterruptState(interrup_info);
+    CPUArchState *env = (CPUArchState *)qemuCPUState;
+
+    bool is_target_pid = (env->cr[3] == g_crete_target_pid);
+    if(is_target_pid)
+    {
+        // Use 0 as input tb-pc to indicate the current interrupt is not from executing a TB
+        bool is_processing_interrupt = runtime_env->check_interrupt_process_info(0);
+        if(!is_processing_interrupt)
+        {
+            runtime_env->set_interrupt_process_info((target_ulong)(env->eip + next_eip_addend));
+        }
+    }
+
+    CRETE_DBG_INT(
+    cerr << "crete_process_int_load_code(): is_target_pid = " << is_target_pid << endl;
+    );
 }
 
-void set_interrupt_process_info(struct RuntimeEnv *rt, uint64_t next_eip)
+//
+static void crete_process_int_exec_code(void *qemuCPUState, int intno,
+        int is_int, int error_code, int next_eip_addend)
 {
-    rt->set_interrupt_process_info(next_eip);
+
+    CPUArchState *env = (CPUArchState *)qemuCPUState;
+
+    // All the interrupts from the middle of a TB execution
+    // should go into the same closure (crete_post_cpu_tb_exec())
+    // 0 means the current TB has been executed but stopped in the middle (until env->eip)
+    if(crete_post_cpu_tb_exec(env, rt_dump_tb, 0, env->eip))
+    {
+        // FIXME: xxx should not be necessary, as interrupt should be totally invisible while replay
+        QemuInterruptInfo interrup_info(intno, is_int, error_code, next_eip_addend);
+        runtime_env->addQemuInterruptState(interrup_info);
+    }
+
+    // When the interrupt is raised while g_crete_enabled is on,
+    // call set_interrupt_process_info() to set the return-pc of the interrupt.
+    // g_crete_enabled is being turned off until the interrupt returns to the return-pc
+    if(f_crete_enabled)
+    {
+        // FIXME: xxx check whether next_eip_addend should always be added to the current eip for
+        //      calculating the return addr of the interrupt
+        runtime_env->set_interrupt_process_info((target_ulong)(env->eip + next_eip_addend));
+    }
+}
+
+void crete_handle_raise_interrupt(void *qemuCPUState, int intno,
+        int is_int, int error_code, int next_eip_addend)
+{
+    CRETE_DBG_INT(
+    CPUArchState *env = (CPUArchState *)qemuCPUState;
+
+    fprintf(stderr, "[crete_handle_raise_interrupt] f_crete_enabled = %d, f_crete_is_loading_code = %d\n"
+            "tb-%lu (pc-%p) calls into raise_interrupt2().\n",
+            f_crete_enabled, (int)f_crete_is_loading_code,
+            rt_dump_tb_count - 1, (void *)(uint64_t)rt_dump_tb->pc);
+
+    fprintf(stderr, "Interrupt Info: intno = %d, is_int = %d, "
+            "error_code = %d, next_eip_addend = %d,"
+            "env->eip = %p\n",
+            intno, is_int, error_code,
+            next_eip_addend, (void *)(uint64_t)env->eip);
+
+    if(is_int && next_eip_addend)
+    {
+        fprintf(stderr, "[CRETE Warning] next_eip_addend is not zero. Check whether the precise "
+                "interrupt reply is correct. [check gen_intermediate_code_crete()]\n");
+    }
+    );
+
+    if(f_crete_is_loading_code)
+    {
+        // Handle interrupt (page fault) raised from loading code
+        f_crete_is_loading_code = 0;
+        crete_process_int_load_code(qemuCPUState, intno,
+                    is_int, error_code, next_eip_addend);
+    } else {
+        // Handle interrupt raised from executing code
+        crete_process_int_exec_code(qemuCPUState, intno,
+                    is_int, error_code, next_eip_addend);
+    }
+}
+
+// Set set_interrupt_process_info() for hardware interrupt.
+// Software interrupt raised from executing/loading program were
+// set by crete_handle_raise_interrupt()
+void crete_handle_do_interrupt_all(void *qemuCPUState, int intno,
+        int is_int, int error_code, uint64_t next_eip, int is_hw)
+{
+    // runtime_env is not initialized until is_begin_capture
+    bool is_begin_capture = (g_custom_inst_emit == 1);
+    if(!is_begin_capture) return;
+
+    CRETE_DBG_INT(
+    CPUArchState *env = (CPUArchState *)qemuCPUState;
+
+    fprintf(stderr, "[crete_handle_do_interrupt_all] "
+            "f_crete_enabled = %d, f_crete_is_loading_code = %d\n",
+            f_crete_enabled, (int)f_crete_is_loading_code);
+
+    fprintf(stderr, "Interrupt Info: intno = %d, is_int = %d, "
+            "error_code = %d, next_eip = %p, is_hw = %d"
+            "env->eip = %p\n",
+            intno, is_int, error_code, (void *)next_eip, is_hw,
+            (void *)(uint64_t)env->eip);
+
+    if(is_int)
+    {
+        fprintf(stderr, "[CRETE Warning] is_int is not zero. Check whether the precise "
+                "interrupt reply is correct. [check gen_intermediate_code_crete()]\n");
+    }
+    );
+
+    CPUArchState *env = (CPUArchState *)qemuCPUState;
+
+    bool is_target_pid = (env->cr[3] == g_crete_target_pid);
+    if(is_target_pid)
+    {
+        // Use 0 as input tb-pc to indicate the current interrupt is not from executing a TB
+        bool is_processing_interrupt = runtime_env->check_interrupt_process_info(0);
+        if(!is_processing_interrupt)
+        {
+            runtime_env->set_interrupt_process_info((target_ulong)env->eip);
+            assert(is_hw);
+        }
+    }
+
+    CRETE_DBG_INT(
+    cerr << "crete_handle_do_interrupt_all(): is_target_pid = " << is_target_pid << endl;
+    );
 }
 
 void dump_memo_sync_table_entry(struct RuntimeEnv *rt, uint64_t addr, uint32_t size, uint64_t value)

@@ -222,10 +222,17 @@ static inline tcg_target_ulong cpu_tb_exec(CPUState *cpu, uint8_t *tb_ptr)
     cpu->can_do_io = 0;
 
 #if defined(CRETE_DEP_ANALYSIS) || 1
-//    if(crete_flags_is_true(g_crete_flags))
     if(f_crete_enabled)
     {
+        CRETE_DBG_GEN(
+        fprintf(stderr, "before crete_tcg_qemu_tb_exec()");
+        );
+
         next_tb = crete_tcg_qemu_tb_exec(env, tb_ptr);
+
+        CRETE_DBG_GEN(
+        fprintf(stderr, "after crete_tcg_qemu_tb_exec()");
+        );
 
 #if defined(CRETE_DEBUG)
         fprintf(stderr, "+++\n");
@@ -443,6 +450,12 @@ int cpu_exec(CPUArchState *env)
 
     /* prepare setjmp context for exception handling */
     for(;;) {
+        CRETE_DBG_GEN(
+        fprintf(stderr, "=== Start: cpu_exec() ext loop: "
+                "interrupt_request = %u, exception_index = %d\n",
+                cpu->interrupt_request, cpu->exception_index);
+        );
+
         if (sigsetjmp(cpu->jmp_env, 0) == 0) {
             /* if an exception is pending, we execute it here */
             if (cpu->exception_index >= 0) {
@@ -476,6 +489,12 @@ int cpu_exec(CPUArchState *env)
 
             next_tb = 0; /* force lookup of first TB */
             for(;;) {
+                CRETE_DBG_GEN(
+                fprintf(stderr, "--- Start: cpu_exec() inner loop: "
+                        "interrupt_request = %u, exception_index = %d\n",
+                        cpu->interrupt_request, cpu->exception_index);
+                );
+
                 interrupt_request = cpu->interrupt_request;
                 if (unlikely(interrupt_request)) {
                     if (unlikely(cpu->singlestep_enabled & SSTEP_NOIRQ)) {
@@ -627,6 +646,12 @@ int cpu_exec(CPUArchState *env)
                 align_clocks(&sc, cpu);
                 /* reset soft MMU for next block (it can currently
                    only be set by a memory fault) */
+
+                CRETE_DBG_GEN(
+                fprintf(stderr, "--- End: cpu_exec() inner loop : "
+                        "interrupt_request = %u, exception_index = %d\n",
+                        cpu->interrupt_request, cpu->exception_index);
+                );
             } /* for(;;) */
         } else {
             /* Reload env after longjmp - the compiler may have smashed all
@@ -643,6 +668,12 @@ int cpu_exec(CPUArchState *env)
                 have_tb_lock = false;
             }
         }
+
+        CRETE_DBG_GEN(
+        fprintf(stderr, "=== Finish: cpu_exec() ext loop: "
+                "interrupt_request = %u, exception_index = %d\n",
+                cpu->interrupt_request, cpu->exception_index);
+        );
     } /* for(;;) */
 
     cc->cpu_exec_exit(cpu);
