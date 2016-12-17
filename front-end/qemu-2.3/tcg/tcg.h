@@ -697,6 +697,22 @@ static inline bool tcg_op_buf_full(void)
     return tcg_op_buf_count() >= OPC_MAX_SIZE;
 }
 
+#if defined(CRETE_CONFIG) || 1
+static inline bool crete_tcg_op_buf_full(bool caller_crete)
+{
+    bool ret = false;
+
+    // FIXME: xxx " + 3" is hard coded as gen_tb_start() produced
+    // 3 tcg_op which is skipped by crete's tb translation
+    if(caller_crete && ((tcg_op_buf_count() + 3) >= OPC_MAX_SIZE))
+    {
+        ret = true;
+    }
+
+    return ret;
+}
+#endif
+
 /* pool based memory allocation */
 
 void *tcg_malloc_internal(TCGContext *s, int size);

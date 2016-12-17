@@ -634,6 +634,10 @@ void RuntimeEnv::init_debug_cpuState_offsets(const vector<pair<string, pair<uint
 
 void RuntimeEnv::set_dbgCPUStatePostInterest(const void *src)
 {
+    CRETE_DBG_INT(
+    cerr << "set_dbgCPUStatePostInterest()\n" << endl;
+    );
+
     assert(src);
     memcpy(m_dbg_cpuState_post_interest, src,
             sizeof(CPUArchState));
@@ -645,6 +649,10 @@ void RuntimeEnv::check_dbgCPUStatePostInterest(const void *src)
             (const CPUArchState *)src);
     if(differs.empty())
     {
+        CRETE_DBG_GEN(
+        cerr << "check_dbgCPUStatePostInterest(): passed\n";
+        );
+
         return;
     }
 
@@ -668,6 +676,8 @@ void RuntimeEnv::check_dbgCPUStatePostInterest(const void *src)
 
         cerr << "]\n";
     }
+
+    cerr << "check_dbgCPUStatePostInterest(): failed\n";
 }
 
 /********************************************************/
