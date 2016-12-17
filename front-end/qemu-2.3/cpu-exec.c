@@ -224,15 +224,7 @@ static inline tcg_target_ulong cpu_tb_exec(CPUState *cpu, uint8_t *tb_ptr)
 #if defined(CRETE_DEP_ANALYSIS) || 1
     if(f_crete_enabled)
     {
-        CRETE_DBG_GEN(
-        fprintf(stderr, "before crete_tcg_qemu_tb_exec()");
-        );
-
         next_tb = crete_tcg_qemu_tb_exec(env, tb_ptr);
-
-        CRETE_DBG_GEN(
-        fprintf(stderr, "after crete_tcg_qemu_tb_exec()");
-        );
 
 #if defined(CRETE_DEBUG)
         fprintf(stderr, "+++\n");
