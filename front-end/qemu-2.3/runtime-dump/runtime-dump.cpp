@@ -1500,6 +1500,8 @@ void crete_pre_cpu_tb_exec(void *qemuCpuState, TranslationBlock *tb)
     // 0. Sanity check
     assert(!crete_pre_post_flag);
     crete_pre_post_flag = true;
+    assert(!crete_tci_is_current_block_symbolic());
+
 
     // 1. set globals
     g_cpuState_bct = (CPUArchState *)qemuCpuState;
@@ -1523,8 +1525,7 @@ void crete_pre_cpu_tb_exec(void *qemuCpuState, TranslationBlock *tb)
 
     // 3. manual code selection
     //bool is_user_code = (tb->pc < USER_CODE_RANGE);
-    //bool is_in_exclude_filter = crete_is_pc_in_exclude_filter_range(tb->pc);
-    //bool manual_code_selection_passed = is_user_code && !is_in_exclude_filter;
+    //bool manual_code_selection_passed = is_user_code;
     bool manual_code_selection_passed = true;
 
     // 4. the current tb is pre-interested, if f_crete_enabled and pass manual code selection
@@ -1566,8 +1567,8 @@ void crete_pre_cpu_tb_exec(void *qemuCpuState, TranslationBlock *tb)
                     byte_value = *(ptr_addr + i);
                     fprintf(stderr, " 0x%02x", byte_value);
                 }
-                fprintf(stderr, "]\n");
             }
+            fprintf(stderr, "\n");
         }
     }
 #endif
@@ -1613,6 +1614,10 @@ int crete_post_cpu_tb_exec(void *qemuCpuState, TranslationBlock *input_tb, uint6
     crete_pre_post_flag = false;
     assert(qemuCpuState == g_cpuState_bct && "[CRETE ERROR] Global pointer to CPU State is changed.\n");
 
+    bool is_begin_capture = (g_custom_inst_emit == 1);
+    if(!is_begin_capture) return 0;
+
+#if defined(CRETE_DEBUG_GENERAL)
     CRETE_DBG_INT(
     if(f_crete_enabled)
     {
@@ -1620,180 +1625,184 @@ int crete_post_cpu_tb_exec(void *qemuCpuState, TranslationBlock *input_tb, uint6
     }
     );
 
-	if(!static_flag_interested_tb)
+    bool dbg_input_static_flag_interested_tb = static_flag_interested_tb;
+    bool dbg_is_current_tb_symbolic = crete_tci_is_current_block_symbolic();
+    bool dbg_reversed;
+    bool dbg_is_current_tb_executed;
+#endif
+
+    int is_post_interested_tb = 0;
+	if(static_flag_interested_tb)
 	{
-	    if(static_flag_interested_tb_prev)
+	    // Use a copy of current input_tb for tracing, so that the input_tb will not be touched
+	    TranslationBlock tb;
+	    memcpy(&tb, input_tb, sizeof(TranslationBlock));
+
+	    bool is_current_tb_executed = ((next_tb & TB_EXIT_MASK) <= TB_EXIT_IDX1) ? true:false;
+
+	    //reverse runtime tracing: initial cpuState/memory/Regs, if:
+	    // 1. the current tb was not executed OR
+	    // 2. the current tb does not have symbolic operations OR
+	    // 3. the current tb was interrupted at the first instruction
+	    bool reverse = !is_current_tb_executed || !crete_tci_is_current_block_symbolic() ||
+	            (tb.pc == crete_interrupted_pc);
+
+	    if(reverse)
 	    {
-	        runtime_env->setFlagCPUStatePostInterest();
+	        static_flag_interested_tb = false;
+	        flag_rt_dump_enable = 0;
+	        --rt_dump_tb_count;
+	        runtime_env->reverseTBDump(qemuCpuState);
+
+	        is_post_interested_tb = 0;
+
+	        // NOTE: streaming tracing only being called after the execution of a un-interested TB
+	        //       for the favor of memory-monitoring (MM needs to do merge)
+	        runtime_env->stream_writeRtEnvToFile(rt_dump_tb_count);
+	    } else {
+	        // Otherwise, finish-up tracing: instruction sequence, translation context, interrupt states,
+	        // and CPUStateSyncTable
+	        if(rt_dump_tb_count == 1)
+	        {
+	            runtime_env->addInitialCpuState();
+	        }
+
+	        // 1. instruction sequence and its translation context
+	        if(crete_interrupted_pc != 0){
+	            assert(runtime_env != NULL);
+	            runtime_env->dump_tloCtx(qemuCpuState, &tb, crete_interrupted_pc);
+	        } else if(tb.tcg_ctx_captured == 0){
+	          assert(runtime_env != NULL);
+	          runtime_env->dump_tloCtx(qemuCpuState, &tb, 0);
+
+	          // Set flag for caching traced tcg_ctx
+	          input_tb->tcg_ctx_captured = 1;
+	          input_tb->index_captured_llvm_tb = tb.index_captured_llvm_tb;
+	        }
+
+	        runtime_env->addTBExecSequ(tb.index_captured_llvm_tb, tb.pc);
+
+	        // 2. CPUState tracing:
+	        // 2.1 calculate CPUState side-effects for TBs that are "BackToInterestTb"
+	        if(rt_dump_tb_count == 1) {
+	            // add empty table for the first interested tb
+	            runtime_env->addEmptyCPUStateSyncTable();
+	        } else {
+	            if(!static_flag_interested_tb_prev)
+	            {
+	                runtime_env->addcpuStateSyncTable();
+	            } else {
+	                runtime_env->addEmptyCPUStateSyncTable();
+	            }
+	        }
+
+	        // 2.2 set the content of m_cpuState_post_insterest.second after each interested TB
+	        //    m_cpuState_post_insterest.second will only be used when the flag
+	        //    m_cpuState_post_insterest.first is set
+	        runtime_env->setCPUStatePostInterest(qemuCpuState);
+
+	        // 2.3 dump the current CPUState for cross checking on klee side
+	        runtime_env->addDebugCpuStateSyncTable(qemuCpuState);
+
+	        // 3. Memory Monitoring
+	        if(!static_flag_interested_tb_prev)
+	        {
+	            runtime_env->addCurrentMemoSyncTable();
+	        } else {
+	            runtime_env->mergeCurrentMemoSyncTable();
+	        }
+
+	        // 4. Interrupt information:
+	        //    Add an empty interrupt state for each interested TB
+	        //    A real interrupt state will replace this empty state if
+	        //    an interrupt happened.
+	        runtime_env->addEmptyQemuInterruptState();
+
+	        // 5.
+	        is_post_interested_tb = 1;
+
+	        if(rt_dump_tb_count%CRETE_TRACING_WINDOW_SIZE == 0)
+	        {
+	            runtime_env->set_pending_stream();
+	        }
 	    }
 
 	    CRETE_DBG_GEN(
-	    fprintf(stderr, "0 - [POST] uninterested-pre tb-%lu (pc-%p): pre uninterested. ",
-                rt_dump_tb_count - 1, (void *)(uint64_t)rt_dump_tb->pc);
-	    cerr << "(env->eip:" << (void *)(uint64_t)((CPUArchState *)qemuCpuState)->eip << ")" << endl;
+	    dbg_reversed = reverse;
+	    dbg_is_current_tb_executed = is_current_tb_executed;
 	    );
-
-	    return 0;
 	}
-
-	// Use a copy of current input_tb for tracing, so that the input_tb will not be touched
-	TranslationBlock tb;
-	memcpy(&tb, input_tb, sizeof(TranslationBlock));
-
-	int is_post_interested_tb = 0;
-    bool is_current_tb_executed = ((next_tb & TB_EXIT_MASK) <= TB_EXIT_IDX1) ? true:false;
-
-    //reverse runtime tracing: initial cpuState/memory/Regs, if:
-    // 1. the current tb was not executed OR
-    // 2. the current tb does not have symbolic operations OR
-    // 3. the current tb was interrupted at the first instruction
-    bool reverse = !is_current_tb_executed || !crete_tci_is_current_block_symbolic() ||
-            (tb.pc == crete_interrupted_pc);
-
-    if(reverse)
-    {
-        static_flag_interested_tb = false;
-    	flag_rt_dump_enable = 0;
-    	--rt_dump_tb_count;
-    	runtime_env->reverseTBDump(qemuCpuState);
-
-    	is_post_interested_tb = 0;
-
-    	// NOTE: streaming tracing only being called after the execution of a un-interested TB
-    	//       for the favor of memory-monitoring (MM needs to do merge)
-    	runtime_env->stream_writeRtEnvToFile(rt_dump_tb_count);
-    } else {
-    	// Otherwise, finish-up tracing: instruction sequence, translation context, interrupt states,
-        // and CPUStateSyncTable
-        if(rt_dump_tb_count == 1)
-        {
-            runtime_env->addInitialCpuState();
-        }
-
-        // 1. instruction sequence and its translation context
-        if(crete_interrupted_pc != 0){
-            assert(runtime_env != NULL);
-            runtime_env->dump_tloCtx(qemuCpuState, &tb, crete_interrupted_pc);
-        } else if(tb.tcg_ctx_captured == 0){
-          assert(runtime_env != NULL);
-          runtime_env->dump_tloCtx(qemuCpuState, &tb, 0);
-
-          // Set flag for caching traced tcg_ctx
-          input_tb->tcg_ctx_captured = 1;
-          input_tb->index_captured_llvm_tb = tb.index_captured_llvm_tb;
-        }
-
-        runtime_env->addTBExecSequ(tb.index_captured_llvm_tb, tb.pc);
-
-        // 2. CPUState tracing:
-        // 2.1 calculate CPUState side-effects for TBs that are "BackToInterestTb"
-        if(rt_dump_tb_count == 1) {
-            // add empty table for the first interested tb
-            runtime_env->addEmptyCPUStateSyncTable();
-        } else {
-            if(!static_flag_interested_tb_prev)
-            {
-                runtime_env->addcpuStateSyncTable();
-            } else {
-                runtime_env->addEmptyCPUStateSyncTable();
-            }
-        }
-
-        // 2.2 set the content of m_cpuState_post_insterest.second after each interested TB
-        //    m_cpuState_post_insterest.second will only be used when the flag
-        //    m_cpuState_post_insterest.first is set
-        runtime_env->setCPUStatePostInterest(qemuCpuState);
-
-        // 2.3 dump the current CPUState for cross checking on klee side
-        runtime_env->addDebugCpuStateSyncTable(qemuCpuState);
-
-        // 3. Memory Monitoring
-        if(!static_flag_interested_tb_prev)
-        {
-            runtime_env->addCurrentMemoSyncTable();
-        } else {
-            runtime_env->mergeCurrentMemoSyncTable();
-        }
-
-        // 4. Interrupt information:
-        //    Add an empty interrupt state for each interested TB
-        //    A real interrupt state will replace this empty state if
-        //    an interrupt happened.
-        runtime_env->addEmptyQemuInterruptState();
-
-        // 5.
-        is_post_interested_tb = 1;
-
-        if(rt_dump_tb_count%CRETE_TRACING_WINDOW_SIZE == 0)
-        {
-            runtime_env->set_pending_stream();
-        }
-    }
 
     // Set runtime_env->m_cpuState_post_insterest
     if(static_flag_interested_tb_prev && !static_flag_interested_tb) {
         runtime_env->setFlagCPUStatePostInterest();
     }
-
-    if(crete_tci_is_previous_block_symbolic())
-    {
-        runtime_env->addTBGraphExecSequ(tb.pc);
-    }
-
     runtime_env->verifyDumpData();
     crete_tci_next_block();
 
+//    if(crete_tci_is_previous_block_symbolic())
+//    {
+//        runtime_env->addTBGraphExecSequ(tb.pc);
+//    }
+
 #if defined(CRETE_DEBUG_GENERAL)
-    if(is_post_interested_tb) {
-        fprintf(stderr, "1 - [POST] interested tb-%lu (pc-%p), crete_interrupted_pc = %p",
-                rt_dump_tb_count - 1, (void *)(uint64_t)rt_dump_tb->pc, (void *)crete_interrupted_pc);
+    if(dbg_input_static_flag_interested_tb)
+    {
+        fprintf(stderr, "0 - [POST] uninterested-pre tb-%lu (pc-%p): pre uninterested. ",
+                rt_dump_tb_count - 1, (void *)(uint64_t)rt_dump_tb->pc);
         cerr << "(env->eip:" << (void *)(uint64_t)((CPUArchState *)qemuCpuState)->eip << ")" << endl;
-
-        if(is_in_list_crete_dbg_tb_pc(tb.pc))
-        {
-            CPUArchState* env = (CPUArchState *)qemuCpuState;
-            fprintf(stderr, "crete_post_cpu_tb_exec():");
-
-            {
-                uint64_t i;
-                const uint8_t *ptr_addr = (const uint8_t*)(&env->CRETE_DBG_REG);
-                uint8_t byte_value;
-                fprintf(stderr, "env->" CRETE_GET_STRING(CRETE_DBG_REG) " = [");
-                for(i = 0; i < sizeof(env->CRETE_DBG_REG); ++i) {
-                    byte_value = *(ptr_addr + i);
-                    fprintf(stderr, " 0x%02x", byte_value);
-                }
-                fprintf(stderr, "]\n");
-            }
-
-            runtime_env->printDebugCpuStateSyncTable("debug_f");
-
-            //        runtime_env->print();
-            //        print_x86_all_cpu_regs((CPUArchState *)qemuCpuState);
-        }
     } else {
-        assert(reverse);
+        if(is_post_interested_tb) {
+            fprintf(stderr, "1 - [POST] interested tb-%lu (pc-%p), crete_interrupted_pc = %p",
+                    rt_dump_tb_count - 1, (void *)(uint64_t)rt_dump_tb->pc, (void *)crete_interrupted_pc);
+            cerr << "(env->eip:" << (void *)(uint64_t)((CPUArchState *)qemuCpuState)->eip << ")" << endl;
 
-        if(!is_current_tb_executed)
-        {
-            fprintf(stderr, "0 - [POST] reversing tb-%lu (pc-%p): TB not executed.",
-                                        rt_dump_tb_count, (void *)(uint64_t)rt_dump_tb->pc);
-            cerr << "(env->eip:" << (void *)(uint64_t)((CPUArchState *)qemuCpuState)->eip << ")" << endl;
+            if(is_in_list_crete_dbg_tb_pc(input_tb->pc))
+            {
+                CPUArchState* env = (CPUArchState *)qemuCpuState;
+                fprintf(stderr, "crete_post_cpu_tb_exec():");
+
+                {
+                    uint64_t i;
+                    const uint8_t *ptr_addr = (const uint8_t*)(&env->CRETE_DBG_REG);
+                    uint8_t byte_value;
+                    fprintf(stderr, "env->" CRETE_GET_STRING(CRETE_DBG_REG) " = [");
+                    for(i = 0; i < sizeof(env->CRETE_DBG_REG); ++i) {
+                        byte_value = *(ptr_addr + i);
+                        fprintf(stderr, " 0x%02x", byte_value);
+                    }
+                    fprintf(stderr, "]\n");
+                }
+
+                runtime_env->printDebugCpuStateSyncTable("debug_f");
+
+                //        runtime_env->print();
+                //        print_x86_all_cpu_regs((CPUArchState *)qemuCpuState);
+            }
+        } else {
+            assert(dbg_reversed);
+
+            if(!dbg_is_current_tb_executed)
+            {
+                fprintf(stderr, "0 - [POST] reversing tb-%lu (pc-%p): TB not executed.",
+                                            rt_dump_tb_count, (void *)(uint64_t)rt_dump_tb->pc);
+                cerr << "(env->eip:" << (void *)(uint64_t)((CPUArchState *)qemuCpuState)->eip << ")" << endl;
+            }
+            else if (!dbg_is_current_tb_symbolic)
+            {
+                fprintf(stderr, "0 - [POST] reversing tb-%lu (pc-%p): TB not symbolic.",
+                                            rt_dump_tb_count, (void *)(uint64_t)rt_dump_tb->pc);
+                cerr << "(env->eip:" << (void *)(uint64_t)((CPUArchState *)qemuCpuState)->eip << ")" << endl;
+            }
+            else if (input_tb->pc == crete_interrupted_pc)
+            {
+                fprintf(stderr, "0 - [POST] reversing tb-%lu (pc-%p): TB being interrupted at the first instruction.",
+                                            rt_dump_tb_count, (void *)(uint64_t)rt_dump_tb->pc);
+                cerr << "(env->eip:" << (void *)(uint64_t)((CPUArchState *)qemuCpuState)->eip << ")" << endl;
+            }
+            else
+                assert(0);
         }
-        else if (!crete_tci_is_current_block_symbolic())
-        {
-            fprintf(stderr, "0 - [POST] reversing tb-%lu (pc-%p): TB not symbolic.",
-                                        rt_dump_tb_count, (void *)(uint64_t)rt_dump_tb->pc);
-            cerr << "(env->eip:" << (void *)(uint64_t)((CPUArchState *)qemuCpuState)->eip << ")" << endl;
-        }
-        else if (tb.pc == crete_interrupted_pc)
-        {
-            fprintf(stderr, "0 - [POST] reversing tb-%lu (pc-%p): TB being interrupted at the first instruction.",
-                                        rt_dump_tb_count, (void *)(uint64_t)rt_dump_tb->pc);
-            cerr << "(env->eip:" << (void *)(uint64_t)((CPUArchState *)qemuCpuState)->eip << ")" << endl;
-        }
-        else
-            assert(0);
     }
 #endif
 
