@@ -1476,15 +1476,11 @@ void RuntimeEnv::add_trace_tag(const TranslationBlock *tb, uint64_t tb_count)
             }
             );
 
-            // Adjust the m_tb_count and m_tb_pc, assuming it is a result of interrupt
+            // Adjust the m_tb_count, assuming it is a result of interrupt
             if(m_trace_tag_explored[m_trace_tag_nodes_count].m_tb_count != tag_node.m_tb_count)
             {
                 adjust_trace_tag_tb_count(m_trace_tag_explored, m_trace_tag_nodes_count,
                         tag_node.m_tb_count - m_trace_tag_explored[m_trace_tag_nodes_count].m_tb_count);
-            }
-            if(m_trace_tag_explored[m_trace_tag_nodes_count].m_tb_pc != tag_node.m_tb_pc)
-            {
-                m_trace_tag_explored[m_trace_tag_nodes_count].m_tb_pc = tag_node.m_tb_pc;
             }
 
             // Consistency check whether the input tc goes along with the same trace as in trace-tag
@@ -1514,24 +1510,34 @@ void RuntimeEnv::add_trace_tag(const TranslationBlock *tb, uint64_t tb_count)
             //    1. inconsistent taint analysis gives different trace
             if(!trace_tag_check_passed)
             {
-                fprintf(stderr, "trace-tag-node: %lu\n"
-                        "current: tb-%lu: pc=%p, last_opc = %p",
-                        m_trace_tag_nodes_count,
-                        tag_node.m_tb_count, (void *)tag_node.m_tb_pc,
-                        (void *)(uint64_t)tag_node.m_last_opc);
-                fprintf(stderr, ", br_taken = ");
-                crete::print_br_taken(tag_node.m_br_taken);
-                fprintf(stderr,"\n");
+                // Bypass inconsistent TA
+                if(m_trace_tag_explored[m_trace_tag_nodes_count].m_tb_pc != tag_node.m_tb_pc)
+                {
+                    m_trace_tag_explored.erase(m_trace_tag_explored.begin() + m_trace_tag_nodes_count,
+                            m_trace_tag_explored.end());
+                    assert(m_trace_tag_explored.size() == m_trace_tag_nodes_count);
+                    m_trace_tag_new.push_back(tag_node);
+                } else {
+                    // Report inconsistant trace-tag
+                    fprintf(stderr, "trace-tag-node: %lu\n"
+                            "current: tb-%lu: pc=%p, last_opc = %p",
+                            m_trace_tag_nodes_count,
+                            tag_node.m_tb_count, (void *)tag_node.m_tb_pc,
+                            (void *)(uint64_t)tag_node.m_last_opc);
+                    fprintf(stderr, ", br_taken = ");
+                    crete::print_br_taken(tag_node.m_br_taken);
+                    fprintf(stderr,"\n");
 
-                fprintf(stderr, "from tc: tb-%lu: pc=%p, last_opc = %p",
-                        m_trace_tag_explored[m_trace_tag_nodes_count].m_tb_count,
-                        (void *)(uint64_t)m_trace_tag_explored[m_trace_tag_nodes_count].m_tb_pc,
-                        (void *)(uint64_t)m_trace_tag_explored[m_trace_tag_nodes_count].m_last_opc);
-                fprintf(stderr, ", br_taken = ");
-                crete::print_br_taken(m_trace_tag_explored[m_trace_tag_nodes_count].m_br_taken);
-                fprintf(stderr,"\n");
+                    fprintf(stderr, "from tc: tb-%lu: pc=%p, last_opc = %p",
+                            m_trace_tag_explored[m_trace_tag_nodes_count].m_tb_count,
+                            (void *)(uint64_t)m_trace_tag_explored[m_trace_tag_nodes_count].m_tb_pc,
+                            (void *)(uint64_t)m_trace_tag_explored[m_trace_tag_nodes_count].m_last_opc);
+                    fprintf(stderr, ", br_taken = ");
+                    crete::print_br_taken(m_trace_tag_explored[m_trace_tag_nodes_count].m_br_taken);
+                    fprintf(stderr,"\n");
 
-                assert(0 && "[CRETE ERROR] Inconsistent tracing detected by trace-tag.\n");
+                    assert(0 && "[CRETE ERROR] Inconsistent tracing detected by trace-tag.\n");
+                }
             }
         } else {
             m_trace_tag_new.push_back(tag_node);
