@@ -9,6 +9,7 @@
 #include <assert.h>
 #include <iomanip>
 
+#include <boost/unordered_set.hpp>
 #include <boost/archive/binary_iarchive.hpp>
 #include <sstream>
 
@@ -588,4 +589,25 @@ void qemu_rt_info_cleanup(QemuRuntimeInfo *qrt)
 
 void boost::throw_exception(std::exception const & e){
     ;
+}
+
+static boost::unordered_set<uint64_t> init_fork_blacklist() {
+    boost::unordered_set<uint64_t> list;
+
+    // xxx: hack to disable fork from certain tb
+//    list.insert(0xc1199bd0);
+
+    return list;
+}
+
+static boost::unordered_set<uint64_t> fork_blacklist = init_fork_blacklist();
+
+bool is_in_fork_blacklist(uint64_t tb_pc)
+{
+    if (fork_blacklist.find(tb_pc) == fork_blacklist.end())
+    {
+        return false;
+    } else {
+        return true;
+    }
 }

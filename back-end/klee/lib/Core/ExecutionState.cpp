@@ -84,6 +84,7 @@ ExecutionState::ExecutionState(KFunction *kf)
 	crete_fork_enabled(true),
 	crete_tb_tainted(false),
 	crete_dbg_ta_fail(false),
+	crete_current_tb_pc(0),
 	m_trace_tag_current_node_index(0),
 	m_current_node_explored(false),
 	m_trace_tag_current_node_br_taken_index(0)
@@ -105,6 +106,7 @@ ExecutionState::ExecutionState(const std::vector<ref<Expr> > &assumptions)
 	crete_fork_enabled(true),
 	crete_tb_tainted(false),
 	crete_dbg_ta_fail(false),
+	crete_current_tb_pc(0),
 	m_trace_tag_current_node_index(0),
 	m_current_node_explored(false),
 	m_trace_tag_current_node_br_taken_index(0)
@@ -154,6 +156,7 @@ ExecutionState::ExecutionState(const ExecutionState& state)
 	crete_fork_enabled(state.crete_fork_enabled),
 	crete_tb_tainted(state.crete_tb_tainted),
 	crete_dbg_ta_fail(state.crete_dbg_ta_fail),
+	crete_current_tb_pc(state.crete_current_tb_pc),
 	creteConcolicsQueue(state.creteConcolicsQueue),
     m_trace_tag_current_node_index(state.m_trace_tag_current_node_index),
 	m_current_node_explored(state.m_current_node_explored),

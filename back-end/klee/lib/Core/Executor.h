@@ -491,6 +491,8 @@ private:
           unsigned bytes,
           KInstruction *target);
 
+  bool crete_manual_disable_fork(const ExecutionState &state);
+
 private:
   // crete internal functions
   MemoryObject *crete_merge_overlapped_mos(ExecutionState &state,

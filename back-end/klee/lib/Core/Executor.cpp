@@ -3856,7 +3856,7 @@ Executor::crete_concolic_fork(ExecutionState &current, ref<Expr> condition)
 
     Executor::StatePair branches;
     // Fork now is only disabled when handling crete_assume()
-    if(current.crete_fork_enabled)
+    if(current.crete_fork_enabled && !crete_manual_disable_fork(current))
     {
         // Does not fork when "check_trace_tag" is valid and the node/branch has been not explored
         if(!check_trace_tag || !explored_node)
@@ -3980,6 +3980,19 @@ void Executor::crete_preprocess_memory_operation(ExecutionState &state,
         }
         bindObjectInState(state, temp_mo, false);
     }
+}
+
+bool Executor::crete_manual_disable_fork(const ExecutionState &state)
+{
+    bool ret = false;
+
+    // 1. check for hard-coded tb
+    if(state.stack.size() == 2)
+    {
+        ret = ret || is_in_fork_blacklist(state.crete_current_tb_pc);
+    }
+
+    return ret;
 }
 
 /// crete internal functions
@@ -4331,12 +4344,11 @@ void Executor::handleCreteQemuTbPrologue(klee::Executor* executor,
 		klee::KInstruction* target,
 		std::vector<klee::ref<klee::Expr> > &args)
 {
-	assert(args.size() == 1);
+	assert(args.size() == 2);
 
 	ref<Expr> tb_index = args[0];
 	assert(isa<klee::ConstantExpr>(tb_index)
 			&& "Input of tb_qemu_prelogue should be constant!\n");
-
     ConstantExpr *ce = dyn_cast<ConstantExpr>(tb_index);
     uint64_t tb_index_value = ce->getZExtValue();
 
@@ -4350,6 +4362,14 @@ void Executor::handleCreteQemuTbPrologue(klee::Executor* executor,
     );
 
     assert(state->m_qemu_tb_count == tb_index_value);
+
+    // set current_tb_pc
+    ref<Expr> tb_pc= args[1];
+    assert(isa<klee::ConstantExpr>(tb_pc)
+            && "Input of tb_qemu_prelogue should be constant!\n");
+    ConstantExpr *ce_tb_pc = dyn_cast<ConstantExpr>(tb_pc);
+    uint64_t tb_pc_value = ce_tb_pc->getZExtValue();
+    state->crete_current_tb_pc = tb_pc_value;
 
     // synchronize memory
     executor->crete_sync_memory(*state, tb_index_value);

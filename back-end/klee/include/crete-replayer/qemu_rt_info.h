@@ -33,6 +33,7 @@ const uint64_t KLEE_ALLOC_RANGE_HIGH = 0x7FFFFFFF;
 /* Functions for klee */
 QemuRuntimeInfo* qemu_rt_info_initialize();
 void qemu_rt_info_cleanup(QemuRuntimeInfo *qrt);
+bool is_in_fork_blacklist(uint64_t tb_pc);
 
 /*****************************/
 /* structs and classes */

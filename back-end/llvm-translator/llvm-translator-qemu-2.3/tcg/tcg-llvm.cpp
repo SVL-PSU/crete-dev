@@ -1747,17 +1747,22 @@ void TCGLLVMContextPrivate::generate_crete_main()
     m_builder.CreateStore(m_builder.CreatePtrToInt(cpu_state, intType(64)),
             cpu_state_addr, false);
 
+    std::vector<llvm::Type*> tb_prologue_argTypes;
+    tb_prologue_argTypes.push_back(intType(64));
+    tb_prologue_argTypes.push_back(intType(64));
+
     Function *crete_qemu_tb_prologue = Function::Create(
-            FunctionType::get(Type::getVoidTy(m_context),
-                    std::vector<llvm::Type*>(1, intType(64)), false),
+            FunctionType::get(Type::getVoidTy(m_context), tb_prologue_argTypes, false),
                     Function::ExternalLinkage, "crete_qemu_tb_prologue", m_module);
 
     uint64_t tb_count = 0;
     for(vector<pair<uint64_t, uint64_t> >::const_iterator it = m_tbExecSequ.begin();
             it != m_tbExecSequ.end(); ++it) {
-        // 5.   call void @crete_qemu_tb_prologue(i64 0)
-        m_builder.CreateCall(crete_qemu_tb_prologue,
-                std::vector<llvm::Value*>(1, ConstantInt::get(intType(64), tb_count++)));
+        // 5.   call void @crete_qemu_tb_prologue(i64 tb_count, i64 tb_pc)
+        std::vector<Value*> tb_prologue_argValues;
+        tb_prologue_argValues.push_back(ConstantInt::get(intType(64), tb_count++));
+        tb_prologue_argValues.push_back(ConstantInt::get(intType(64), it->first));
+        m_builder.CreateCall(crete_qemu_tb_prologue,tb_prologue_argValues);
 
         // 6.   %1 = call i64 @tcg-llvm-tb-0-b7db3f45(i64* %cpu_state_addr)
         std::ostringstream fName;
