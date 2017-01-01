@@ -169,6 +169,9 @@ public:
   bool crete_tb_tainted;
   bool crete_dbg_ta_fail;
 
+  // current tb_pc
+  uint64_t crete_current_tb_pc;
+
   void pushCreteConcolic(ConcolicVariable cv);
   ConcolicVariable getFirstConcolic();
   void printCreteConolic();
