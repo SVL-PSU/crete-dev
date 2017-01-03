@@ -831,7 +831,8 @@ struct QemuFSM_::connect_vm
     template <class EVT,class FSM,class SourceState,class TargetState>
     auto operator()(EVT const&, FSM& fsm, SourceState&, TargetState& ts) -> void
     {
-        auto pid = fsm.child_->acquire()->get_id();
+        auto lock = fsm.child_->acquire();
+        auto pid = lock->get_id();
 
         if(!process::is_running(pid))
         {
