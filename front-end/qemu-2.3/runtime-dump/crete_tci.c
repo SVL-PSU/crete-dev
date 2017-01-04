@@ -505,6 +505,10 @@ uintptr_t crete_tcg_qemu_tb_exec(CPUArchState *env, uint8_t *tb_ptr)
     clear_current_tb_br_taken();
 #endif
 
+#if defined(CRETE_MANUAL_CODE_SELECTION) || 1
+    helper_rdtsc_invoked = 0;
+#endif
+
     CRETE_DBG_TT(
     assert(get_size_current_tb_br_taken() == 0);
     );

@@ -44,6 +44,9 @@ extern int g_custom_inst_emit;
     #error CRETE: Only I386 and x64 supported!
 #endif // defined(TARGET_X86_64) || defined(TARGET_I386)
 
+// Manual code selection
+extern int helper_rdtsc_invoked;
+
 /*****************************/
 /* Functions for QEMU c code */
 

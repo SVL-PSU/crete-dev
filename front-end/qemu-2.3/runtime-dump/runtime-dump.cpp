@@ -1709,6 +1709,8 @@ void crete_runtime_dump_close()
     }
 }
 
+static bool manual_code_selection_pre_exec();
+static bool manual_code_selection_post_exec();
 void crete_pre_cpu_tb_exec(void *qemuCpuState, TranslationBlock *tb)
 {
     // 0. Sanity check
@@ -1737,13 +1739,8 @@ void crete_pre_cpu_tb_exec(void *qemuCpuState, TranslationBlock *tb)
 
     f_crete_enabled = is_target_pid && !is_processing_interrupt;
 
-    // 3. manual code selection
-    bool is_user_code = (tb->pc < USER_CODE_RANGE);
-    bool manual_code_selection_passed = is_user_code;
-//    bool manual_code_selection_passed = true;
-
     // 4. the current tb is pre-interested, if f_crete_enabled and pass manual code selection
-    bool tb_pre_interested = f_crete_enabled && manual_code_selection_passed;
+    bool tb_pre_interested = f_crete_enabled && manual_code_selection_pre_exec();
 
     // 5. setup of tracing before cpu_tb_exec()
     //  Memory Monitoring and CpuState Monitoring
@@ -1858,8 +1855,9 @@ int crete_post_cpu_tb_exec(void *qemuCpuState, TranslationBlock *input_tb, uint6
 	    // 1. the current tb was not executed OR
 	    // 2. the current tb does not have symbolic operations OR
 	    // 3. the current tb was interrupted at the first instruction
+	    // 4. the current tb was rejected by manual_code_selection_post_exec();
 	    bool reverse = !is_current_tb_executed || !crete_tci_is_current_block_symbolic() ||
-	            (tb.pc == crete_interrupted_pc);
+	            (tb.pc == crete_interrupted_pc) || !manual_code_selection_post_exec();
 
 	    if(reverse)
 	    {
@@ -2658,4 +2656,27 @@ inline static void adjust_trace_tag_tb_count(crete::creteTraceTag_ty &trace_tag,
     {
         trace_tag[i].m_tb_count += offset_to_adjust;
     }
+}
+
+static bool manual_code_selection_pre_exec()
+{
+    bool passed = true;
+
+    // 1. check for user_code
+//    bool is_user_code = (tb->pc < USER_CODE_RANGE);
+//    passed = passed && is_user_code;
+
+    return passed;
+}
+
+int helper_rdtsc_invoked = 0;
+static bool manual_code_selection_post_exec()
+{
+    bool passed = true;
+
+    // 1. exclude the TBs calling into helper_rdtsc()
+    // FIXME xxx: temp hack
+    passed = passed && !helper_rdtsc_invoked;
+
+    return passed;
 }
