@@ -201,6 +201,10 @@ void helper_rdtsc(CPUX86State *env)
     val = cpu_get_tsc(env) + env->tsc_offset;
     env->regs[R_EAX] = (uint32_t)(val);
     env->regs[R_EDX] = (uint32_t)(val >> 32);
+
+#if defined(CRETE_CONFIG) || 1
+    helper_rdtsc_invoked = 1;
+#endif
 }
 
 void helper_rdtscp(CPUX86State *env)
