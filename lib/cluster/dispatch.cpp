@@ -1221,7 +1221,7 @@ private:
     boost::filesystem::path root_{make_dispatch_root()};
     TestPool test_pool_{root_};
 //    TracePool trace_pool_{option::Dispatch{}, "weighted"};
-    TracePool trace_pool_{option::Dispatch{}, "fifo"};
+    TracePool trace_pool_{option::Dispatch{}};
     AtomicGuard<VMNodeFSMs> vm_node_fsms_;
     AtomicGuard<SVMNodeFSMs> svm_node_fsms_;
     Port master_port_;
@@ -1397,8 +1397,7 @@ struct DispatchFSM_::init
             assert(fsm.next_target_seeds_queue_.size() == fsm.next_target_queue_.size()); // FIXME: xxx use exception
         }
 
-//        fsm.trace_pool_ = TracePool{fsm.options_, "weighted"}; // TODO: get strategy from guest config.
-        fsm.trace_pool_ = TracePool{fsm.options_, "fifo"}; // TODO: get strategy from guest config.
+        fsm.trace_pool_ = TracePool{fsm.options_};
 
         fsm.launch_node_registrar(fsm.master_port_);
 
@@ -1417,8 +1416,7 @@ struct DispatchFSM_::reset
         fsm.set_up_root_dir();
 
         fsm.test_pool_ = TestPool{fsm.root_};
-//        fsm.trace_pool_ = TracePool{fsm.options_, "weighted"}; // TODO: get strategy from guest config.
-        fsm.trace_pool_ = TracePool{fsm.options_, "fifo"}; // TODO: get strategy from guest config.
+        fsm.trace_pool_ = TracePool{fsm.options_};
 
         fsm.vm_node_fsms_.acquire()->clear();
         fsm.svm_node_fsms_.acquire()->clear();

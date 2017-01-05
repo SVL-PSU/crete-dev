@@ -23,43 +23,74 @@ namespace crete
 namespace cluster
 {
 
-TracePool::TracePool(const option::Dispatch& options,
-                     const string& selection_strat)
-    : trace_analyzer_(selection_strat)
-    , random_engine_(std::time(0)) // Random seed based on execution time.
-    , options_(options)
+TracePool::TracePool(const option::Dispatch& options)
+    : options_(options), trace_count_(0) {}
+
+auto TracePool::insert(const TracePath& trace) -> bool
 {
-    trace_analyzer_.insert_callback([this](Trace::ID id)
+    if(options_.trace.print_elf_info)
     {
-        // TODO: temporarily disable. For some reason, calling remove_trace(id) via callback by TraceGraph (sometimes) causes a segfault. It's safe to ignore, but next_ will never be empty.
-//        remove_trace(id);
-    });
-    set_selection_strategy(selection_strat);
-    trace_analyzer_.compress_traces(options.trace.compress);
-}
+        print_elf_info(trace);
+    }
 
-bool TracePool::remove_trace(const Trace::ID& id)
-{
-    auto it = find(next_.begin(),
-                   next_.end(),
-                   filesystem::path(id));
-
-    if(it == next_.end())
-        return false;
-
-    next_.erase(it);
+    ++trace_count_;
+    next_.push_front(trace);
 
     return true;
 }
 
-void TracePool::print_elf_info(const std::set<fs::path>& traces)
+auto TracePool::next() -> optional<TracePath>
 {
-    for(std::set<fs::path>::const_iterator it = traces.begin();
-        it != traces.end();
+    if(next_.empty())
+    {
+        return boost::optional<TracePath>{};
+    }
+
+    optional<TracePath> trace = optional<TracePath>(next_.back());
+    next_.pop_back();
+
+    return trace;
+}
+
+auto TracePool::count_all_unique() const -> size_t
+{
+    return trace_count_;
+}
+
+auto TracePool::count_next() const -> size_t
+{
+    return next_.size();
+}
+
+void TracePool::set(const std::map<AddressRange, Entry>& entries)
+{
+    elf_entries_ = entries;
+
+    for(std::map<AddressRange, Entry>::const_iterator it = entries.begin();
+        it != entries.end();
         ++it)
     {
-        print_elf_info(*it);
+        if(elf_entry_set_.insert(it->second).second == false)
+        {
+            throw std::runtime_error("found duplicate elf entry: " + it->second.name);
+        }
     }
+}
+
+// TODO: xxx From trace_analyzer.cpp
+static Trace parse_trace(const boost::filesystem::path& path)
+{
+    filesystem::ifstream ifs(path, ios_base::in | ios_base::binary);
+    if(!ifs.good())
+        throw runtime_error("failed to open file: " + path.generic_string());
+
+    Trace::Blocks blocks;
+
+    auto block_addr = uint64_t{0};
+    while(ifs.read(reinterpret_cast<char*>(&block_addr), sizeof(uint64_t)))
+        blocks.push_back(block_addr);
+
+    return Trace{path.parent_path().generic_string(), blocks};
 }
 
 void TracePool::print_elf_info(const filesystem::path& trace_path)
@@ -163,118 +194,5 @@ void TracePool::print_elf_info(const filesystem::path& trace_path)
         ++block_counter;
     }
 }
-
-auto TracePool::insert(const TracePath& trace) -> bool
-{
-    all_.insert(trace);
-
-    if(options_.trace.print_elf_info)
-    {
-        print_elf_info(trace);
-    }
-
-    if(options_.trace.filter_traces)
-    {
-        if(trace_analyzer_.insert_trace(trace))
-        {
-            all_unique_.insert(trace);
-            next_.insert(trace);
-
-            return true;
-        }
-    }
-
-    return false;
-}
-
-auto TracePool::next() -> optional<TracePool::TracePath>
-{
-    optional<TracePath> trace;
-
-    // TODO: replace opt_prefer_untreaded_paths_ with "<hueristic></hueristic>" from guest config.
-//    if(opt_prefer_untreaded_paths_)
-//    {
-//        optional<Trace> tmp = trace_analyzer_.next_with_unexecuted_blocks();
-//        if(tmp)
-//        {
-////            std::cout << "selected: next_with_unexecuted_blocks" << std::endl;
-
-//            trace = optional<TracePath>(tmp->get_id());
-//            TracePathSet::const_iterator it = pool_.find(*trace);
-//            assert(it != pool_.end());
-//            pool_.erase(it);
-//        }
-//    }
-    if(!trace)
-    {
-        optional<Trace> tmp = trace_analyzer_.next();
-        if(tmp)
-        {
-            trace = optional<TracePath>(tmp->get_id());
-            TracePathSet::const_iterator it = next_.find(*trace);
-            assert(it != next_.end());
-            next_.erase(it);
-        }
-    }
-
-    if(trace)
-    {
-        trace_analyzer_.submit_executed(parse_trace((*trace)/"tb-seq.bin"));
-    }
-
-    if(options_.trace.print_trace_selection)
-    {
-        if(trace)
-            std::cout << "next: " << trace->generic_string() << std::endl;
-    }
-    if(options_.trace.print_graph)
-    {
-        trace_analyzer_.print_graph(options_.trace.print_graph_only_branches,
-                                    elf_entries_);
-    }
-
-    return trace;
-}
-
-auto TracePool::count_all_unique() const -> size_t
-{
-    return all_unique_.size();
-}
-
-auto TracePool::count_all() const -> size_t
-{
-    return all_.size();
-}
-
-auto TracePool::count_next() const -> size_t
-{
-    return next_.size();
-}
-
-void TracePool::set(const std::map<AddressRange, Entry>& entries)
-{
-    elf_entries_ = entries;
-
-    for(std::map<AddressRange, Entry>::const_iterator it = entries.begin();
-        it != entries.end();
-        ++it)
-    {
-        if(elf_entry_set_.insert(it->second).second == false)
-        {
-            throw std::runtime_error("found duplicate elf entry: " + it->second.name);
-        }
-    }
-}
-
-size_t TracePool::blocks_discovered_count() const
-{
-    return trace_analyzer_.blocks_discovered_count();
-}
-
-void TracePool::set_selection_strategy(const string& strat)
-{
-    trace_analyzer_.set_selection_strategy(strat);
-}
-
 } // namespace cluster
 } // namespace crete
