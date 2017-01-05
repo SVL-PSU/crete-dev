@@ -7,6 +7,7 @@
 #include <boost/asio.hpp>
 #include <boost/asio/buffer.hpp>
 #include <boost/filesystem/path.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 
 #include <crete/asio/common.h>
 
@@ -42,7 +43,7 @@ public:
     template <typename Handler>
     void open_connection_async(Handler handler);
     void open_connection_wait();
-    void open_connection_wait(boost::posix_time::time_duration timeout);
+    bool open_connection_wait(const boost::posix_time::time_duration& timeout);
     bool is_socket_open(); // Will return true even if connection has been closed.
 
     void update_directory(const boost::filesystem::path& from, const boost::filesystem::path& to);
@@ -59,6 +60,7 @@ private:
     boost::asio::ip::tcp::acceptor acceptor_;
     boost::asio::ip::tcp::socket socket_;
     Port port_;
+    boost::asio::deadline_timer deadline_timer_;
 };
 
 template <typename Handler>

@@ -17,16 +17,21 @@ namespace crete
 Server::Server(Port port) :
     acceptor_(io_service_, tcp::endpoint(tcp::v6(), port)),
     socket_(io_service_),
-    port_(port)
+    port_(port),
+    deadline_timer_(io_service_)
 {
+    deadline_timer_.expires_at(boost::posix_time::pos_infin);
 }
 
 Server::Server() :
     acceptor_(io_service_),
     socket_(io_service_),
-    port_(0)
+    port_(0),
+    deadline_timer_(io_service_)
 {
     use_available_port();
+
+    deadline_timer_.expires_at(boost::posix_time::pos_infin);
 }
 
 Server::~Server()
@@ -49,6 +54,42 @@ Server::~Server()
 void Server::open_connection_wait()
 {
     acceptor_.accept(socket_);
+}
+
+/**
+ * @brief Server::open_connection_wait
+ * @param timeout Amount of time to wait for connection before aborting.
+ * @return true if successful connection made within timeout limit, otherwise false.
+ */
+bool Server::open_connection_wait(const boost::posix_time::time_duration& timeout)
+{
+    deadline_timer_.expires_from_now(timeout);
+    deadline_timer_.async_wait([this](const boost::system::error_code& e)
+    {
+        if(e == boost::system::errc::success)
+        {
+            acceptor_.cancel();
+        }
+    });
+
+    boost::system::error_code ec;
+    acceptor_.async_accept(socket_, [this, &ec](const boost::system::error_code& e)
+    {
+        if(e != boost::asio::error::operation_aborted)
+        {
+            deadline_timer_.cancel();
+        }
+
+        ec = e;
+    });
+
+    io_service_.reset();
+    io_service_.run();
+
+    deadline_timer_.expires_at(boost::posix_time::pos_infin);
+
+    return    ec == boost::system::errc::success
+           && socket_.is_open();
 }
 
 bool Server::is_socket_open()
