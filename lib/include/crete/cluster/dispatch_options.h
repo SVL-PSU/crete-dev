@@ -129,7 +129,7 @@ struct SVM
 
 struct Trace
 {
-    bool filter_traces{true};
+    bool filter_traces{true}; // TODO: xxx unused?
     bool print_trace_selection{false};
     bool print_graph{false};
     bool print_graph_only_branches{false}; // TODO: Now redundant. We only dump 'branches.'
