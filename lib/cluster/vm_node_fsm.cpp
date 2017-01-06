@@ -831,19 +831,20 @@ struct QemuFSM_::connect_vm
     template <class EVT,class FSM,class SourceState,class TargetState>
     auto operator()(EVT const&, FSM& fsm, SourceState&, TargetState& ts) -> void
     {
-        auto lock = fsm.child_->acquire();
-        auto pid = lock->get_id();
-
-        if(!process::is_running(pid))
-        {
-            BOOST_THROW_EXCEPTION(VMException{} << err::process_exited{"pid_"});
-        }
-
         ts.async_task_.reset(new AsyncTask{[](std::shared_ptr<Server> server,
                                               const fs::path vm_dir,
                                               const bool distributed,
-                                              const std::string target)
+                                              const std::string target,
+                                              std::shared_ptr<AtomicGuard<bp::child>> child)
         {
+            auto lock = child->acquire();
+            auto pid = lock->get_id();
+
+            if(!process::is_running(pid))
+            {
+                BOOST_THROW_EXCEPTION(VMException{} << err::process_exited{"pid_"});
+            }
+
             auto new_port = server->port();
 
             std::cout << "new_port: " << new_port << std::endl;
@@ -907,7 +908,8 @@ struct QemuFSM_::connect_vm
         fsm.server_,
         fsm.vm_dir_,
         fsm.dispatch_options_.mode.distributed,
-        fsm.target_});
+        fsm.target_,
+        fsm.child_});
     }
 };
 
