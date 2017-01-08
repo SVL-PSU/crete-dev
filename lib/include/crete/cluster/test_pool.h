@@ -4,7 +4,7 @@
 #include <set>
 #include <string>
 #include <vector>
-#include <deque>
+#include <queue>
 #include <stdint.h>
 #include <random>
 
@@ -24,22 +24,32 @@ struct TestCaseTreeNode
     uint64_t m_tc_index;
     std::vector<uint64_t> m_childern_tc_indexes;
 
-    TestCaseTreeNode() {};
+    TestCaseTreeNode() {m_tc_index = -1;}
+};
+
+enum TestSchedStrat {FIFO, BFS};
+
+class TestPriority
+{
+private:
+    TestSchedStrat m_tc_sched_strat;
+
+public:
+    TestPriority(const TestSchedStrat& strat) {m_tc_sched_strat = strat;}
+    bool operator() (const TestCase& lhs, const TestCase& rhs) const;
 };
 
 class TestPool
 {
 public:
-    using TracePath = boost::filesystem::path;
-    using TestQueue = std::deque<crete::TestCase>;
+    using TestQueue = std::priority_queue<TestCase, vector<TestCase>, TestPriority>;
     using TestHash = std::string;
 
 private:
-    boost::unordered_map<TestHash, TestCaseTreeNode> test_tree_;
-
-    TestQueue next_;
-    std::mt19937 random_engine_; // TODO: currently unused in favor of FIFO; however, should random be optional?
     boost::filesystem::path root_;
+
+    boost::unordered_map<TestHash, TestCaseTreeNode> test_tree_;
+    TestQueue next_;
 
 public:
     TestPool(const boost::filesystem::path& root);
