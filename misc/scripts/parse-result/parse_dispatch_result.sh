@@ -14,7 +14,7 @@ error_summary()
 
 
     printf "Totoal error: "
-    grep -c '\[2016\-' $INPUT_DIR/log/node_error.log
+    grep -c '\[2017\-' $INPUT_DIR/log/node_error.log
     printf "SVM error: "
     grep -c -w 'Node: SVM' $INPUT_DIR/log/node_error.log
 
@@ -78,7 +78,7 @@ error_detail()
 
     for folder in "${folder_list[@]}"
     do
-        grep -c "2016.*$folder" $INPUT_DIR/log/node_error.log | \
+        grep -c "2017.*$folder" $INPUT_DIR/log/node_error.log | \
             { read error_count; \
             trace_num=$(tail -1 $INPUT_DIR/$folder/log/finish.log | grep -P '\d+' -o | awk 'NR==5'); \
             failure_percent=$((100*$error_count/$trace_num)); \
