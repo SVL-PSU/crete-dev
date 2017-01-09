@@ -1709,7 +1709,7 @@ void crete_runtime_dump_close()
     }
 }
 
-static bool manual_code_selection_pre_exec();
+static bool manual_code_selection_pre_exec(TranslationBlock *tb);
 static bool manual_code_selection_post_exec();
 void crete_pre_cpu_tb_exec(void *qemuCpuState, TranslationBlock *tb)
 {
@@ -1740,7 +1740,7 @@ void crete_pre_cpu_tb_exec(void *qemuCpuState, TranslationBlock *tb)
     f_crete_enabled = is_target_pid && !is_processing_interrupt;
 
     // 4. the current tb is pre-interested, if f_crete_enabled and pass manual code selection
-    bool tb_pre_interested = f_crete_enabled && manual_code_selection_pre_exec();
+    bool tb_pre_interested = f_crete_enabled && manual_code_selection_pre_exec(tb);
 
     // 5. setup of tracing before cpu_tb_exec()
     //  Memory Monitoring and CpuState Monitoring
@@ -2658,7 +2658,7 @@ inline static void adjust_trace_tag_tb_count(crete::creteTraceTag_ty &trace_tag,
     }
 }
 
-static bool manual_code_selection_pre_exec()
+static bool manual_code_selection_pre_exec(TranslationBlock *tb)
 {
     bool passed = true;
 
