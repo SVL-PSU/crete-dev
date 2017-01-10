@@ -468,47 +468,174 @@ void CreteTests::gen_crete_tests(bool inject_one_concolic)
     }
 }
 
+
+struct SymArgsConfig
+{
+    uint64_t m_min_sym_num;
+    uint64_t m_max_sym_num;
+    uint64_t m_sym_size;
+
+    SymArgsConfig(uint64_t min, uint64_t max, uint64_t size)
+    :m_min_sym_num(min), m_max_sym_num(max), m_sym_size(size) {}
+
+    ~SymArgsConfig(){};
+
+    void print(const string& name) const
+    {
+        fprintf(stderr, "%s: m_min_sym_num = %lu, m_max_sym_num =%lu, m_sym_size = %lu\n",
+                name.c_str(), m_min_sym_num, m_max_sym_num, m_sym_size);
+    }
+};
+
+const SymArgsConfig KLEE_SYM_ARGS_CONFIG_1(0, 1, 10);
+const SymArgsConfig KLEE_SYM_ARGS_CONFIG_2(0, 2, 2);
+const uint64_t KLEE_SYM_FILE_SIZE  = 8;
+const uint64_t KLEE_SYM_STDIN_SIZE = 8;
+
+struct ParsedSymArgs
+{
+    vector<uint64_t> m_sym_args;
+    uint64_t m_sym_file_size;
+    uint64_t m_sym_stdin_size;
+
+    ParsedSymArgs(): m_sym_args(vector<uint64_t>()),
+            m_sym_file_size(KLEE_SYM_FILE_SIZE),
+            m_sym_stdin_size(KLEE_SYM_STDIN_SIZE) {}
+};
+
+// Rules: sym-args from config1 always come before the ones from config2
+static vector<ParsedSymArgs> parse_symArgsConfig(const SymArgsConfig& config1,
+        const SymArgsConfig& config2)
+{
+//    config1.print("config1");
+//    config2.print("config2");
+
+    vector<ParsedSymArgs> ret;
+    for(uint64_t count1 = config1.m_min_sym_num;
+            count1 <= config1.m_max_sym_num; ++count1)
+    {
+        for(uint64_t count2 = config2.m_min_sym_num;
+                count2 <= config2.m_max_sym_num; ++count2)
+        {
+            ParsedSymArgs parsed;
+
+            for(uint64_t i = 0; i < count1; ++i)
+            {
+                parsed.m_sym_args.push_back(config1.m_sym_size);
+            }
+
+            for(uint64_t i = 0; i < count2; ++i)
+            {
+                parsed.m_sym_args.push_back(config2.m_sym_size);
+            }
+
+            if(!parsed.m_sym_args.empty())
+            {
+                ret.push_back(parsed);
+            }
+        }
+    }
+
+    return ret;
+}
+
+static void printf_parsed_config(const vector<ParsedSymArgs>& configs)
+{
+    uint64_t count = 1;
+    for(vector<ParsedSymArgs>::const_iterator it = configs.begin();
+            it != configs.end(); ++it) {
+        fprintf(stderr, "config-%lu: sym-args [", count++);
+        for(uint64_t i = 0; i < it->m_sym_args.size(); ++i)
+        {
+            fprintf(stderr, "%lu ", it->m_sym_args[i]);
+        }
+        fprintf(stderr, "], sym-file [%lu], sym-stdin[%lu]\n",
+                it->m_sym_file_size, it->m_sym_stdin_size);
+    }
+}
+
 void CreteTests::gen_crete_tests_coreutils()
 {
-    config::RunConfiguration crete_config;
-    config::Argument arg;
+    vector<ParsedSymArgs> parsed_configs = parse_symArgsConfig(KLEE_SYM_ARGS_CONFIG_1, KLEE_SYM_ARGS_CONFIG_2);
+    printf_parsed_config(parsed_configs);
 
-    arg.index = 1;
-    arg.size = 8;
-    arg.value.resize(arg.size, 0);
-    arg.concolic = true;
-    crete_config.add_argument(arg);
-
-    arg.index = 2;
-    arg.value = "/home/test/tests/ramdisk/input.data";
-    arg.size = arg.value.size();
-    arg.concolic = false;
-    crete_config.add_argument(arg);
-
-    config::File config_file;
-    config_file.path = "/home/test/tests/ramdisk/input.data";
-    config_file.size = 10;
-    config_file.concolic = true;
-    crete_config.add_file(config_file);
-
-    config::STDStream config_stdin;
-    config_stdin.size = 10;
-    config_stdin.value.resize(config_stdin.size, 0);
-    config_stdin.concolic = true;
-    crete_config.set_stdin(config_stdin);
-
+    uint64_t config_count = 1;
+    // Generate all configs for each gnu coreutil progs
     for(set<string>::const_iterator it = coreutil_programs.begin();
             it != coreutil_programs.end(); ++ it) {
-        fs::path out_config_file = m_outputDirectory + "/auto." + *it + ".xml";
-        cerr << out_config_file.string() << endl;
-        crete_config.set_executable(coreutil_guest_path + *it);
+        for(uint64_t i = 0; i < parsed_configs.size(); ++i)
+        {
+            const ParsedSymArgs& parsed_config =  parsed_configs[i];
+            config::RunConfiguration crete_config;
+            crete_config.set_executable(coreutil_guest_path + *it);
 
-        boost::property_tree::ptree pt_config;
-        crete_config.write_mini(pt_config);
-        boost::property_tree::write_xml(
-                out_config_file.string(), pt_config, std::locale(),
-                boost::property_tree::xml_writer_make_settings<std::string>('\t', 1));
+            // 1. sym-args
+            const vector<uint64_t>& sym_args = parsed_config.m_sym_args;
+            for(uint64_t j = 0; j < sym_args.size(); ++j)
+            {
+                config::Argument arg;
+
+                arg.index = j + 1; // Offset by one b/c of argv[0]
+                arg.size = sym_args[j];
+                arg.value.resize(arg.size, 0);
+                arg.concolic = true;
+                crete_config.add_argument(arg);
+            }
+
+            // 2. sym-stdin
+            config::STDStream config_stdin;
+            config_stdin.size = parsed_config.m_sym_stdin_size;
+            config_stdin.value.resize(config_stdin.size, 0);
+            config_stdin.concolic = true;
+            crete_config.set_stdin(config_stdin);
+
+            // 3. sym-file
+            // 3.1 w/o sym-file
+            {
+                stringstream config_name;
+                config_name << "auto." << *it << "."  << config_count++  << ".xml" ;
+                fs::path out_config_file = fs::path(m_outputDirectory) / config_name.str();
+                cerr << out_config_file.string() << endl;
+
+                boost::property_tree::ptree pt_config;
+                crete_config.write_mini(pt_config);
+                boost::property_tree::write_xml(
+                        out_config_file.string(), pt_config, std::locale(),
+                        boost::property_tree::xml_writer_make_settings<std::string>('\t', 1));
+
+            }
+
+            // 3.2 with sym-file and the last arg is the name of symfile
+            {
+                config::File config_file;
+                config_file.path = "/home/test/tests/ramdisk/input.data";
+                config_file.size = parsed_config.m_sym_file_size;
+                config_file.concolic = true;
+                crete_config.add_file(config_file);
+
+                const crete::config::Arguments config_args = crete_config.get_arguments();
+                config::Argument arg;
+                arg.index = config_args.back().index;
+                arg.value = "/home/test/tests/ramdisk/input.data";
+                arg.size = arg.value.size();
+                arg.concolic = false;
+                crete_config.set_argument(arg);
+
+                stringstream config_name;
+                config_name << "auto." << *it << "."  << config_count++  << ".xml" ;
+                fs::path out_config_file = fs::path(m_outputDirectory) / config_name.str();
+                cerr << out_config_file.string() << endl;
+
+                boost::property_tree::ptree pt_config;
+                crete_config.write_mini(pt_config);
+                boost::property_tree::write_xml(
+                        out_config_file.string(), pt_config, std::locale(),
+                        boost::property_tree::xml_writer_make_settings<std::string>('\t', 1));
+            }
+        }
     }
+
+    return;
 }
 
 ///////////////////////////////////////////
