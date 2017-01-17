@@ -6,9 +6,6 @@
 
 namespace crete
 {
-
-const std::string PROC_MAPS_FILE_NAME = "proc-maps.log";
-
 //struct ProcMapSort
 //{
 //    bool operator()(const ProcMap& pm1, const ProcMap& pm2)
