@@ -34,6 +34,7 @@ private:
     boost::shared_ptr<RunnerFSM> fsm_;
     std::string ip_;
     boost::filesystem::path target_config_;
+    boost::filesystem::path sandbox_dir_;
     bool stopped_;
 };
 

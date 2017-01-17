@@ -1,4 +1,6 @@
 #include "config-generator.h"
+
+#include <crete/common.h>
 #include <crete/test_case.h>
 
 #include <stdio.h>
@@ -608,7 +610,7 @@ void CreteTests::gen_crete_tests_coreutils()
             // 3.2 with sym-file and the last arg is the name of symfile
             {
                 config::File config_file;
-                config_file.path = "/home/test/tests/ramdisk/input.data";
+                config_file.path = fs::path(CRETE_RAMDISK_PATH) / "input.data";
                 config_file.size = parsed_config.m_sym_file_size;
                 config_file.concolic = true;
                 crete_config.add_file(config_file);
@@ -616,7 +618,7 @@ void CreteTests::gen_crete_tests_coreutils()
                 const crete::config::Arguments config_args = crete_config.get_arguments();
                 config::Argument arg;
                 arg.index = config_args.back().index;
-                arg.value = "/home/test/tests/ramdisk/input.data";
+                arg.value = config_file.path.string();
                 arg.size = arg.value.size();
                 arg.concolic = false;
                 crete_config.set_argument(arg);

@@ -1,5 +1,6 @@
 #include "harness.h"
 
+#include <crete/common.h>
 #include <crete/harness.h>
 #include <crete/custom_instr.h>
 
@@ -67,17 +68,16 @@ void Harness::update_proc_maps()
     namespace fs = boost::filesystem;
 
     bool terminate = false;
-    if(!fs::exists(PROC_MAPS_FILE_NAME)) // proc-maps file doesn't exist.
+    if(!fs::exists(CRETE_PROC_MAPS_PATH)) // proc-maps file doesn't exist.
         terminate = true;
 
-    fs::remove(PROC_MAPS_FILE_NAME);
+    fs::remove(CRETE_PROC_MAPS_PATH);
 //    fs::copy_file("/proc/self/maps", PROC_MAPS_FILE_NAME); // TODO: getting Exception: Bad file descriptor when using this...
     ifstream ifs("/proc/self/maps");
-    ofstream ofs(PROC_MAPS_FILE_NAME.c_str());
+    ofstream ofs(CRETE_PROC_MAPS_PATH);
     copy(istreambuf_iterator<char>(ifs),
          istreambuf_iterator<char>(),
          ostreambuf_iterator<char>(ofs));
-
 
     // This process must be running in order to get the proc-maps, so, if we want to have crete-run relay the proc-map info, we need to run this once and terminate it before actually testing.
     if(terminate)

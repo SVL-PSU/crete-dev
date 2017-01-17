@@ -1,3 +1,4 @@
+#include <crete/common.h>
 #include <crete/harness.h>
 #include <crete/custom_instr.h>
 #include <crete/harness_config.h>
@@ -24,19 +25,16 @@ using namespace std;
 using namespace crete;
 namespace fs = boost::filesystem;
 
-const char* const crete_config_file = "harness.config.serialized";
-const std::string crete_proc_maps_file = "proc-maps.log";
-
 void print_back_trace();
 
 config::HarnessConfiguration crete_load_configuration()
 {
-    std::ifstream ifs(crete_config_file,
+    std::ifstream ifs(CRETE_CONFIG_SERIALIZED_PATH,
                       ios_base::in | ios_base::binary);
 
     if(!ifs.good())
     {
-        throw std::runtime_error("failed to open file: " + std::string(crete_config_file));
+        throw std::runtime_error("failed to open file: " + std::string(CRETE_CONFIG_SERIALIZED_PATH));
     }
 
     boost::archive::text_iarchive ia(ifs);
@@ -68,7 +66,7 @@ static void crete_process_stdin_libc(const config::STDStream stdin_config)
     //2. Write concolic/concrete value from buffer "crete_stdin_buffer" to file "crete_stdin_ramdisk"
     char stdin_ramdisk_file[512];
     memset(stdin_ramdisk_file, 0, 512);
-    sprintf(stdin_ramdisk_file, "%s/crete_stdin_ramdisk", getenv("CRETE_RAMDISK_PATH"));
+    sprintf(stdin_ramdisk_file, "%s/crete_stdin_ramdisk", CRETE_RAMDISK_PATH);
 
     //TODO: xxx shall I open it with flag "b" (binary)?
     FILE *crete_stdin_fd = fopen (stdin_ramdisk_file, "wb");
@@ -247,12 +245,12 @@ void crete_preload_initialize(int argc, char**& argv)
 #if CRETE_HOST_ENV
 bool crete_verify_executable_path_matches(const char* argv0)
 {
-    std::ifstream ifs(crete_config_file,
+    std::ifstream ifs(CRETE_CONFIG_SERIALIZED_PATH,
                       ios_base::in | ios_base::binary);
 
     if(!ifs.good())
     {
-        throw std::runtime_error("failed to open file: " + std::string(crete_config_file));
+        throw std::runtime_error("failed to open file: " + std::string(CRETE_CONFIG_SERIALIZED_PATH));
     }
 
     boost::archive::text_iarchive ia(ifs);
