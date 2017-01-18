@@ -32,13 +32,46 @@ const static map<string, string> target_exe_host_path = {
 
 const static string seed_dir_name = "seeds";
 
-const static set<string> coreutil_programs = {
+const static set<string> coreutil_crete_old = {
         "base64", "basename", "cat", "cksum", "comm", "cut", "date", "df", "dircolors",
         "dirname", "echo", "env", "expand", "expr", "factor", "fmt", "fold", "head",
         "hostid", "id", "join", "logname", "ls", "nl", "od", "paste", "pathchk", "pinky",
         "printenv", "printf", "pwd", "readlink", "seq", "shuf", "sleep", "sort", "stat",
         "sum", "sync", "tac", "tr", "tsort", "uname", "unexpand", "uptime", "users",
         "wc", "whoami", "who"};
+
+const static set<string> coreutil_klee_osdi_new = {
+//"base64", "basename", "cat",
+"chcon", "chgrp", "chmod", "chown", "chroot", //"cksum", "comm",
+"cp", "csplit", //"cut", "date",
+"dd", //"df", "dircolors", "dirname",
+"du", //"echo", "env", "expand", "expr", "factor",
+"false", //"fmt", "fold", "head", "hostid",
+"hostname", //"id",
+"ginstall", //"join",
+"kill", "link", "ln", //"logname", "ls",
+"md5sum", "mkdir", "mkfifo", "mknod", "mktemp", "mv", "nice", //"nl",
+"nohup", //"od", "paste", "pathchk", "pinky",
+"pr", //"printenv", "printf",
+"ptx", //"pwd", "readlink",
+"rm", "rmdir", "runcon", //"seq",
+"setuidgid", "shred", //"shuf", "sleep", "sort",
+"split", //"stat",
+"stty", //"sum", "sync", "tac",
+"tail", "tee", "touch", //"tr", "tsort",
+"tty", //"uname", "unexpand",
+"uniq", "unlink", //"uptime", "users", "wc", "whoami", "who","yes"
+};
+
+
+const static set<string> coreutil_klee_osdi = {
+        "base64", "basename", "cat", "chcon", "chgrp", "chmod", "chown", "chroot", "cksum", "comm", "cp", "csplit", "cut",
+        "date", "dd", "df", "dircolors", "dirname", "du", "echo", "env", "expand", "expr", "factor", "false", "fmt", "fold",
+        "head", "hostid", "hostname", "id", "ginstall", "join", "kill", "link", "ln", "logname", "ls", "md5sum", "mkdir",
+        "mkfifo", "mknod", "mktemp", "mv", "nice", "nl", "nohup", "od", "paste", "pathchk", "pinky", "pr", "printenv", "printf",
+        "ptx", "pwd", "readlink", "rm", "rmdir", "runcon", "seq", "setuidgid", "shred", "shuf", "sleep", "sort", "split",
+        "stat", "stty", "sum", "sync", "tac", "tail", "tee", "touch", "tr", "tsort", "tty", "uname", "unexpand", "uniq", "unlink",
+        "uptime", "users", "wc", "whoami", "who", "yes"};
 
 const static string coreutil_guest_path = "/home/test/tests/coreutils-6.10/exec/src/";
 
@@ -563,8 +596,8 @@ void CreteTests::gen_crete_tests_coreutils()
 
     uint64_t config_count = 1;
     // Generate all configs for each gnu coreutil progs
-    for(set<string>::const_iterator it = coreutil_programs.begin();
-            it != coreutil_programs.end(); ++ it) {
+    for(set<string>::const_iterator it = coreutil_klee_osdi.begin();
+            it != coreutil_klee_osdi.end(); ++ it) {
         for(uint64_t i = 0; i < parsed_configs.size(); ++i)
         {
             const ParsedSymArgs& parsed_config =  parsed_configs[i];
