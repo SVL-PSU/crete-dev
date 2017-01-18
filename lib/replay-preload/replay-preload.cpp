@@ -374,6 +374,7 @@ int __libc_start_main(
 
     try
     {
+        unsetenv("LD_PRELOAD"); // Prevent nested LD_PRELOAD for processes started by the current process
         orig_libc_start_main = (__libc_start_main_t)dlsym(RTLD_NEXT, "__libc_start_main");
 
         if(orig_libc_start_main == 0)
