@@ -33,8 +33,12 @@ private:
     fs::path m_cwd;
     fs::path m_launch_directory;
     vector<string> m_launch_args;
-    bp::context m_launch_ctx;
+    bp::posix_context m_launch_ctx;
 
+    fs::path m_input_sandbox;
+    bool m_init_sandbox;
+    fs::path m_guest_config_serialized;
+    fs::path m_current_tc;
 
 public:
     CreteReplay(int argc, char* argv[]);
@@ -44,6 +48,10 @@ private:
     void process_options(int argc, char* argv[]);
     void setup_launch();
 
+    void init_sandbox();
+    void reset_sandbox();
+
+    void collect_gcov_result();
     void replay();
 };
 

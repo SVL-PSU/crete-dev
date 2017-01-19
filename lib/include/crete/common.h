@@ -11,6 +11,9 @@ const char *CRETE_CONFIG_SERIALIZED_PATH = "/tmp/harness.config.serialized";
 
 const char *CRETE_SANDBOX_PATH = "/tmp/sandbox";
 
+const char *CRETE_REPLAY_CURRENT_TC = "/tmp/crete.replay.current.tc.bin";
+const char *CRETE_REPLAY_GCOV_PREFIX = "/tmp/gcov";
+
 #ifdef __cplusplus
 }
 #endif
