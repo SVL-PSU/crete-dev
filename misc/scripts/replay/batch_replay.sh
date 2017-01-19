@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 ## Run crete-replay in batch mode
 ## $1: the output folder of crete-dispatch running at batch mode
@@ -6,7 +6,9 @@
 ##     CRETE_BIN_DIR: the path of crete-build/bin
 ##     PARSEGCOVCMD: the path to parse_gcov_coreutils.py
 ##     PROG_DIR: the path to the executable of programs under replay
+##     LCOV_DIR: the path to the root folder of calculating coverage
 ##     PROGRAMS: the name of programs under replay
+##     SANDBOX: the path of input sandbox (optional)
 
 INPUT_DIR=$1
 INCLUDE_FILE=$2
@@ -42,6 +44,11 @@ main()
         exit
     fi
 
+    if [ ! -d $LCOV_DIR ]; then
+        printf "\$LCOV_DIR (\"$LCOV_DIR\") is invalid, check \$INCLUDE_FILE (\"$INCLUDE_FILE\")\n"
+        exit
+    fi
+
     if [ ${#PROGRAMS[@]} == 0 ]; then
         printf "\$PROGRAMS (\"$PROGRAMS\") is invalid, check \$INCLUDE_FILE (\"$INCLUDE_FILE\")\n"
         exit
@@ -62,9 +69,10 @@ main()
     cd $foldername
 
     printf "1. Cleanup old coverage info...\n"
-    lcov --directory $PROG_DIR --zerocounters
+    lcov --directory $LCOV_DIR --zerocounters
 
     printf "2. execute all test cases in folder $DISPATCH_OUT_DIR ...\n"
+    init_sandbox=true
     SUB_FOLDERS=$DISPATCH_OUT_DIR/*
     for f in $SUB_FOLDERS
     do
@@ -112,9 +120,31 @@ main()
             exit
         fi
 
-        printf "executing $target_prog with tc from \'$test_case_dir\'...\n"
-        $CRETE_BIN_DIR/crete-tc-replay -e $PROG_DIR/$target_prog -c $config_file_path \
-                                       -t $test_case_dir >> crete-coverage-progress.log
+        if [ -z  $SANDBOX ]; then
+            printf "[W/O sandbox] executing $target_prog with tc from \'$test_case_dir\'...\n"
+            $CRETE_BIN_DIR/crete-tc-replay -e $PROG_DIR/$target_prog \
+                                           -c $config_file_path \
+                                           -t $test_case_dir >> crete-coverage-progress.log
+        else
+            if [ ! -d  $SANDBOX ]; then
+                printf "$SANDBOX does not exists\n"
+                exit
+            fi
+            if [ "$init_sandbox" = true ] ; then
+                printf "[W/ sandbox and init_sandbox] executing $target_prog with tc from \'$test_case_dir\'...\n"
+                init_sandbox=false
+                $CRETE_BIN_DIR/crete-tc-replay -e $PROG_DIR/$target_prog \
+                                               -c $config_file_path      \
+                                               -t $test_case_dir         \
+                                               -j $SANDBOX >> crete-coverage-progress.log
+            else
+                printf "[W/ sandbox and W/O init_sandbox] executing $target_prog with tc from \'$test_case_dir\'...\n"
+                $CRETE_BIN_DIR/crete-tc-replay -e $PROG_DIR/$target_prog \
+                                               -c $config_file_path      \
+                                               -t $test_case_dir         \
+                                               -j $SANDBOX -n >> crete-coverage-progress.log
+            fi
+        fi
     done
 
     printf "3. Parsing crete.replay.log ...\n"
@@ -126,7 +156,7 @@ main()
     grep -c -w "\[Signal Caught\]"  crete.replay.log
 
     printf "4. generating coverage report... \n"
-    lcov --base-directory $PROG_DIR --directory $PROG_DIR --capture --output-file lcov.info --rc lcov_branch_coverage=1 >> lcov.log
+    lcov --base-directory $LCOV_DIR --directory $LCOV_DIR --capture --output-file lcov.info --rc lcov_branch_coverage=1 >> lcov.log
     genhtml lcov.info -o html --function-coverage --rc lcov_branch_coverage=1 >> lcov.log
 
     $PARSEGCOVCMD $PROG_DIR &> result_gcov.org

@@ -1,23 +1,24 @@
 #include "replay.h"
+#include <crete/common.h>
 
 #include <boost/filesystem/fstream.hpp>
 #include <boost/program_options.hpp>
 
 #include <string>
 #include <ctime>
+#include <sys/mount.h>
 
 using namespace std;
 
 static const string replay_log_file = "crete.replay.log";
-static const string replay_current_tc = "crete.replay.current.tc.bin";
-static const string replay_guest_config = "crete.replay.guest.config.serialized";
 
 namespace crete
 {
 
 CreteReplay::CreteReplay(int argc, char* argv[]) :
     m_ops_descr(make_options()),
-    m_cwd(fs::current_path())
+    m_cwd(fs::current_path()),
+    m_init_sandbox(true)
 {
     process_options(argc, argv);
     setup_launch();
@@ -35,6 +36,8 @@ po::options_description CreteReplay::make_options()
         ("tc-dir,t", po::value<fs::path>(), "test case directory")
         ("seed-only,s", "Only replay seed test case (\"1\") from each test case "
                 "directory")
+        ("input-sandbox,j", po::value<fs::path>(), "input sandbox/jail directory")
+        ("no-ini-sandbox,n", po::bool_switch(), "do not initialize sandbox to accumulate coverage info")
         ;
 
     return desc;
@@ -74,6 +77,29 @@ void CreteReplay::process_options(int argc, char* argv[])
         BOOST_THROW_EXCEPTION(std::runtime_error("Required options: [exec] [tc-dir] [config]. See '--help' for more info"));
     }
 
+    if(m_var_map.count("input-sandbox"))
+    {
+        fs::path p = m_var_map["input-sandbox"].as<fs::path>();
+
+        if(!fs::exists(p) && !fs::is_directory(p))
+        {
+            BOOST_THROW_EXCEPTION(Exception() << err::file_missing(p.string()));
+        }
+
+        m_input_sandbox = p;
+
+        if(m_var_map.count("no-ini-sandbox"))
+        {
+            bool input = m_var_map["no-ini-sandbox"].as<bool>();
+
+            m_init_sandbox = !input;
+        }
+
+        fprintf(stderr, "[crete-replay] input_sandbox_dir = %s, m_init_sandbox = %d\n",
+                m_input_sandbox.string().c_str(), m_init_sandbox);
+
+    }
+
     if(m_var_map.count("seed-only"))
     {
         m_seed_mode = true;
@@ -96,6 +122,150 @@ void CreteReplay::process_options(int argc, char* argv[])
     {
         BOOST_THROW_EXCEPTION(std::runtime_error("Crete-config file not found: " + m_config.string()));
     }
+}
+
+// Reference:
+// http://unix.stackexchange.com/questions/128336/why-doesnt-mount-respect-the-read-only-option-for-bind-mounts
+static inline void rdonly_bind_mount(const fs::path src, const fs::path dst)
+{
+    assert(fs::is_directory(src));
+    assert(fs::is_directory(dst));
+
+    int mount_result = mount(src.string().c_str(), dst.string().c_str(), NULL,
+            MS_BIND, NULL);
+    if(mount_result != 0)
+    {
+        fprintf(stderr, "[crete-run] mount failed: "
+                "src = %s, dst = %s, mntflags = MS_BIND\n",
+                src.string().c_str(), dst.string().c_str());
+
+        assert(0);
+    }
+
+    // equal cmd: "sudo mount /home sandbox-dir/home/ -o bind,remount,ro"
+    mount_result = mount(src.string().c_str(), dst.string().c_str(), NULL,
+            MS_BIND | MS_REMOUNT | MS_RDONLY, NULL);
+    if(mount_result != 0)
+    {
+        fprintf(stderr, "[crete-run] mount failed: "
+                "src = %s, dst = %s, mntflags = MS_BIND | MS_REMOUNT | MS_RDONLY\n",
+                src.string().c_str(), dst.string().c_str());
+
+        assert(0);
+    }
+}
+
+// Mount folders to sandbox dir:
+//  "/home, /lib, /lib64, /usr, /dev, /proc" (for executable, dependency libraries, etc)
+// require: "sudo setcap CAP_SYS_ADMIN+ep ./crete-run"
+void CreteReplay::init_sandbox()
+{
+    // delete the sandbox folder if it existed
+    if(fs::is_directory(CRETE_SANDBOX_PATH))
+    {
+        for (fs::directory_iterator end_dir_it, it((fs::path(CRETE_SANDBOX_PATH))); it!=end_dir_it; ++it)
+        {
+            int ret = umount(it->path().string().c_str());
+
+            if(ret != 0)
+            {
+                fprintf(stderr, "umount() failed on: %s, check whether sys_cap_admin is set\n",
+                        it->path().string().c_str());
+            }
+        }
+
+        fs::remove_all(CRETE_SANDBOX_PATH);
+        assert(!fs::is_directory(CRETE_SANDBOX_PATH) && "[crete-run] crete-sandbox folder reset failed!\n");
+    }
+
+    {
+        const fs::path src = "/home";
+        if(fs::is_directory(src))
+        {
+            const fs::path dst = fs::path(CRETE_SANDBOX_PATH) / "home";
+            fs::create_directories(dst);
+            rdonly_bind_mount(src, dst);
+        }
+    }
+    {
+        const fs::path src = "/lib";
+        if(fs::is_directory(src))
+        {
+            const fs::path dst = fs::path(CRETE_SANDBOX_PATH) / "lib";
+            fs::create_directories(dst);
+            rdonly_bind_mount(src, dst);
+        }
+    }
+    {
+        const fs::path src = "/lib64";
+        if(fs::is_directory(src))
+        {
+            const fs::path dst = fs::path(CRETE_SANDBOX_PATH) / "lib64";
+            fs::create_directories(dst);
+            rdonly_bind_mount(src, dst);
+        }
+    }
+    {
+        const fs::path src = "/usr";
+        if(fs::is_directory(src))
+        {
+            const fs::path dst = fs::path(CRETE_SANDBOX_PATH) / "usr";
+            fs::create_directories(dst);
+            rdonly_bind_mount(src, dst);
+        }
+    }
+    {
+        const fs::path src = "/dev";
+        if(fs::is_directory(src))
+        {
+            const fs::path dst = fs::path(CRETE_SANDBOX_PATH) / "dev";
+            fs::create_directories(dst);
+            rdonly_bind_mount(src, dst);
+        }
+    }
+    {
+        const fs::path src = "/proc";
+        if(fs::is_directory(src))
+        {
+            const fs::path dst = fs::path(CRETE_SANDBOX_PATH) / "proc";
+            fs::create_directories(dst);
+            rdonly_bind_mount(src, dst);
+        }
+    }
+
+    fs::create_directories(fs::path(CRETE_SANDBOX_PATH) / "tmp");
+    fs::create_directories(fs::path(CRETE_SANDBOX_PATH) / CRETE_REPLAY_GCOV_PREFIX);
+}
+
+void CreteReplay::reset_sandbox()
+{
+    if(m_input_sandbox.empty())
+    {
+        return;
+    }
+
+    // 2. reset "sandbox-exec folder" within sandbox
+    fs::path crete_sandbox_exec_path = fs::path(CRETE_SANDBOX_PATH) / m_launch_directory;
+    fs::remove_all(crete_sandbox_exec_path);
+    assert(fs::is_directory(fs::path(crete_sandbox_exec_path).parent_path()));
+
+    bp::context ctx;
+    ctx.stdout_behavior = bp::capture_stream();
+    ctx.environment = bp::self::get_environment();
+
+    std::string exec = bp::find_executable_in_path("cp");
+    std::vector<std::string> args;
+    args.push_back(exec);
+    args.push_back("-r");
+    args.push_back(m_input_sandbox.string());
+    args.push_back(crete_sandbox_exec_path.string());
+
+    bp::child c = bp::launch(exec, args, ctx);
+
+    bp::pistream &is = c.get_stdout();
+
+    // TODO: xxx should check the return status to make sure the "cp" completed successfully
+    bp::status s = c.wait();
 }
 
 void CreteReplay::setup_launch()
@@ -121,7 +291,19 @@ void CreteReplay::setup_launch()
     };
 
     // 1. Setup m_launch_directory
-    m_launch_directory = m_exec.parent_path();
+    if(m_input_sandbox.empty())
+    {
+        // when no sandbox, m_exec_launch_dir is set to the parent folder of the executable,
+        // unless that folder is not writable (then it will be the working
+        // directory of crete-run)
+        m_launch_directory = m_exec.parent_path();
+        if(access(m_launch_directory.string().c_str(), W_OK) != 0)
+        {
+            m_launch_directory = fs::current_path();
+        }
+    } else {
+        m_launch_directory = fs::path("/") / fs::canonical(m_input_sandbox).filename();
+    }
 
     // 2. Set up m_launch_args
     config::Arguments guest_args = guest_config.get_arguments();
@@ -137,13 +319,39 @@ void CreteReplay::setup_launch()
     }
 
     // 3. Setup m_launch_ctx
-    m_launch_ctx.stdout_behavior = bp::capture_stream();
-    m_launch_ctx.stderr_behavior = bp::redirect_stream_to_stdout();
-    m_launch_ctx.stdin_behavior = bp::capture_stream();
-    m_launch_ctx.work_directory = m_launch_directory.string();
+    m_launch_ctx.output_behavior.insert(bp::behavior_map::value_type(STDOUT_FILENO, bp::capture_stream()));
+    m_launch_ctx.output_behavior.insert(bp::behavior_map::value_type(STDERR_FILENO, bp::redirect_stream_to_stdout()));
+    m_launch_ctx.input_behavior.insert(bp::behavior_map::value_type(STDIN_FILENO, bp::capture_stream()));
+
+    //TODO: xxx unified the environment, may use klee's env.sh
     m_launch_ctx.environment = bp::self::get_environment();
     m_launch_ctx.environment.erase("LD_PRELOAD");
     m_launch_ctx.environment.insert(bp::environment::value_type("LD_PRELOAD", "libcrete_replay_preload.so"));
+
+    m_launch_ctx.work_directory = m_launch_directory.string();
+
+    if(!m_input_sandbox.empty())
+    {
+        m_launch_ctx.chroot = CRETE_SANDBOX_PATH;
+
+        m_launch_ctx.environment.erase("GCOV_PREFIX");
+        m_launch_ctx.environment.insert(bp::environment::value_type("GCOV_PREFIX", CRETE_REPLAY_GCOV_PREFIX));
+
+        if(m_init_sandbox)
+        {
+            init_sandbox();
+        }
+    }
+
+    // 4. setup the path for guest_config_serialized
+    if(m_input_sandbox.empty())
+    {
+        m_guest_config_serialized = CRETE_CONFIG_SERIALIZED_PATH;
+        m_current_tc = CRETE_REPLAY_CURRENT_TC;
+    } else {
+        m_guest_config_serialized = fs::path(CRETE_SANDBOX_PATH) / CRETE_CONFIG_SERIALIZED_PATH;
+        m_current_tc = fs::path(CRETE_SANDBOX_PATH) / CRETE_REPLAY_CURRENT_TC;
+    }
 }
 
 // Get current date/time, format is YYYY-MM-DD.HH:mm:ss
@@ -157,6 +365,57 @@ static const std::string currentDateTime() {
     strftime(buf, sizeof(buf), "%Y-%m-%d.%X", &tstruct);
 
     return buf;
+}
+
+static bool end_with (std::string const &fullString, std::string const &ending)
+{
+    if (fullString.length() >= ending.length()) {
+        return (0 == fullString.compare (fullString.length() - ending.length(), ending.length(), ending));
+    } else {
+        return false;
+    }
+}
+
+void CreteReplay::collect_gcov_result()
+{
+//    fprintf(stderr, "collect_gcov_result() entered\n");
+
+    // gcov data is in the right place if no sandbox is used
+    if(m_input_sandbox.empty())
+    {
+        return;
+    }
+
+    // FIXME: xxx temp workwround that it make take a while for gcov to generate gcda files
+    //        the sleep time of 1 seconds are subjective here
+    sleep(1);
+
+    fs::path gcov_data_dir = fs::path(CRETE_SANDBOX_PATH) / CRETE_REPLAY_GCOV_PREFIX;
+    for ( boost::filesystem::recursive_directory_iterator end, it(gcov_data_dir);
+            it!= end; ++it) {
+        if(fs::is_directory(it->path()))
+            continue;
+
+        fs::path src = it->path();
+        assert(fs::is_regular_file(src));
+        if(!end_with(src.filename().string(), ".gcda"))
+        {
+            fprintf(stderr, "[crete-tc-replay] unexpected file: %s\n", src.string().c_str());
+            assert(0);
+        }
+
+        assert(src.string().find(gcov_data_dir.string()) == 0);
+        fs::path tgt(src.string().c_str() +  gcov_data_dir.string().length());
+        assert(fs::is_directory(tgt.parent_path()));
+
+//        fprintf(stderr, "copy from %s to %s\n",
+//                src.string().c_str(),
+//                tgt.string().c_str());
+
+        fs::copy_file(src, tgt, fs::copy_option::overwrite_if_exists);
+    }
+
+//    fprintf(stderr, "collect_gcov_result() finished\n");
 }
 
 void CreteReplay::replay()
@@ -185,23 +444,25 @@ void CreteReplay::replay()
         ofs_replay_log << "====================================================================\n";
         ofs_replay_log << "Start to replay tc-" << dec << replayed_tc_count++ << endl;
 
-        // write replay_current_tc, for replay-preload to use
+        // prepare for replay
         {
-            std::ofstream ofs((m_launch_directory / replay_current_tc).string().c_str());
+            reset_sandbox();
+
+            // write replay_current_tc, for replay-preload to use
+            fs::remove(m_current_tc);
+            std::ofstream ofs(m_current_tc.string().c_str());
             if(!ofs.good())
             {
-                BOOST_THROW_EXCEPTION(Exception() << err::file_open_failed(m_config.string()));
+                BOOST_THROW_EXCEPTION(Exception() << err::file_open_failed(m_current_tc.string()));
             }
             it->write(ofs);
             ofs.close();
-        }
 
-        // copy guest-config, for replay-preload to use
-        {
+            // copy guest-config, for replay-preload to use
             try
             {
-                fs::remove(m_launch_directory / replay_guest_config);
-                fs::copy(m_config, m_launch_directory / replay_guest_config);
+                fs::remove(m_guest_config_serialized);
+                fs::copy(m_config, m_guest_config_serialized);
             }
             catch(std::exception& e)
             {
@@ -223,7 +484,7 @@ void CreteReplay::replay()
 
             std::system(exec_cmd.c_str());
 #else
-            bp::child proc = bp::launch(m_exec, m_launch_args, m_launch_ctx);
+            bp::posix_child proc = bp::posix_launch(m_exec, m_launch_args, m_launch_ctx);
 
             ofs_replay_log << "Output from Launched executable:\n";
             bp::pistream& is = proc.get_stdout();
@@ -232,15 +493,6 @@ void CreteReplay::replay()
             {
                 ofs_replay_log << line << endl;
             }
-
-            for( fs::directory_iterator dir_iter(m_launch_directory), end_iter ; dir_iter != end_iter ; ++dir_iter)
-            {
-                string filename = dir_iter->path().filename().string();
-                if(filename.find("crete.replay.") == 0) {
-                    fs::remove(m_launch_directory/filename);
-                    ofs_replay_log << "Removed " << filename << endl;
-                }
-            }
 #endif
 
 //            auto status = proc.wait();
@@ -248,6 +500,8 @@ void CreteReplay::replay()
 
         ofs_replay_log << "====================================================================\n";
     }
+
+    collect_gcov_result();
 }
 
 } // namespace crete

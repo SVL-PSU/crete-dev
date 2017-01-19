@@ -1,3 +1,4 @@
+#include <crete/common.h>
 #include <crete/exception.h>
 #include <crete/test_case.h>
 #include <crete/harness_config.h>
@@ -35,10 +36,7 @@ extern "C" {
 using namespace std;
 namespace fs = boost::filesystem;
 
-static const string replay_log_file = "crete.replay.log";
-static const string replay_current_tc = "crete.replay.current.tc.bin";
 static const string replay_stdin_filename= "crete.replay.stdin.file";
-static const string replay_guest_config = "crete.replay.guest.config.serialized";
 
 namespace crete
 {
@@ -74,11 +72,11 @@ CreteReplayPreload::CreteReplayPreload(int argc, char **argv):
 
 void CreteReplayPreload::init_guest_config()
 {
-    std::ifstream ifs(replay_guest_config.c_str());
+    std::ifstream ifs(CRETE_CONFIG_SERIALIZED_PATH);
 
     if(!ifs.good())
     {
-        BOOST_THROW_EXCEPTION(crete::Exception() << err::file_open_failed(replay_guest_config));
+        BOOST_THROW_EXCEPTION(crete::Exception() << err::file_open_failed(CRETE_CONFIG_SERIALIZED_PATH));
     }
 
     try
@@ -96,11 +94,11 @@ void CreteReplayPreload::init_guest_config()
 }
 void CreteReplayPreload::init_current_tc()
 {
-    std::ifstream ifs(replay_current_tc.c_str());
+    std::ifstream ifs(CRETE_REPLAY_CURRENT_TC);
     if(!ifs.good())
     {
         BOOST_THROW_EXCEPTION(Exception() <<
-                err::file_open_failed(replay_current_tc));
+                err::file_open_failed(CRETE_REPLAY_CURRENT_TC));
     }
 
     TestCase tc = read_test_case(ifs);
