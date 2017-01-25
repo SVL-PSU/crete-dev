@@ -14,6 +14,9 @@ const char *CRETE_SANDBOX_PATH = "/tmp/sandbox";
 const char *CRETE_REPLAY_CURRENT_TC = "/tmp/crete.replay.current.tc.bin";
 const char *CRETE_REPLAY_GCOV_PREFIX = "/tmp/gcov";
 
+// CUSTOMIZED EXIT CODE
+const int CRETE_EXIT_CODE_SIG_BASE = 30;
+
 #ifdef __cplusplus
 }
 #endif
