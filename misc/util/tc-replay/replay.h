@@ -50,6 +50,7 @@ private:
 
     void init_sandbox();
     void reset_sandbox();
+    void reset_sandbox_folder_permission();
 
     void collect_gcov_result();
     void replay();

@@ -154,6 +154,8 @@ main()
     grep -c -w "\[crete-replay-preload\] Exception"  crete.replay.log
     printf "Signal caught: "
     grep -c -w "\[Signal Caught\]"  crete.replay.log
+    printf "Replay timeout: "
+    grep -c -w "Replay Timeout"  crete.replay.log
 
     printf "4. generating coverage report... \n"
     lcov --base-directory $LCOV_DIR --directory $LCOV_DIR --capture --output-file lcov.info --rc lcov_branch_coverage=1 >> lcov.log

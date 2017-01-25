@@ -313,23 +313,26 @@ void CreteReplayPreload::setup_concolic_stdin()
 
 // ********************************************************* //
 // Signal handling
-static sighandler_t default_signal_hanlders[_NSIG];
+#define __INIT_CRETE_SIGNAL_HANDLER(SIGNUM)                                  \
+        {                                               \
+            struct sigaction sigact;                    \
+                                                        \
+            memset(&sigact, 0, sizeof(sigact));         \
+            sigact.sa_handler = crete_signal_handler;   \
+            sigaction(SIGNUM, &sigact, NULL);           \
+                                                        \
+            sigset_t set;                               \
+            sigemptyset(&set);                          \
+            sigaddset(&set, SIGNUM);                    \
+            sigprocmask(SIG_UNBLOCK, &set, NULL);       \
+        }
 
-#define __INIT_CRETE_SIGNAL_HANDLER(SIGNUM)                                     \
-        default_signal_hanlders[SIGNUM] = signal(SIGNUM, crete_signal_handler); \
-        assert(default_signal_hanlders[SIGNUM] != SIG_ERR);
-
-// Log the signal and call the default signal handler
-// TODO: xxx A certain kind of signal will only be caught once
+// Terminate the program gracefully and return the corresponding exit code
+// TODO: xxx does not handle nested signals
 static void crete_signal_handler(int signum)
 {
-    static int caught_signal_count = 0;
-
-    fprintf(stderr, "[Signal Caught](%d): signum = %d (%s)\n",
-            caught_signal_count, signum, strsignal(signum));
-
-    signal(signum, default_signal_hanlders[signum]);
-    raise(signum);
+    //TODO: xxx _exit() is safer, but gcov will not generate coverage report with _exit()
+    exit(CRETE_EXIT_CODE_SIG_BASE + signum);
 }
 
 static void init_crete_signal_handlers(int argc, char **argv)
@@ -347,6 +350,9 @@ static void init_crete_signal_handlers(int argc, char **argv)
     __INIT_CRETE_SIGNAL_HANDLER(SIGTSTP);
     __INIT_CRETE_SIGNAL_HANDLER(SIGXCPU);
     __INIT_CRETE_SIGNAL_HANDLER(SIGXFSZ);
+
+    // SIGUSR1 for timeout
+    __INIT_CRETE_SIGNAL_HANDLER(SIGUSR1);
 }
 
 // ********************************************************* //
