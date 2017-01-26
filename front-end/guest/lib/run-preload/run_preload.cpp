@@ -261,6 +261,50 @@ bool crete_verify_executable_path_matches(const char* argv0)
 }
 #endif // CRETE_HOST_ENV
 
+
+// ********************************************************* //
+// Signal handling
+#define __INIT_CRETE_SIGNAL_HANDLER(SIGNUM)                                  \
+        {                                               \
+            struct sigaction sigact;                    \
+                                                        \
+            memset(&sigact, 0, sizeof(sigact));         \
+            sigact.sa_handler = crete_signal_handler;   \
+            sigaction(SIGNUM, &sigact, NULL);           \
+                                                        \
+            sigset_t set;                               \
+            sigemptyset(&set);                          \
+            sigaddset(&set, SIGNUM);                    \
+            sigprocmask(SIG_UNBLOCK, &set, NULL);       \
+        }
+
+// Terminate the program gracefully and return the corresponding exit code
+// TODO: xxx does not handle nested signals
+static void crete_signal_handler(int signum)
+{
+    //TODO: xxx _exit() is safer, but atexit()/crete_capture_end() will not be called with _exit()
+    exit(CRETE_EXIT_CODE_SIG_BASE + signum);
+}
+
+static void init_crete_signal_handlers(void)
+{
+    __INIT_CRETE_SIGNAL_HANDLER(SIGABRT);
+    __INIT_CRETE_SIGNAL_HANDLER(SIGFPE);
+    __INIT_CRETE_SIGNAL_HANDLER(SIGHUP);
+    __INIT_CRETE_SIGNAL_HANDLER(SIGINT);
+    __INIT_CRETE_SIGNAL_HANDLER(SIGILL);
+    __INIT_CRETE_SIGNAL_HANDLER(SIGPIPE);
+    __INIT_CRETE_SIGNAL_HANDLER(SIGQUIT);
+    __INIT_CRETE_SIGNAL_HANDLER(SIGSEGV);
+    __INIT_CRETE_SIGNAL_HANDLER(SIGSYS);
+    __INIT_CRETE_SIGNAL_HANDLER(SIGTERM);
+    __INIT_CRETE_SIGNAL_HANDLER(SIGTSTP);
+    __INIT_CRETE_SIGNAL_HANDLER(SIGXCPU);
+    __INIT_CRETE_SIGNAL_HANDLER(SIGXFSZ);
+
+    // SIGUSR1 for timeout
+    __INIT_CRETE_SIGNAL_HANDLER(SIGUSR1);
+}
 extern "C" {
     // The type of __libc_start_main
     typedef int (*__libc_start_main_t)(
@@ -312,6 +356,7 @@ int __libc_start_main(
             crete_preload_initialize(argc, ubp_av);
         }
 #else
+        init_crete_signal_handlers();
         crete_preload_initialize(argc, ubp_av);
 #endif // CRETE_HOST_ENV
     }

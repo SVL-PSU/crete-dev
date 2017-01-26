@@ -81,7 +81,10 @@ void Harness::update_proc_maps()
 
     // This process must be running in order to get the proc-maps, so, if we want to have crete-run relay the proc-map info, we need to run this once and terminate it before actually testing.
     if(terminate)
+    {
+        fprintf(stderr, "Early termination in update_proc_maps() (should be prime)\n");
         exit(0); // Normal operating proceedure to get crete-run the proc-maps for this binary. Other proc-map updates are done for sanity check (to ensure ASLR is disabled).
+    }
 }
 
 }
