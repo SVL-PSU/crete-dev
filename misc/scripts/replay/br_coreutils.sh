@@ -20,6 +20,9 @@ SANDBOX="/home/test/klee-sandbox"
 # ======================================
 # complete list
 # ======================================
+
+# kill
+
 PROGRAMS="base64
 basename
 cat
@@ -53,7 +56,6 @@ hostname
 id
 ginstall
 join
-kill
 link
 ln
 logname
@@ -108,6 +110,7 @@ wc
 whoami
 who
 yes"
+
 
 # ======================================
 # crete old 49 progs

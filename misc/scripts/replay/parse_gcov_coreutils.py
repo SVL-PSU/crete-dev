@@ -31,14 +31,13 @@ import sys
 #             "sort", "stat", "sum", "sync", "tac", "tail", "tr", "tsort",
 #             "uname", "unexpand", "uptime", "users", "wc", "whoami", "who"]
 
-programs = ["base64", "basename", "cat", "cksum", "comm", "cut", "date",
-            "df", "dircolors", "dirname",  "echo", "env", "expand",
-            "expr", "factor", "fmt", "fold", "head", "hostid", "id", "join",
-            "logname", "ls", "nl", "od", "paste", "pathchk", "pinky",
-            "printenv", "printf", "pwd", "readlink", "seq", "shuf", "sleep",
-            "sort", "stat", "sum", "sync", "tac", "tail", "tr", "tsort",
-            "uname", "unexpand", "uptime", "users", "wc", "whoami", "who"]
-# "du",
+programs = ["base64", "basename", "cat", "chcon", "chgrp", "chmod", "chown", "chroot", "cksum", "comm", "cp", "csplit", "cut"
+            ,"date", "dd", "df", "dircolors", "dirname", "du", "echo", "env", "expand", "expr", "factor", "false", "fmt", "fold",
+            "head", "hostid", "hostname", "id", "ginstall", "join", "kill", "link", "ln", "logname", "ls", "md5sum", "mkdir",
+            "mkfifo", "mknod", "mktemp", "mv", "nice", "nl", "nohup", "od", "paste", "pathchk", "pinky", "pr", "printenv", "printf",
+            "ptx", "pwd", "readlink", "rm", "rmdir", "runcon", "seq", "setuidgid", "shred", "shuf", "sleep", "sort", "split",
+            "stat", "stty", "sum", "sync", "tac", "tail", "tee", "touch", "tr", "tsort", "tty", "uname", "unexpand", "uniq", "unlink",
+            "uptime", "users", "wc", "whoami", "who", "yes"]
 
 def parse_cov(cov, prog):
     blocks = re.split('File.*\n', cov)

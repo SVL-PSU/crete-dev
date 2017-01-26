@@ -118,9 +118,14 @@ public:
 
 private:
     void setup_launch_exec();
-    void init_ramdisk();
-    void init_sandbox();
+
     void reset_sandbox();
+
+    void init_launch_folder();
+
+    void init_sandbox();
+    void init_ramdisk();
+    void reset_sandbox_folder_permission();
 
 public:
     // +--------------------------------------------------+
@@ -449,15 +454,50 @@ void RunnerFSM_::load_defaults(const poll&)
         BOOST_THROW_EXCEPTION(Exception() << err::parse(guest_config_path_.string())
                                           << err::msg(e.what()));
     }
+}
 
-    setup_launch_exec();
+static unsigned monitored_pid = 0;
+static unsigned monitored_timeout = 3;
+
+static void timeout_handler(int signum)
+{
+    if(monitored_pid)
+    {
+        kill(monitored_pid, SIGUSR1);
+    } else {
+        _exit(99);
+    }
+}
+
+static inline void init_timeout_handler()
+{
+    struct sigaction sigact;
+
+    memset(&sigact, 0, sizeof(sigact));
+    sigact.sa_handler = timeout_handler;
+    sigaction(SIGALRM, &sigact, NULL);
 }
 
 void RunnerFSM_::setup_launch_exec()
 {
     m_exec = guest_config_.get_executable();
 
-    // 1. Set up m_launch_args
+    // 1. setup m_exec_launch_dir
+    if(m_sandbox_dir.empty())
+    {
+        // when no sandbox, m_exec_launch_dir is set to the parent folder of the executable,
+        // unless that folder is not writable (then it will be the working
+        // directory of crete-run)
+        m_exec_launch_dir = m_exec.parent_path();
+        if(access(m_exec_launch_dir.string().c_str(), W_OK) != 0)
+        {
+            m_exec_launch_dir = fs::current_path();
+        }
+    } else {
+        m_exec_launch_dir = fs::path("/tmp") / fs::canonical(m_sandbox_dir).filename();
+    }
+
+    // 2. Set up m_launch_args
     config::Arguments guest_args = guest_config_.get_arguments();
     // +1 for argv[0]
     m_launch_args.resize(guest_args.size()+1, std::string());
@@ -470,7 +510,7 @@ void RunnerFSM_::setup_launch_exec()
         m_launch_args[it->index] = it->value;
     }
 
-    // 2. Setup m_launch_ctx
+    // 3. Setup m_launch_ctx
     // TODO: xxx the output stream may make a difference, check klee's symbolic_stdout
     m_launch_ctx.output_behavior.insert(bp::behavior_map::value_type(STDOUT_FILENO, bp::capture_stream()));
     m_launch_ctx.output_behavior.insert(bp::behavior_map::value_type(STDERR_FILENO, bp::redirect_stream_to_stdout()));
@@ -481,26 +521,12 @@ void RunnerFSM_::setup_launch_exec()
     m_launch_ctx.environment.erase("LD_PRELOAD");
     m_launch_ctx.environment.insert(bp::environment::value_type("LD_PRELOAD", "libcrete_run_preload.so"));
 
-    if(m_sandbox_dir.empty())
-    {
-        // when no sandbox, m_exec_launch_dir is set to the parent folder of the executable,
-        // unless that folder is not writable (then it will be the working
-        // directory of crete-run)
-        m_exec_launch_dir = m_exec.parent_path();
-        if(access(m_exec_launch_dir.string().c_str(), W_OK) != 0)
-        {
-            m_exec_launch_dir = fs::current_path();
-        }
-    } else {
-        m_exec_launch_dir = fs::path("/") / fs::canonical(m_sandbox_dir).filename();
-
-        m_launch_ctx.chroot = CRETE_SANDBOX_PATH;
-        init_sandbox();
-    }
     m_launch_ctx.work_directory = m_exec_launch_dir.string();
 
-    //3. setup ramdisk
-    init_ramdisk();
+    if(!m_sandbox_dir.empty())
+    {
+        m_launch_ctx.chroot = CRETE_SANDBOX_PATH;
+    }
 
     // 4. setup the path for proc-map and guest_config_serialized
     if(m_sandbox_dir.empty())
@@ -511,6 +537,20 @@ void RunnerFSM_::setup_launch_exec()
         m_proc_map = fs::path(CRETE_SANDBOX_PATH) / CRETE_PROC_MAPS_PATH;
         m_guest_config_serialized = fs::path(CRETE_SANDBOX_PATH) / CRETE_CONFIG_SERIALIZED_PATH;
     }
+
+    // 5. setup timeout hanlder
+    init_timeout_handler();
+}
+
+void RunnerFSM_::init_launch_folder()
+{
+    if(!m_sandbox_dir.empty())
+    {
+        init_sandbox();
+    }
+
+    //4. setup ramdisk
+    init_ramdisk();
 }
 
 void RunnerFSM_::load_file_data(const poll&)
@@ -531,6 +571,10 @@ void RunnerFSM_::transmit_guest_data(const poll&)
 
 void RunnerFSM_::prime(const poll&)
 {
+    setup_launch_exec();
+    init_launch_folder();
+    reset_sandbox();
+
     prime_executable();
     prime_virtual_machine();
 }
@@ -546,8 +590,6 @@ void RunnerFSM_::prime_virtual_machine()
 // The exec should exit prematurely within preload.so
 void RunnerFSM_::prime_executable()
 {
-    reset_sandbox();
-
     fs::remove(m_proc_map);
     fs::remove(m_guest_config_serialized);
 
@@ -573,6 +615,29 @@ void RunnerFSM_::write_configuration() const
     oa << guest_config_;
 }
 
+static inline void process_exit_status(std::ostream& log, int exit_status)
+{
+    if(exit_status == 0)
+    {
+        log << "NORMAL EXIT STATUS.\n";
+        return;
+    }
+
+    if((exit_status > CRETE_EXIT_CODE_SIG_BASE) &&
+            (exit_status < (CRETE_EXIT_CODE_SIG_BASE + SIGUNUSED)) )
+    {
+        int signum = exit_status - CRETE_EXIT_CODE_SIG_BASE ;
+        if(signum == SIGUSR1)
+        {
+            log << "Replay Timeout\n";
+        } else {
+            log << "[Signal Caught] signum = " << signum << ", signame: " << strsignal(signum) << std::endl;
+        }
+    }
+
+    log << "ABNORMAL EXIT STATUS: " << exit_status << std::endl;
+}
+
 void RunnerFSM_::launch_executable()
 {
 #if defined(CRETE_DBG_SYSTEM_LAUNCH)
@@ -590,6 +655,11 @@ void RunnerFSM_::launch_executable()
 #else
     bp::posix_child proc = bp::posix_launch(m_exec, m_launch_args, m_launch_ctx);
 
+    pid_ = proc.get_id();
+    monitored_pid = pid_;
+    assert(monitored_timeout != 0);
+    alarm(monitored_timeout);
+
     std::cerr << "=== Output from the target executable ===\n";
     bp::pistream& is = proc.get_stdout();
     std::string line;
@@ -597,11 +667,11 @@ void RunnerFSM_::launch_executable()
     {
         std::cerr << line << std::endl;
     }
-    std::cerr << "=========================================\n";
-
-    // FIXME:: xxx bp::launch is blocking, why do we need to wait based on the pid?
-    pid_ = proc.get_id();
     bp::status s = proc.wait();
+    alarm(0);
+
+    process_exit_status(std::cerr, s.exit_status());
+    std::cerr << "=========================================\n";
 #endif
 }
 
@@ -652,8 +722,6 @@ void RunnerFSM_::update_config(const poll&)
 
 void RunnerFSM_::execute(const next_test&)
 {
-    reset_sandbox();
-
     // Waiting for "next_test", blocking function
     // TODO: should waiting for the command to come in be a guard?
     PacketInfo pkinfo = client_->read();
@@ -730,12 +798,79 @@ void RunnerFSM_::init_ramdisk()
     }
 
 }
+
+static void reset_folder_permission_recursively(const fs::path& root)
+{
+    for(fs::recursive_directory_iterator it(root), endit;
+            it != endit; ++it) {
+        if(!fs::is_symlink(*it)){
+            fs::permissions(*it, fs::owner_all);
+        }
+    }
+}
+
+// make sure the folder has the right permission within sandbox:
+// 1. "/": the root of sandbox
+// 2. "/tmp"
+// 3. "/tmp/launch-directory"
+void RunnerFSM_::reset_sandbox_folder_permission()
+{
+    {
+        fs::path p = CRETE_SANDBOX_PATH;
+        if(fs::exists(p))
+        {
+            fs::permissions(p, fs::perms_mask);
+        }
+    }
+
+    {
+        fs::path p = fs::path(CRETE_SANDBOX_PATH) / "tmp";
+        if(fs::exists(p))
+        {
+            fs::permissions(p, fs::perms_mask);
+        }
+    }
+
+    {
+        fs::path p = fs::path(CRETE_SANDBOX_PATH) / m_exec_launch_dir;
+        if(fs::exists(p))
+        {
+            fs::permissions(p, fs::perms_mask);
+            reset_folder_permission_recursively(p);
+        }
+    }
+}
 // Mount folders to sandbox dir:
 //  "/home, /lib, /lib64, /usr, /dev, /proc" (for executable, dependency libraries, etc)
 // require: "sudo setcap CAP_SYS_ADMIN+ep ./crete-run"
 void RunnerFSM_::init_sandbox()
 {
-    assert(!fs::is_directory(CRETE_SANDBOX_PATH) && "[crete-run] crete-sandbox folder existed!\n");
+    reset_sandbox_folder_permission();
+
+    // delete the sandbox folder if it existed
+    if(fs::exists(CRETE_SANDBOX_PATH))
+    {
+        {
+            // umount potential mounted folders
+            fs::path ramdisk_path = fs::path(CRETE_SANDBOX_PATH) / fs::path(CRETE_RAMDISK_PATH);
+            if(fs::is_directory(ramdisk_path))
+            {
+                umount(ramdisk_path.string().c_str());
+            }
+
+            if(fs::is_directory(CRETE_SANDBOX_PATH))
+            {
+                for (fs::directory_iterator end_dir_it, it((fs::path(CRETE_SANDBOX_PATH))); it!=end_dir_it; ++it)
+                {
+                    if(fs::is_directory(it->path()))
+                        umount(it->path().string().c_str());
+                }
+            }
+        }
+
+        fs::remove_all(CRETE_SANDBOX_PATH);
+        assert(!fs::exists(CRETE_SANDBOX_PATH) && "[crete-run] crete-sandbox folder reset failed!\n");
+    }
 
     {
         const fs::path src = "/home";
@@ -791,16 +926,13 @@ void RunnerFSM_::init_sandbox()
             rdonly_bind_mount(src, dst);
         }
     }
+
+    fs::create_directories(fs::path(CRETE_SANDBOX_PATH) / "tmp");
 }
 
 // reset CRETE_SANDBOX_EXEC folder by copying m_sandbox_dir
 void RunnerFSM_::reset_sandbox()
 {
-    if(m_sandbox_dir.empty())
-    {
-        return;
-    }
-
     // 1. reset "ramdisk folder" within sandbox
     fs::path ramdisk_folder_path = fs::path(CRETE_SANDBOX_PATH) / CRETE_RAMDISK_PATH;
     assert(fs::is_directory(ramdisk_folder_path) && "[crete-run] ramdisk folder does not exsit. "
@@ -812,7 +944,10 @@ void RunnerFSM_::reset_sandbox()
 
     // 2. reset "sandbox-exec folder" within sandbox
     fs::path crete_sandbox_exec_path = fs::path(CRETE_SANDBOX_PATH) / m_exec_launch_dir;
-    fs::remove_all(crete_sandbox_exec_path);
+    if(fs::exists(crete_sandbox_exec_path))
+    {
+        fs::remove_all(crete_sandbox_exec_path);
+    }
     assert(fs::is_directory(fs::path(crete_sandbox_exec_path).parent_path()));
 
     bp::context ctx;
@@ -865,6 +1000,17 @@ void RunnerFSM_::verify_invariants(const poll&)
         throw std::runtime_error("proc-maps.log changed across iterations! Ensure ASLR is disabled");
     }
 
+    if(!m_sandbox_dir.empty())
+    {
+        init_launch_folder();
+        //FIXME: xxx create dummy "proc-map.log" to prevent executable from terminating prematurely
+        std::ofstream ofs (m_proc_map.string().c_str());
+        ofs.close();
+        // Provide "guest_config"
+        write_configuration();
+
+        reset_sandbox();
+    }
 #endif // !defined(CRETE_TEST)
 }
 

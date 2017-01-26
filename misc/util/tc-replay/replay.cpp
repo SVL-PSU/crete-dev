@@ -589,6 +589,7 @@ void CreteReplay::replay()
 #endif
 
             bp::status status = proc.wait();
+            alarm(0);
             process_exit_status(ofs_replay_log, status.exit_status());
         }
 
