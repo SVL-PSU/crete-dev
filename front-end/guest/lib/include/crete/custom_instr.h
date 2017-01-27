@@ -33,6 +33,12 @@ void crete_send_custom_instr_reset_stopwatch();
 void crete_insert_instr_next_replay_program(uintptr_t addr, uintptr_t size);
 void crete_insert_instr_read_port(uintptr_t addr, uintptr_t size);
 
+void crete_make_concolic(void* addr, size_t size, const char* name);
+
+#define crete_assume(cond)                      \
+  crete_assume_begin();                         \
+  crete_assume_(cond)
+
 #ifdef __cplusplus
 }
 #endif // __cplusplus
