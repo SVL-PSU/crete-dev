@@ -1,5 +1,4 @@
 #include <crete/common.h>
-#include <crete/harness.h>
 #include <crete/custom_instr.h>
 #include <crete/harness_config.h>
 
@@ -230,12 +229,38 @@ void crete_process_configuration(const config::HarnessConfiguration& hconfig,
     crete_process_stdin(hconfig);
 }
 
+static void update_proc_maps()
+{
+    namespace fs = boost::filesystem;
+
+    // FIXME: xxx terrible way to identify the prime execution
+    bool terminate = false;
+    if(!fs::exists(CRETE_PROC_MAPS_PATH))
+        terminate = true;
+
+    fs::remove(CRETE_PROC_MAPS_PATH);
+    ifstream ifs("/proc/self/maps");
+    ofstream ofs(CRETE_PROC_MAPS_PATH);
+    copy(istreambuf_iterator<char>(ifs),
+         istreambuf_iterator<char>(),
+         ostreambuf_iterator<char>(ofs));
+
+    // This process must be running in order to get the proc-maps, so,
+    // if we want to have crete-run relay the proc-map info, we need to run this once and terminate it before actually testing.
+    if(terminate)
+    {
+        fprintf(stderr, "Early termination in update_proc_maps() (should be prime)\n");
+        exit(0); // Normal operating procedure to get crete-run the proc-maps for this binary. Other proc-map updates are done for sanity check (to ensure ASLR is disabled).
+    }
+}
+
 void crete_preload_initialize(int argc, char**& argv)
 {
-    // Should exit program while being launched as prime
-    crete_initialize(argc, argv);
+    // Should terminate program while being launched as prime
+    update_proc_maps();
+
+    atexit(crete_capture_end);
     // Need to call crete_capture_begin before make_concolics, or they won't be captured.
-    // crete_capture_end() is registered with atexit() in crete_initialize().
     crete_capture_begin();
 
     config::HarnessConfiguration hconfig = crete_load_configuration();

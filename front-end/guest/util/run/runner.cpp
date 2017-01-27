@@ -1332,3 +1332,18 @@ void Runner::run()
 }
 
 } // namespace crete
+
+int main(int argc, char* argv[])
+{
+    try
+    {
+        crete::Runner runner(argc, argv);
+    }
+    catch(...)
+    {
+        std::cerr << boost::current_exception_diagnostic_information() << std::endl;
+        return -1;
+    }
+
+    return 0;
+}
