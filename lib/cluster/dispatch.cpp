@@ -1351,9 +1351,6 @@ struct DispatchFSM_::is_target_expired
     template <class EVT,class FSM,class SourceState,class TargetState>
     auto operator()(EVT const&, FSM& fsm, SourceState&, TargetState&) -> bool
     {
-        if(!fsm.first_trace_rxed_) // TODO: this belongs in the FSM guard list.
-            return false;
-
         auto elapsed_time_count = fsm.elapsed_time();
 
         assert(elapsed_time_count >= 0);
@@ -1499,7 +1496,6 @@ struct DispatchFSM_::dispatch
 
                     if(!fsm.first_trace_rxed_)
                     {
-                        fsm.start_time_ = std::chrono::system_clock::now();
                         fsm.first_trace_rxed_ = true;
                     }
 
@@ -2001,11 +1997,8 @@ auto DispatchFSM_::display_status(std::ostream& os) -> void
 
     os << endl;
 
-    auto disp_time = std::string("pending");
-    if(first_trace_rxed_)
-    {
-        disp_time = std::to_string(elapsed_time());
-    }
+    auto disp_time = std::to_string(elapsed_time());
+
     auto test = to_string(test_pool_.count_next()) +
                  "/" +
                  to_string(test_pool_.count_all());
