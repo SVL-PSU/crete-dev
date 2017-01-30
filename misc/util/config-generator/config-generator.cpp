@@ -75,6 +75,15 @@ const static set<string> coreutil_klee_osdi = {
 
 const static string coreutil_guest_path = "/home/test/tests/coreutils-6.10/exec/src/";
 
+const static string guest_executable_folder =  "/home/test/tests/exec/bin/";
+
+const static set<string> dase_expr = {
+        // diff
+        "cmp", "diff", "diff3", "sdiff",
+        // grep
+        "egrep", "fgrep", "grep"
+};
+
 struct TestCaseCompare
 {
     bool operator()(const crete::TestCase& rhs, const crete::TestCase& lhs);
@@ -274,6 +283,7 @@ void CreteTest::consistency_check()
 static vector<vector<string> > tokenize(const char *filename);
 
 CreteTests::CreteTests(const char *input_file)
+:m_config_count(0)
 {
     initBaseOutputDirectory();
 
@@ -527,20 +537,23 @@ const SymArgsConfig KLEE_SYM_ARGS_CONFIG_2(0, 2, 2);
 const uint64_t KLEE_SYM_FILE_SIZE  = 8;
 const uint64_t KLEE_SYM_STDIN_SIZE = 8;
 
+const uint64_t DASE_GREP_DIFF_SYM_FILE_SIZE  = 100;
+
 struct ParsedSymArgs
 {
     vector<uint64_t> m_sym_args;
     uint64_t m_sym_file_size;
     uint64_t m_sym_stdin_size;
 
-    ParsedSymArgs(): m_sym_args(vector<uint64_t>()),
-            m_sym_file_size(KLEE_SYM_FILE_SIZE),
-            m_sym_stdin_size(KLEE_SYM_STDIN_SIZE) {}
+    ParsedSymArgs(uint64_t sym_file_size, uint64_t sym_stdin_size): m_sym_args(vector<uint64_t>()),
+            m_sym_file_size(sym_file_size),
+            m_sym_stdin_size(sym_stdin_size) {}
 };
 
 // Rules: sym-args from config1 always come before the ones from config2
 static vector<ParsedSymArgs> parse_symArgsConfig(const SymArgsConfig& config1,
-        const SymArgsConfig& config2)
+        const SymArgsConfig& config2, const uint64_t sym_file_size,
+        const uint64_t sym_stdin_size)
 {
 //    config1.print("config1");
 //    config2.print("config2");
@@ -552,7 +565,7 @@ static vector<ParsedSymArgs> parse_symArgsConfig(const SymArgsConfig& config1,
         for(uint64_t count2 = config2.m_min_sym_num;
                 count2 <= config2.m_max_sym_num; ++count2)
         {
-            ParsedSymArgs parsed;
+            ParsedSymArgs parsed(sym_file_size, sym_stdin_size);
 
             for(uint64_t i = 0; i < count1; ++i)
             {
@@ -589,20 +602,35 @@ static void printf_parsed_config(const vector<ParsedSymArgs>& configs)
     }
 }
 
-void CreteTests::gen_crete_tests_coreutils()
+// suite_name: "klee" for coreutils, or "dase" for grep/diff
+void CreteTests::gen_crete_tests_coreutils_grep_diff(string suite_name)
 {
-    vector<ParsedSymArgs> parsed_configs = parse_symArgsConfig(KLEE_SYM_ARGS_CONFIG_1, KLEE_SYM_ARGS_CONFIG_2);
+    vector<ParsedSymArgs> parsed_configs;
+    set<string> eval;
+    if(suite_name == "klee")
+    {
+        parsed_configs = parse_symArgsConfig(KLEE_SYM_ARGS_CONFIG_1, KLEE_SYM_ARGS_CONFIG_2,
+                KLEE_SYM_FILE_SIZE, KLEE_SYM_STDIN_SIZE);
+
+        eval = coreutil_klee_osdi;
+    } else {
+        assert(suite_name == "dase");
+        parsed_configs = parse_symArgsConfig(KLEE_SYM_ARGS_CONFIG_1, KLEE_SYM_ARGS_CONFIG_2,
+                DASE_GREP_DIFF_SYM_FILE_SIZE, KLEE_SYM_STDIN_SIZE);
+
+        eval = dase_expr;
+    }
+
     printf_parsed_config(parsed_configs);
 
-    uint64_t config_count = 1;
     // Generate all configs for each gnu coreutil progs
-    for(set<string>::const_iterator it = coreutil_klee_osdi.begin();
-            it != coreutil_klee_osdi.end(); ++ it) {
+    for(set<string>::const_iterator it = eval.begin();
+            it != eval.end(); ++ it) {
         for(uint64_t i = 0; i < parsed_configs.size(); ++i)
         {
             const ParsedSymArgs& parsed_config =  parsed_configs[i];
             config::RunConfiguration crete_config;
-            crete_config.set_executable(coreutil_guest_path + *it);
+            crete_config.set_executable(guest_executable_folder + *it);
 
             // 1. sym-args
             const vector<uint64_t>& sym_args = parsed_config.m_sym_args;
@@ -628,7 +656,7 @@ void CreteTests::gen_crete_tests_coreutils()
             // 3.1 w/o sym-file
             {
                 stringstream config_name;
-                config_name << "auto." << *it << "."  << config_count++  << ".xml" ;
+                config_name << "auto." << *it << "."  << ++m_config_count  << ".xml" ;
                 fs::path out_config_file = fs::path(m_outputDirectory) / config_name.str();
                 cerr << out_config_file.string() << endl;
 
@@ -657,7 +685,7 @@ void CreteTests::gen_crete_tests_coreutils()
                 crete_config.set_argument(arg);
 
                 stringstream config_name;
-                config_name << "auto." << *it << "."  << config_count++  << ".xml" ;
+                config_name << "auto." << *it << "."  << ++m_config_count  << ".xml" ;
                 fs::path out_config_file = fs::path(m_outputDirectory) / config_name.str();
                 cerr << out_config_file.string() << endl;
 
@@ -703,24 +731,88 @@ vector<vector<string> > tokenize(const char *filename) {
     return tokenized;
 }
 
+CreteConfig::CreteConfig(int argc, char* argv[])
+:m_ops_descr(make_options())
+{
+    parse_options(argc, argv);
+    process_options();
+}
+
+po::options_description CreteConfig::make_options()
+{
+    po::options_description desc("Options");
+
+    desc.add_options()
+            ("help,h", "displays help message")
+            ("suite,s", po::value<string>(), "generate configurations for suite: klee, dase, ffmpeg")
+            ("path,p", po::value<fs::path>(), "input file with sample commandline invocation for generating configs, required for ffmpeg")
+        ;
+
+    return desc;
+}
+
+void CreteConfig::parse_options(int argc, char* argv[])
+{
+    po::store(po::parse_command_line(argc, argv, m_ops_descr), m_var_map);
+    po::notify(m_var_map);
+}
+
+void CreteConfig::process_options()
+{
+    using namespace std;
+
+    if(m_var_map.size() == 0)
+    {
+        cout << "Missing arguments" << endl;
+        cout << "Use '--help' for more details" << endl;
+        BOOST_THROW_EXCEPTION(Exception() << err::arg_count(0));
+    }
+    if(m_var_map.count("help"))
+    {
+        cerr << m_ops_descr << endl;
+        exit(0);
+    }
+
+    if(m_var_map.count("suite"))
+    {
+        string m_suite_name = m_var_map["suite"].as<string>();
+
+        if(m_suite_name.empty())
+        {
+            cerr << "please give the name of the test suite for generating config files\n";
+            exit(1);
+        }
+
+        if(m_suite_name == "klee")
+        {
+            CreteTests crete_tests(NULL);
+            crete_tests.gen_crete_tests_coreutils_grep_diff("klee");
+        } else if (m_suite_name == "dase")
+        {
+            CreteTests crete_tests(NULL);
+            crete_tests.gen_crete_tests_coreutils_grep_diff("dase");
+        } else if (m_suite_name == "ffmpeg")
+        {
+            assert(m_var_map.count("path"));
+            fs::path input_path =  m_var_map["path"].as<fs::path>();
+            if(!fs::is_regular_file(input_path))
+            {
+                BOOST_THROW_EXCEPTION(Exception() << err::file_missing(input_path.string()));
+            }
+
+            CreteTests crete_tests(input_path.string().c_str());
+            crete_tests.gen_crete_tests(true);
+        } else {
+            assert(0);
+        }
+    }
+}
+
 int main (int argc, char **argv)
 {
     try
     {
-        // TODO: xxx add more generic way of parsing inputs
-        if (argc == 1) {
-            CreteTests crete_tests(NULL);
-            crete_tests.gen_crete_tests_coreutils();
-        } else if(argc == 2){
-            CreteTests crete_tests(argv[1]);
-            crete_tests.gen_crete_tests(true);
-        } else if(argc == 3){
-            fs::path input(argv[2]);
-            config::RunConfiguration crete_config(input);
-        } else {
-            fprintf(stderr, "invalid inputs.\n");
-            return -1;
-        }
+        CreteConfig configs(argc, argv);
     }
     catch(...)
     {

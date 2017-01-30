@@ -7,8 +7,12 @@
 
 #include <crete/run_config.h>
 
+#include <boost/program_options.hpp>
+
 using namespace std;
 using namespace crete;
+
+namespace po = boost::program_options;
 
 class CreteTest
 {
@@ -44,7 +48,7 @@ public:
     ~CreteTests() {}
 
     void gen_crete_tests(bool inject_one_concolic);
-    void gen_crete_tests_coreutils();
+    void gen_crete_tests_coreutils_grep_diff(string suite_name);
 
 private:
     void parse_cmdline_tests(const char *input_file);
@@ -54,5 +58,22 @@ private:
 //    multimap<string, string> m_crete_tests;
     map<string, CreteTest> m_crete_tests;
     string m_outputDirectory;
+
+    uint64_t m_config_count;
+};
+
+class CreteConfig
+{
+private:
+    boost::program_options::options_description m_ops_descr;
+    boost::program_options::variables_map m_var_map;
+
+public:
+    CreteConfig(int argc, char* argv[]);
+
+private:
+    po::options_description make_options();
+    void parse_options(int argc, char* argv[]);
+    void process_options();
 };
 #endif // #ifndef CRETE_CONFIG_GENERATOR_H
