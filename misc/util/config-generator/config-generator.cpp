@@ -75,7 +75,7 @@ const static set<string> coreutil_klee_osdi = {
 
 const static string coreutil_guest_path = "/home/test/tests/coreutils-6.10/exec/src/";
 
-const static string guest_executable_folder =  "/home/test/tests/exec/bin/";
+const static string guest_executable_folder =  "/home/test/tests/build/bin/";
 
 const static set<string> dase_expr = {
         // diff
