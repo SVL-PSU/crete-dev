@@ -33,11 +33,19 @@ import sys
 
 programs = ["base64", "basename", "cat", "chcon", "chgrp", "chmod", "chown", "chroot", "cksum", "comm", "cp", "csplit", "cut"
             ,"date", "dd", "df", "dircolors", "dirname", "du", "echo", "env", "expand", "expr", "factor", "false", "fmt", "fold",
-            "head", "hostid", "hostname", "id", "ginstall", "join", "kill", "link", "ln", "logname", "ls", "md5sum", "mkdir",
+            "head", "hostid", "hostname", "id",
+            # "ginstall",
+            "install",
+            "join", "kill", "link", "ln", "logname", "ls",
+            # "md5sum",
+            "md5sum-md5sum",
+            "mkdir",
             "mkfifo", "mknod", "mktemp", "mv", "nice", "nl", "nohup", "od", "paste", "pathchk", "pinky", "pr", "printenv", "printf",
             "ptx", "pwd", "readlink", "rm", "rmdir", "runcon", "seq", "setuidgid", "shred", "shuf", "sleep", "sort", "split",
             "stat", "stty", "sum", "sync", "tac", "tail", "tee", "touch", "tr", "tsort", "tty", "uname", "unexpand", "uniq", "unlink",
-            "uptime", "users", "wc", "whoami", "who", "yes"]
+            "uptime", "users", "wc", "whoami", "who", "yes",
+            "cmp", "diff", "diff3", "sdiff",
+            "egrep", "fgrep", "grep"]
 
 def parse_cov(cov, prog):
     blocks = re.split('File.*\n', cov)
