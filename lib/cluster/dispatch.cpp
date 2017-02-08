@@ -31,6 +31,32 @@ namespace crete
 namespace cluster
 {
 
+auto filter_vm(const NodeRegistrar::Nodes& nodes) -> NodeRegistrar::Nodes;
+auto filter_svm(const NodeRegistrar::Nodes& nodes) -> NodeRegistrar::Nodes;
+auto sort_by_trace(NodeRegistrar::Nodes& nodes) -> void;
+auto sort_by_test(NodeRegistrar::Nodes& nodes) -> void;
+auto receive_trace(NodeRegistrar::Node& node,
+                   const boost::filesystem::path& traces_dir) -> boost::filesystem::path;
+auto receive_tests(NodeRegistrar::Node& node) -> std::vector<TestCase>;
+auto receive_errors(NodeRegistrar::Node& node) -> std::vector<log::NodeError>;
+auto receive_image_info(NodeRegistrar::Node& node) -> ImageInfo;
+auto transmit_trace(NodeRegistrar::Node& node,
+                    const boost::filesystem::path& traces) -> void;
+auto transmit_tests(NodeRegistrar::Node& node,
+                    const std::vector<TestCase>& tcs) -> void;
+auto transmit_commencement(NodeRegistrar::Node& node) -> void;
+auto transmit_image_info(NodeRegistrar::Node& node,
+                         const ImageInfo& ii) -> void;
+auto transmit_config(NodeRegistrar::Node& node,
+                     const option::Dispatch& options) -> void;
+auto register_node_fsm(NodeRegistrar::Node& node,
+                       const option::Dispatch& options,
+                       const boost::filesystem::path& root,
+                       AtomicGuard<std::vector<std::shared_ptr<vm::NodeFSM>>>& vm_node_fsms,
+                       AtomicGuard<std::vector<std::shared_ptr<svm::NodeFSM>>>& svm_node_fsms) -> void;
+auto make_dispatch_root() -> boost::filesystem::path;
+auto extract_initial_test(const config::RunConfiguration& config) -> TestCase;
+
 namespace vm
 {
 // +--------------------------------------------------+
@@ -2234,7 +2260,7 @@ auto receive_trace(NodeRegistrar::Node& node,
              ofs);
     }
 
-    restore_directory(trace);
+//    restore_directory(trace);
 
     return trace;
 }
@@ -2305,7 +2331,7 @@ auto transmit_trace(NodeRegistrar::Node& node,
     pkinfo.id = lock->status.id;
     pkinfo.type = packet_type::cluster_trace;
 
-    archive_directory(trace);
+//    archive_directory(trace);
 
     fs::ifstream ifs{trace,
                      std::ios::in | std::ios::binary};

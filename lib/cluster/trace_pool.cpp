@@ -28,10 +28,11 @@ TracePool::TracePool(const option::Dispatch& options)
 
 auto TracePool::insert(const TracePath& trace) -> bool
 {
-    if(options_.trace.print_elf_info)
-    {
-        print_elf_info(trace);
-    }
+    // TODO: xxx disabled as a part of cleanup for transmitting traces
+//    if(options_.trace.print_elf_info)
+//    {
+//        print_elf_info(trace);
+//    }
 
     ++trace_count_;
     next_.push_front(trace);
