@@ -2,6 +2,7 @@
 #include <crete/exception.h>
 #include <crete/logger.h>
 #include <crete/async_task.h>
+#include <crete/guest_data_post_exec.hpp>
 
 #include <boost/property_tree/ptree.hpp>
 #include <boost/filesystem.hpp>
@@ -12,6 +13,7 @@
 #include <boost/msm/front/functor_row.hpp>
 #include <boost/msm/front/euml/operator.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/unordered_set.hpp>
 
 #include <chrono>
 #include <deque>
@@ -102,6 +104,7 @@ public:
     auto errors() const -> const std::deque<log::NodeError>&;
     auto pop_error() -> log::NodeError;
     auto guest_data() const -> const GuestData&;
+    auto get_guest_data_post_exec() const -> const GuestDataPostExec&;
 
     // +--------------------------------------------------+
     // + Entry & Exit                                     +
@@ -228,6 +231,7 @@ private:
     bool first_vm_node_{false};
     fs::path traces_dir_;
     std::shared_ptr<fs::path> trace_ = std::make_shared<fs::path>();
+    std::shared_ptr<GuestDataPostExec> guest_data_post_exec_ = std::make_shared<GuestDataPostExec>();
     std::deque<log::NodeError> errors_;
     boost::optional<ImageInfo> image_info_;
     bool update_image_{false};
@@ -297,6 +301,11 @@ auto VMNodeFSM_::node_status() const -> const NodeStatus&
 auto VMNodeFSM_::get_trace() const -> const fs::path&
 {
     return *trace_;
+}
+
+auto VMNodeFSM_::get_guest_data_post_exec() const -> const GuestDataPostExec&
+{
+    return *guest_data_post_exec_;
 }
 
 auto VMNodeFSM_::errors() const -> const std::deque<log::NodeError>&
@@ -574,6 +583,7 @@ struct VMNodeFSM_::update_image
     }
 };
 
+// NOTE: XXX blocking function, no fault tolerant
 struct VMNodeFSM_::rx_guest_data
 {
     template <class EVT,class FSM,class SourceState,class TargetState>
@@ -618,14 +628,28 @@ struct VMNodeFSM_::rx_trace
     {
         ts.async_task_.reset(new AsyncTask{[]( NodeRegistrar::Node node
                                              , const fs::path traces_dir
-                                             , std::shared_ptr<fs::path> trace)
+                                             , std::shared_ptr<fs::path> trace
+                                             , std::shared_ptr<GuestDataPostExec> guest_data_post_exec)
         {
             *trace = receive_trace(node,
                                   traces_dir);
+
+            // Read guest_data_post_exec_ from vm-node
+            auto lock = node->acquire();
+
+            auto pkinfo = PacketInfo{0,0,0};
+            pkinfo.id = lock->status.id;
+            pkinfo.type = packet_type::cluster_request_guest_data_post_exec;
+            lock->server.write(pkinfo);
+
+            read_serialized_binary(lock->server,
+                                   *guest_data_post_exec,
+                                   packet_type::cluster_tx_guest_data_post_exec);
         }
         , fsm.node_
         , fsm.traces_dir_
-        , fsm.trace_});
+        , fsm.trace_
+        , fsm.guest_data_post_exec_});
     }
 };
 
@@ -1152,6 +1176,9 @@ public:
     auto write_target_log(const log::NodeError& ne,
                           const fs::path& subdir) -> void;
 
+    auto set_update_time_last_new_tb(const GuestDataPostExec& data) -> void;
+    auto no_new_tb_time() -> uint64_t;
+
     // +--------------------------------------------------+
     // + Entry & Exit                                     +
     // +--------------------------------------------------+
@@ -1262,6 +1289,9 @@ private:
     boost::filesystem::path current_target_seeds_;
     bool first_trace_rxed_{false};
     GuestData guest_data_;
+
+    boost::unordered_set<uint64_t> explored_tbs_;
+    std::chrono::time_point<std::chrono::system_clock> update_time_last_new_tb_ = std::chrono::system_clock::now();
 };
 
 struct start
@@ -1378,19 +1408,22 @@ struct DispatchFSM_::is_target_expired
     auto operator()(EVT const&, FSM& fsm, SourceState&, TargetState&) -> bool
     {
         auto elapsed_time_count = fsm.elapsed_time();
+        auto no_new_tb_time_count = fsm.no_new_tb_time();
 
         assert(elapsed_time_count >= 0);
 
         auto converged = fsm.is_converged();
         auto trace_exceeded = fsm.trace_pool_.count_all_unique() >= fsm.options_.test.interval.trace;
         auto tc_exceeded = fsm.test_pool_.count_all() >= fsm.options_.test.interval.tc;
-        auto time_exceeded = elapsed_time_count >= fsm.options_.test.interval.time;
+        auto overall_time_exceeded = elapsed_time_count >= fsm.options_.test.interval.time;
+        auto no_new_tb_time_exceeded = no_new_tb_time_count >= fsm.options_.test.interval.new_inst_wait_time;
 
         return
                    converged
                 || trace_exceeded
                 || tc_exceeded
-                || time_exceeded
+                || overall_time_exceeded
+                || no_new_tb_time_exceeded
                 ;
     }
 };
@@ -1446,6 +1479,9 @@ struct DispatchFSM_::reset
 
         fsm.start_time_ = std::chrono::system_clock::now();
         fsm.first_trace_rxed_ = false;
+
+        fsm.explored_tbs_.clear();
+        fsm.update_time_last_new_tb_ = std::chrono::system_clock::now();
 
         {
             auto lock = fsm.node_registrar_.acquire();
@@ -1528,6 +1564,7 @@ struct DispatchFSM_::dispatch
                     if(HANDLED_TRUE == nfsm->process_event(vm::trace{}))
                     {
                         fsm.to_trace_pool(nfsm->get_trace());
+                        fsm.set_update_time_last_new_tb(nfsm->get_guest_data_post_exec());
                     }
                 }
                 else if(nfsm->is_flag_active<vm::flag::tx_test>())
@@ -1800,6 +1837,16 @@ auto DispatchFSM_::elapsed_time() -> uint64_t
     return duration_cast<seconds>(current_time - start_time_).count();
 }
 
+auto DispatchFSM_::no_new_tb_time() -> uint64_t
+{
+    using namespace std::chrono;
+
+    auto current_time = system_clock::now();
+
+    return duration_cast<seconds>(current_time - update_time_last_new_tb_).count();
+}
+
+
 auto DispatchFSM_::are_node_queues_empty() -> bool
 {
     auto lock = node_registrar_.acquire();
@@ -1921,6 +1968,27 @@ auto DispatchFSM_::write_target_log(const log::NodeError& ne,
     ofs << ne.log;
 }
 
+
+auto DispatchFSM_::set_update_time_last_new_tb(const GuestDataPostExec& data) -> void
+{
+    const vector<uint64_t>& current_new_tbs = data.m_new_captured_tbs;
+
+    bool inserted = false;
+    for(vector<uint64_t>::const_iterator it = current_new_tbs.begin();
+            it != current_new_tbs.end(); ++it) {
+        if(explored_tbs_.insert(*it).second && !inserted)
+        {
+            inserted = true;
+        }
+    }
+
+    if(inserted)
+    {
+        update_time_last_new_tb_ = std::chrono::system_clock::now();
+
+        cerr << "update_time_last_new_tb_ is updated\n";
+    }
+}
 
 auto DispatchFSM_::test_pool() -> TestPool&
 {

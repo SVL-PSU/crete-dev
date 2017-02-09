@@ -67,7 +67,8 @@ RuntimeEnv::RuntimeEnv()
 : m_streamed(false), m_pending_stream(false),
   m_streamed_tb_count(0), m_streamed_index(0),
   m_trace_tag_nodes_count(0),
-  m_qemu_default_br_skipped(false)
+  m_qemu_default_br_skipped(false),
+  m_new_tb(false)
 {
     m_cpuState_post_insterest.first = false;
     m_cpuState_post_insterest.second = new uint8_t [sizeof(CPUArchState)];
@@ -432,6 +433,7 @@ void RuntimeEnv::writeRtEnvToFile()
         // need-not-streamed
         writeConcolics();
         writeTBGraphExecSequ();
+        writeGuestDataPostExec();
     }
     catch(std::exception& e)
     {
@@ -1606,6 +1608,36 @@ void RuntimeEnv::print_trace_tag() const
     }
 }
 
+void RuntimeEnv::add_new_tb_pc(const uint64_t current_tb_pc)
+{
+    // set m_new_tb when all nodes from m_trace_trag_explored have been executed
+    if(!m_new_tb &&
+            (m_trace_tag_nodes_count >= m_trace_tag_explored.size()))
+    {
+        m_new_tb = true;
+    }
+
+    if(m_new_tb)
+    {
+        m_guest_data_post_exec.add_new_tb_pc(current_tb_pc);
+    }
+}
+
+void RuntimeEnv::writeGuestDataPostExec()
+{
+    ofstream o_sm(getOutputFilename(CRETE_FILENAME_GUEST_DATA_POST_EXEC).c_str(),
+            ios_base::binary);
+    assert(o_sm.good());
+
+    try {
+        boost::archive::binary_oarchive oa(o_sm);
+        oa << m_guest_data_post_exec;
+    }
+    catch(std::exception &e){
+        cerr << e.what() << endl;
+    }
+}
+
 CreteFlags::CreteFlags()
 : m_cpuState(NULL), m_tb(NULL),
   m_target_pid(0), m_capture_started(false),
@@ -1940,6 +1972,9 @@ int crete_post_cpu_tb_exec(void *qemuCpuState, TranslationBlock *input_tb, uint6
 
 	        // 6. trace tag
 	        runtime_env->add_trace_tag(&tb, rt_dump_tb_count);
+
+	        // 7. guest_data_post_exec
+	        runtime_env->add_new_tb_pc(tb.pc);
 	    }
 
 	    CRETE_DBG_GEN(

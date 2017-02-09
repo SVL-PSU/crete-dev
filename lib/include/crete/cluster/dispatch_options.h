@@ -33,6 +33,7 @@ struct Interval
     uint64_t trace{0};
     uint64_t tc{0};
     uint64_t time{0};
+    uint64_t new_inst_wait_time{0};
 
     template <class Archive>
     void serialize(Archive& ar, const unsigned int version)
@@ -42,6 +43,7 @@ struct Interval
         ar & trace;
         ar & tc;
         ar & time;
+        ar & new_inst_wait_time;
     }
 };
 

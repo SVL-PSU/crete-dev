@@ -9,6 +9,7 @@
 #include <crete/test_case.h>
 #include <crete/asio/server.h>
 #include <crete/dll.h>
+#include <crete/guest_data_post_exec.hpp>
 
 #include <vector>
 #include <memory>
@@ -26,6 +27,8 @@ const auto node_image_dir = boost::filesystem::path{"image"};
 
 class CRETE_DLL_EXPORT VMNode : public Node
 {
+    using GuestDataPostExecQueue= std::deque<GuestDataPostExec>;
+
 public:
     using VM = std::shared_ptr<node::vm::fsm::QemuFSM>; // TODO: should be unique_ptr, shouldn't it?
     using VMs = std::vector<VM>;
@@ -49,6 +52,9 @@ public:
     auto guest_data() -> const boost::optional<GuestData>&;
     auto reset_guest_data() -> void;
 
+    auto push_guest_data_post_exec(const GuestDataPostExec& input) ->void;
+    auto pop_guest_data_post_exec() -> const GuestDataPostExec;
+
     auto poll() -> void;
 
 private:
@@ -58,11 +64,14 @@ private:
     ImageInfo image_info_;
     std::string target_;
     boost::optional<GuestData> guest_data_;
+    GuestDataPostExecQueue guest_data_post_exec_;
 };
 
 auto process(AtomicGuard<VMNode>& node,
              NodeRequest& request) -> bool;
 auto transmit_guest_data(AtomicGuard<VMNode>& node,
+                         Client& client) -> void;
+auto transmit_guest_data_post_exec(AtomicGuard<VMNode>& node,
                          Client& client) -> void;
 auto transmit_image_info(AtomicGuard<VMNode>& node,
                            Client& client) -> void;

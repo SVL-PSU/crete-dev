@@ -9,6 +9,7 @@
 #include <crete/serialize.h>
 #include <crete/async_task.h>
 #include <crete/logger.h>
+#include <crete/guest_data_post_exec.hpp>
 
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
@@ -132,6 +133,7 @@ public:
     auto image_path() const -> fs::path;
     auto pwd() -> const fs::path&;
     auto guest_data() -> const GuestData&;
+    auto get_guest_data_post_exec() -> const GuestDataPostExec&;
     auto initial_test() -> const TestCase&;
     auto error() -> const log::NodeError&;
 
@@ -278,6 +280,8 @@ private:
     crete::log::Logger exception_log_;
     log::NodeError error_log_;
 
+    std::shared_ptr<GuestDataPostExec> guest_data_post_exec_{std::make_shared<GuestDataPostExec>()};
+
     // Testing
     boost::thread qemu_stream_capture_thread_;
 };
@@ -363,6 +367,12 @@ inline
 auto QemuFSM_::trace() const -> const fs::path&
 {
     return *trace_;
+}
+
+inline
+auto QemuFSM_:: get_guest_data_post_exec() -> const GuestDataPostExec&
+{
+    return *guest_data_post_exec_;
 }
 
 inline
@@ -768,7 +778,8 @@ struct QemuFSM_::store_trace
     auto operator()(EVT const&, FSM& fsm, SourceState&, TargetState& ts) -> void
     {
         ts.async_task_.reset(new AsyncTask{[](const fs::path vm_dir,
-                                              std::shared_ptr<fs::path> trace)
+                                              std::shared_ptr<fs::path> trace,
+                                              std::shared_ptr<GuestDataPostExec> guest_data_post_exec)
         {
             auto trace_ready = vm_dir / hostfile_dir_name / trace_ready_name;
             auto trace_dir = vm_dir / trace_dir_name;
@@ -811,9 +822,11 @@ struct QemuFSM_::store_trace
             fs::rename(original_trace,
                        *trace);
 
+            *guest_data_post_exec = read_serialized_guest_data_post_exec((*trace) / CRETE_FILENAME_GUEST_DATA_POST_EXEC);
+
             fs::remove(trace_ready);
 
-        }, fsm.vm_dir_, fsm.trace_});
+        }, fsm.vm_dir_, fsm.trace_, fsm.guest_data_post_exec_});
     }
 };
 
