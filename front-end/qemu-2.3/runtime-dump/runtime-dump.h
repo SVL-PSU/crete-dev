@@ -100,7 +100,9 @@ int  crete_flags_is_true(struct CreteFlags *cf);
 /***********************************/
 /* External interface for C++ code */
 #include "tcg-llvm-offline/tcg-llvm-offline.h"
+
 #include <crete/trace_tag.h>
+#include <crete/guest_data_post_exec.hpp>
 
 using namespace std;
 
@@ -263,6 +265,10 @@ private:
     // This conditional br is not a part of the program logic and hence should be skipped
     bool m_qemu_default_br_skipped;
 
+    // guest data accumulated while execution for dispatch to use
+    bool m_new_tb;
+    crete::GuestDataPostExec m_guest_data_post_exec;
+
     // crete miscs:
     // <name, concolic CreteMemoInfo>
     creteConcolics_ty m_concolics;
@@ -338,6 +344,9 @@ public:
     uint64_t get_size_current_tb_br_taken();
     void add_trace_tag(const TranslationBlock *tb, uint64_t tb_count);
 
+    // Guest data post execution
+    void add_new_tb_pc(const uint64_t current_tb_pc);
+
     //Misc
     void handlecreteMakeConcolic(string name, uint64_t guest_addr, uint64_t size);
 
@@ -405,6 +414,9 @@ private:
 
     // Trace tag
     void print_trace_tag() const;
+
+    // Guest data post execution
+    void writeGuestDataPostExec();
 };
 
 class CreteFlags{
