@@ -573,7 +573,10 @@ void RunnerFSM_::prime(const poll&)
 {
     setup_launch_exec();
     init_launch_folder();
-    reset_sandbox();
+    if(!m_sandbox_dir.empty())
+    {
+        reset_sandbox();
+    }
 
     prime_executable();
     prime_virtual_machine();
