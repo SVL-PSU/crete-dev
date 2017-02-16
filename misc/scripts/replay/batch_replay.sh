@@ -158,7 +158,7 @@ main()
     grep -c -w "Replay Timeout"  crete.replay.log
 
     printf "4. generating coverage report... \n"
-    lcov --base-directory $LCOV_DIR --directory $LCOV_DIR --capture --output-file lcov.info --rc lcov_branch_coverage=1 >> lcov.log
+    lcov --directory $LCOV_DIR --capture --output-file lcov.info --rc lcov_branch_coverage=1 >> lcov.log
     genhtml lcov.info -o html --function-coverage --rc lcov_branch_coverage=1 >> lcov.log
 
     $PARSEGCOVCMD $PROG_DIR &> result_gcov.org

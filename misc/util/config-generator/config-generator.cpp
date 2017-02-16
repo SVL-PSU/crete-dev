@@ -63,7 +63,6 @@ const static set<string> coreutil_klee_osdi_new = {
 "uniq", "unlink", //"uptime", "users", "wc", "whoami", "who","yes"
 };
 
-
 const static set<string> coreutil_klee_osdi = {
         "base64", "basename", "cat", "chcon", "chgrp", "chmod", "chown", "chroot", "cksum", "comm", "cp", "csplit", "cut",
         "date", "dd", "df", "dircolors", "dirname", "du", "echo", "env", "expand", "expr", "factor", "false", "fmt", "fold",
@@ -83,6 +82,13 @@ const static set<string> dase_expr = {
         // grep
         "egrep", "fgrep", "grep"
 };
+
+const static set<string> baseTools = {
+        "BootSectImage", "EfiRom", "GenFfs", "GenFw", "GenSec", "GnuGenBootSector",
+        "Split", "VfrCompile", "EfiLdrImage", "GenCrc32", "GenFv", "GenPage", "GenVtf",
+        "LzmaCompress", "TianoCompress", "VolInfo"
+        };
+
 
 struct TestCaseCompare
 {
@@ -613,12 +619,18 @@ void CreteTests::gen_crete_tests_coreutils_grep_diff(string suite_name)
                 KLEE_SYM_FILE_SIZE, KLEE_SYM_STDIN_SIZE);
 
         eval = coreutil_klee_osdi;
-    } else {
-        assert(suite_name == "dase");
+    } else if (suite_name == "dase") {
         parsed_configs = parse_symArgsConfig(KLEE_SYM_ARGS_CONFIG_1, KLEE_SYM_ARGS_CONFIG_2,
                 DASE_GREP_DIFF_SYM_FILE_SIZE, KLEE_SYM_STDIN_SIZE);
 
         eval = dase_expr;
+    } else if (suite_name == "basetools") {
+        parsed_configs = parse_symArgsConfig(KLEE_SYM_ARGS_CONFIG_1, KLEE_SYM_ARGS_CONFIG_2,
+                DASE_GREP_DIFF_SYM_FILE_SIZE, KLEE_SYM_STDIN_SIZE);
+
+        eval = baseTools;
+    } else {
+        assert(0);
     }
 
     printf_parsed_config(parsed_configs);
@@ -791,6 +803,10 @@ void CreteConfig::process_options()
         {
             CreteTests crete_tests(NULL);
             crete_tests.gen_crete_tests_coreutils_grep_diff("dase");
+        } else if (m_suite_name == "basetools")
+        {
+            CreteTests crete_tests(NULL);
+            crete_tests.gen_crete_tests_coreutils_grep_diff("basetools");
         } else if (m_suite_name == "ffmpeg")
         {
             assert(m_var_map.count("path"));
