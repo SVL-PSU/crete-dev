@@ -130,7 +130,7 @@ void crete_make_concolic_file_libc_std(const config::File& file)
     crete_make_concolic(buffer, file.size, filename.c_str());
 
     // write symbolic value to ramdisk file
-    string file_full_path = file.path.string();
+    string file_full_path = fs::path(CRETE_RAMDISK_PATH / file.path.filename()).string();
     FILE *out_fd = fopen (file_full_path.c_str(), "wb");
     if(out_fd == NULL) {
       printf("Error: can't open file %s for writing\n", file_full_path.c_str());

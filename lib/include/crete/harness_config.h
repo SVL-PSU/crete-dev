@@ -9,6 +9,7 @@
 #include <crete/elf_reader.h>
 #include <crete/proc_reader.h>
 #include <crete/exception.h>
+#include <crete/common.h>
 
 #include <boost/serialization/vector.hpp>
 #include <boost/serialization/string.hpp>
@@ -163,6 +164,7 @@ public:
     // config-generator
     void set_executable(const Executable& exe);
     void add_argument(const Argument& arg);
+    void remove_last_argument();
     void set_argument(const Argument& arg);
     void add_file(const File& file);
     void set_stdin(const STDStream& stdin);
@@ -433,6 +435,12 @@ void HarnessConfiguration::add_argument(const Argument& arg)
 }
 
 inline
+void HarnessConfiguration::remove_last_argument()
+{
+    arguments_.pop_back();
+}
+
+inline
 void HarnessConfiguration::set_argument(const Argument& arg)
 {
     for(Arguments::iterator it = arguments_.begin();
@@ -588,6 +596,21 @@ void HarnessConfiguration::load_file(const boost::property_tree::ptree& config_t
     assert(file.size != 0);
 
     files_.push_back(file);
+
+    // Append full path of the file to the argument list
+    Argument arg;
+
+    arg.index = arguments_.size() + 1;
+    if(file.concolic)
+    {
+        arg.value = fs::path(CRETE_RAMDISK_PATH / file.path.filename()).string();
+    } else {
+        arg.value = file.path.string();
+    }
+    arg.size = arg.value.size();
+    arg.concolic = false;
+
+    arguments_.push_back(arg);
 }
 
 inline
