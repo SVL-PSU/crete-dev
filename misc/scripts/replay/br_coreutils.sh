@@ -14,7 +14,7 @@ GUEST_PROG_DIR="/home/test/tests/coreutils-6.10/coverage/src/"
 CRETE_BIN_DIR=$GUEST_CRETE_BIN_DIR
 PARSEGCOVCMD=$CRETE_BIN_DIR/../../guest/scripts/replay/parse_gcov_coreutils.py
 PROG_DIR=$GUEST_PROG_DIR
-LCOV_DIR=$GUEST_PROG_DIR/../
+LCOV_DIR=$GUEST_PROG_DIR/
 SANDBOX="/home/test/klee-sandbox"
 
 # ======================================
