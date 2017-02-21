@@ -83,22 +83,12 @@ struct PacketInfo
     uint64_t type; // Type of the associated packet.
 };
 
+// binary-archive based: for general communication from the same platform
+// NOTE: xxx non-portable for cross-platform, but most efficient
 template <typename Connection, typename T>
-void write_serialized_text(Connection& connection, PacketInfo& pktinfo, T& t)
-{
-    boost::asio::streambuf sbuf;
-    std::ostream os(&sbuf);
-
-    boost::archive::text_oarchive oa(os);
-    oa << t;
-
-    pktinfo.size = sbuf.size();
-
-    connection.write(sbuf, pktinfo);
-}
-
-template <typename Connection, typename T>
-void write_serialized_binary(Connection& connection, PacketInfo& pktinfo, T& t)
+void write_serialized_binary(Connection& connection,
+                             PacketInfo& pktinfo,
+                             T& t)
 {
     boost::asio::streambuf sbuf;
     std::ostream os(&sbuf);
@@ -109,87 +99,6 @@ void write_serialized_binary(Connection& connection, PacketInfo& pktinfo, T& t)
     pktinfo.size = sbuf.size();
 
     connection.write(sbuf, pktinfo);
-}
-
-template <typename Connection>
-void write_serialized_text(
-        Connection& connection,
-        PacketInfo& pktinfo,
-        const boost::property_tree::ptree& t,
-        size_t version)
-{
-    boost::asio::streambuf sbuf;
-    std::ostream os(&sbuf);
-
-    boost::archive::text_oarchive oa(os);
-    boost::property_tree::save(oa, t, version);
-
-    pktinfo.size = sbuf.size();
-
-    connection.write(sbuf, pktinfo);
-}
-
-template <typename Connection, typename T>
-void write_serialized_text_xml(Connection& connection, PacketInfo& pktinfo, T& t)
-{
-    boost::asio::streambuf sbuf;
-    std::ostream os(&sbuf);
-
-    boost::archive::xml_oarchive oa(os);
-    oa << BOOST_SERIALIZATION_NVP(t);
-
-    pktinfo.size = sbuf.size();
-
-    connection.write(sbuf, pktinfo);
-}
-
-template <typename Connection, typename T>
-void read_serialized_text(Connection& connection, T& t)
-{
-    boost::asio::streambuf sbuf;
-    connection.read(sbuf);
-
-    std::istream is(&sbuf);
-    boost::archive::text_iarchive ia(is);
-
-    ia >> t;
-}
-
-template <typename Connection, typename T>
-void read_serialized_text(Connection& connection,
-                          T& t,
-                          uint32_t pk_type)
-{
-    boost::asio::streambuf sbuf;
-    PacketInfo pkinfo = connection.read(sbuf);
-
-    CRETE_EXCEPTION_ASSERT(pkinfo.type == pk_type,
-                           err::network_type_mismatch(pkinfo.type));
-
-    std::istream is(&sbuf);
-    boost::archive::text_iarchive ia(is);
-
-    ia >> t;
-}
-
-template <typename T>
-void read_serialized_text(boost::asio::streambuf& sbuf,
-                          T& t)
-{
-    std::istream is(&sbuf);
-    boost::archive::text_iarchive ia(is);
-
-    ia >> t;
-}
-
-template <typename T>
-void read_serialized_binary(boost::asio::streambuf& sbuf,
-                          T& t)
-{
-    std::istream is(&sbuf);
-    boost::archive::binary_iarchive ia(is);
-
-    ia >> t;
 }
 
 template <typename Connection, typename T>
@@ -209,32 +118,27 @@ void read_serialized_binary(Connection& connection,
     ia >> t;
 }
 
-
+// text-archive based: for general communication from different platforms
 template <typename Connection, typename T>
-void read_serialized_text_xml(Connection& connection, T& t)
+void write_serialized_text(Connection& connection,
+                           PacketInfo& pktinfo,
+                           T& t)
 {
     boost::asio::streambuf sbuf;
-    connection.read(sbuf);
+    std::ostream os(&sbuf);
 
-#if 0 // Debugging: Write contents to file instead.
-    std::istream ist(&sbuf);
-    std::ofstream ofs("config.ser");
-    std::copy(std::istreambuf_iterator<char>(ist),
-              std::istreambuf_iterator<char>(),
-              std::ostream_iterator<char>(ofs));
-#endif
+    boost::archive::text_oarchive oa(os);
+    oa << t;
 
-    std::istream is(&sbuf);
-    boost::archive::xml_iarchive ia(is);
+    pktinfo.size = sbuf.size();
 
-    ia >> BOOST_SERIALIZATION_NVP(t);
+    connection.write(sbuf, pktinfo);
 }
 
-
 template <typename Connection, typename T>
-void read_serialized_text_xml(Connection& connection,
-                              T& t,
-                              uint32_t pk_type)
+void read_serialized_text(Connection& connection,
+                          T& t,
+                          uint32_t pk_type)
 {
     boost::asio::streambuf sbuf;
     PacketInfo pkinfo = connection.read(sbuf);
@@ -243,15 +147,14 @@ void read_serialized_text_xml(Connection& connection,
                            err::network_type_mismatch(pkinfo.type));
 
     std::istream is(&sbuf);
-    boost::archive::xml_iarchive ia(is);
+    boost::archive::text_iarchive ia(is);
 
-    ia >> BOOST_SERIALIZATION_NVP(t);
+    ia >> t;
 }
 
-template <typename Connection>
-void read_serialized_text(
-        Connection& connection,
-        boost::property_tree::ptree& t)
+// Misc
+template <typename Connection, typename T>
+void read_serialized_text(Connection& connection, T& t)
 {
     boost::asio::streambuf sbuf;
     connection.read(sbuf);
@@ -259,7 +162,17 @@ void read_serialized_text(
     std::istream is(&sbuf);
     boost::archive::text_iarchive ia(is);
 
-    boost::property_tree::load(ia, t, 0);
+    ia >> t;
+}
+
+template <typename T>
+void read_serialized_binary(boost::asio::streambuf& sbuf,
+                          T& t)
+{
+    std::istream is(&sbuf);
+    boost::archive::binary_iarchive ia(is);
+
+    ia >> t;
 }
 
 /**
