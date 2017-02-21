@@ -20,6 +20,7 @@
 #include <boost/algorithm/string/join.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/shared_ptr.hpp>
+#include <boost/archive/binary_oarchive.hpp>
 
 #include <unistd.h>
 #include <sys/mount.h>
@@ -191,13 +192,6 @@ public:
         template <class Event,class FSM>
         void on_exit(Event const&,FSM& ) {std::cerr << "[crete-run] leaving: LoadDefaults" << std::endl;}
     };
-    struct LoadInputData : public msm::front::state<>
-    {
-        template <class Event,class FSM>
-        void on_entry(Event const& ,FSM&) {std::cerr << "[crete-run] entering: LoadInputData" << std::endl;}
-        template <class Event,class FSM>
-        void on_exit(Event const&,FSM& ) {std::cerr << "[crete-run] leaving: LoadInputData" << std::endl;}
-    };
     struct TransmitGuestData : public msm::front::state<>
     {
         template <class Event,class FSM>
@@ -266,7 +260,6 @@ public:
     void connect_host(const poll&);
     void load_host_data(const poll&);
     void load_defaults(const poll&);
-    void load_file_data(const poll&);
     void transmit_guest_data(const poll&);
     void prime(const poll&);
     void process_config(const poll&);
@@ -316,9 +309,7 @@ public:
     //   +------------------+------------------+------------------+---------------------+------------------+
     a_row<LoadHostData      ,poll              ,LoadDefaults      ,&M::load_host_data                        >,
     //   +------------------+------------------+------------------+---------------------+------------------+
-    a_row<LoadDefaults      ,poll              ,LoadInputData     ,&M::load_defaults                         >,
-    //   +------------------+------------------+------------------+---------------------+------------------+
-    a_row<LoadInputData     ,poll              ,TransmitGuestData ,&M::load_file_data                       >,
+    a_row<LoadDefaults      ,poll              ,TransmitGuestData ,&M::load_defaults                         >,
     //   +------------------+------------------+------------------+---------------------+------------------+
     a_row<TransmitGuestData ,poll              ,Prime             ,&M::transmit_guest_data                   >,
     //   +------------------+------------------+------------------+---------------------+------------------+
@@ -457,7 +448,7 @@ void RunnerFSM_::load_defaults(const poll&)
 }
 
 static unsigned monitored_pid = 0;
-static unsigned monitored_timeout = 3;
+static unsigned monitored_timeout = 60;
 
 static void timeout_handler(int signum)
 {
@@ -553,20 +544,19 @@ void RunnerFSM_::init_launch_folder()
     init_ramdisk();
 }
 
-void RunnerFSM_::load_file_data(const poll&)
-{
-    guest_config_.load_file_data();
-}
-
 void RunnerFSM_::transmit_guest_data(const poll&)
 {
+    guest_config_.load_file_data();
+
     PacketInfo pk;
     pk.id = 0; // TODO: Don't care? Maybe. What about a custom instruction that reads the VM's pid as an ID, to be checked both for sanity and to give the instance a way to check whether the VM is still running.
-    pk.size = 0; // Don't care. Set by write_serialized_text.
+    pk.size = 0; // Don't care. Set by write_serialized_text()
     pk.type = packet_type::guest_configuration;
-    write_serialized_text_xml(*client_,
-                              pk,
-                              guest_config_);
+    write_serialized_text(*client_,
+                          pk,
+                          guest_config_);
+
+    guest_config_.clear_file_data();
 }
 
 void RunnerFSM_::prime(const poll&)
@@ -614,7 +604,7 @@ void RunnerFSM_::write_configuration() const
         BOOST_THROW_EXCEPTION(Exception() << err::file_open_failed(m_guest_config_serialized.string()));
     }
 
-    boost::archive::text_oarchive oa(ofs);
+    boost::archive::binary_oarchive oa(ofs);
     oa << guest_config_;
 }
 
@@ -632,7 +622,7 @@ static inline void process_exit_status(std::ostream& log, int exit_status)
         int signum = exit_status - CRETE_EXIT_CODE_SIG_BASE ;
         if(signum == SIGUSR1)
         {
-            log << "Replay Timeout\n";
+            log << "Timeout reached: " << monitored_timeout << " seconds\n";
         } else {
             log << "[Signal Caught] signum = " << signum << ", signame: " << strsignal(signum) << std::endl;
         }
@@ -716,7 +706,6 @@ void RunnerFSM_::validate_setup(const poll&)
 void RunnerFSM_::update_config(const poll&)
 {
     guest_config_.is_first_iteration(false);
-    guest_config_.clear_file_data();
 
     write_configuration();
 

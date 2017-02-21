@@ -934,9 +934,9 @@ struct QemuFSM_::receive_guest_info
         try
         {
             // Perform any work needed only by the first VM instance s.a. grabbing the guest config, any debug info.
-            read_serialized_text_xml(*fsm.server_,
-                                     fsm.guest_data_.guest_config,
-                                     packet_type::guest_configuration);
+            read_serialized_text(*fsm.server_,
+                                 fsm.guest_data_.guest_config,
+                                 packet_type::guest_configuration);
         }
         catch(std::exception& e)
         {
