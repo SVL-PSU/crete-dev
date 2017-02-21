@@ -23,6 +23,8 @@ void print_back_trace();
 
 static inline config::HarnessConfiguration crete_load_configuration()
 {
+    fprintf(stderr, "crete_load_configuration() entered\n");
+
     std::ifstream ifs(CRETE_CONFIG_SERIALIZED_PATH,
                       ios_base::in | ios_base::binary);
 
@@ -33,7 +35,11 @@ static inline config::HarnessConfiguration crete_load_configuration()
 
     boost::archive::binary_iarchive ia(ifs);
     config::HarnessConfiguration config;
+
+    fprintf(stderr, "before ia >> config\n");
     ia >> config;
+
+    fprintf(stderr, "before return\n");
 
     return config;
 }
@@ -87,6 +93,8 @@ static inline void crete_process_stdin_libc(const config::STDStream stdin_config
 
 static inline void crete_process_stdin(const config::HarnessConfiguration& hconfig)
 {
+    fprintf(stderr, "crete_process_stdin() entered\n");
+
     const config::STDStream stdin_config = hconfig.get_stdin();
 
     if(stdin_config.size > 0)
@@ -97,17 +105,22 @@ static inline void crete_process_stdin(const config::HarnessConfiguration& hconf
 
 static inline void crete_make_concolic_file(const config::File& file)
 {
+    fprintf(stderr, "crete_make_concolic_file() entered\n");
+
     string filename = file.path.filename().string();
 
     assert(!filename.empty() && "[CRETE] file name must be valid");
     assert(file.size > 0 && "[CRETE] file size must be greater than zero");
 
+    fprintf(stderr, "Create and initialize symbolic array: %llu bytes\n", file.size);
     char* buffer = new char [file.size];
     memset(buffer, 0, file.size);
 
+    fprintf(stderr, "crete_make_concolic()\n");
     crete_make_concolic(buffer, file.size, filename.c_str());
 
     // write symbolic value to ramdisk file
+    fprintf(stderr, "write symbolic value to ramdisk file\n");
     string file_full_path = fs::path(CRETE_RAMDISK_PATH / file.path.filename()).string();
     FILE *out_fd = fopen (file_full_path.c_str(), "wb");
     if(out_fd == NULL) {
@@ -122,6 +135,8 @@ static inline void crete_make_concolic_file(const config::File& file)
     }
 
     fclose(out_fd);
+
+    fprintf(stderr, "crete_make_concolic_file() finished\n");
 }
 
 static inline void crete_process_files(const config::HarnessConfiguration& hconfig)
@@ -146,6 +161,8 @@ static inline void crete_process_files(const config::HarnessConfiguration& hconf
 static inline void crete_process_args(const config::Arguments& guest_config_args,
         int argc, char**& argv)
 {
+    fprintf(stderr, "crete_process_args() entered\n");
+
     assert(guest_config_args.size() == (argc - 1));
 
     for(config::Arguments::const_iterator it = guest_config_args.begin();
@@ -175,6 +192,8 @@ static inline void crete_process_args(const config::Arguments& guest_config_args
 static inline void crete_process_configuration(const config::HarnessConfiguration& hconfig,
                                  int argc, char**& argv)
 {
+    fprintf(stderr, "crete_process_configuration() entered.\n");
+
     // Note: order matters.
     crete_process_args(hconfig.get_arguments(),argc, argv);
     crete_process_files(hconfig);
@@ -183,6 +202,8 @@ static inline void crete_process_configuration(const config::HarnessConfiguratio
 
 static inline void update_proc_maps()
 {
+    fprintf(stderr, "update_proc_maps() entered\n");
+
     namespace fs = boost::filesystem;
 
     // FIXME: xxx terrible way to identify the prime execution
@@ -208,6 +229,8 @@ static inline void update_proc_maps()
 
 static inline void crete_preload_initialize(int argc, char**& argv)
 {
+    fprintf(stderr, "crete_preload_initialize() entered\n");
+
     // Should terminate program while being launched as prime
     update_proc_maps();
 
@@ -217,6 +240,8 @@ static inline void crete_preload_initialize(int argc, char**& argv)
 
     config::HarnessConfiguration hconfig = crete_load_configuration();
     crete_process_configuration(hconfig, argc, argv);
+
+    fprintf(stderr, "crete_preload_initialize() finished\n");
 }
 
 // ********************************************************* //
