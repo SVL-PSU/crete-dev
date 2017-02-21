@@ -2,8 +2,7 @@
 #include <crete/custom_instr.h>
 #include <crete/harness_config.h>
 
-#include <boost/archive/text_iarchive.hpp>
-#include <boost/archive/text_oarchive.hpp> // Needed for text_iarchive (for some reason).
+#include <boost/archive/binary_iarchive.hpp>
 #include <boost/property_tree/xml_parser.hpp>
 #include <boost/filesystem.hpp>
 
@@ -16,17 +15,13 @@
 #include <stdexcept>
 #include <stdio.h>
 
-#if CRETE_HOST_ENV
-#include "run_config.h"
-#endif // CRETE_HOST_ENV
-
 using namespace std;
 using namespace crete;
 namespace fs = boost::filesystem;
 
 void print_back_trace();
 
-config::HarnessConfiguration crete_load_configuration()
+static inline config::HarnessConfiguration crete_load_configuration()
 {
     std::ifstream ifs(CRETE_CONFIG_SERIALIZED_PATH,
                       ios_base::in | ios_base::binary);
@@ -36,15 +31,14 @@ config::HarnessConfiguration crete_load_configuration()
         throw std::runtime_error("failed to open file: " + std::string(CRETE_CONFIG_SERIALIZED_PATH));
     }
 
-    boost::archive::text_iarchive ia(ifs);
+    boost::archive::binary_iarchive ia(ifs);
     config::HarnessConfiguration config;
     ia >> config;
 
     return config;
 }
 
-// Support conoclic/concrete stdin operated by standard c functions (eg. fgets, fread, scanf, etc)
-static void crete_process_stdin_libc(const config::STDStream stdin_config)
+static inline void crete_process_stdin_libc(const config::STDStream stdin_config)
 {
     uint64_t size = stdin_config.size;
 
@@ -91,33 +85,17 @@ static void crete_process_stdin_libc(const config::STDStream stdin_config)
     }
 }
 
-static void crete_process_stdin_posix(const config::STDStream stdin_config)
-{
-    // TODO: xxx how about non-concolic (concrete) stdin for posix
-    if(stdin_config.concolic)
-    {
-        uint64_t size = stdin_config.size;
-        char* crete_stdin_buffer = (char *)malloc(size);
-        assert(crete_stdin_buffer &&
-                "malloc() failed in preload::crete_make_concolic_stdin_posix_blank().\n");
-        memset(crete_stdin_buffer, 0, size);
-        crete_make_concolic(crete_stdin_buffer, size, "crete-stdin-posix");
-    }
-}
-
-static void crete_process_stdin(const config::HarnessConfiguration& hconfig)
+static inline void crete_process_stdin(const config::HarnessConfiguration& hconfig)
 {
     const config::STDStream stdin_config = hconfig.get_stdin();
 
     if(stdin_config.size > 0)
     {
         crete_process_stdin_libc(stdin_config);
-        crete_process_stdin_posix(stdin_config);
     }
 }
 
-// replace the original crete_make_concolic_file_std() for supporting libc file operations
-void crete_make_concolic_file_libc_std(const config::File& file)
+static inline void crete_make_concolic_file(const config::File& file)
 {
     string filename = file.path.filename().string();
 
@@ -146,33 +124,7 @@ void crete_make_concolic_file_libc_std(const config::File& file)
     fclose(out_fd);
 }
 
-void crete_make_concolic_file_posix_blank(const config::File& file)
-{
-    string filename = file.path.filename().string();
-
-    assert(!filename.empty() && "[CRETE] file name must be valid");
-    assert(file.size > 0 && "[CRETE] file size must be greater than zero");
-
-    filename = filename + "-posix";
-
-    char* buffer = new char [file.size];
-    memset(buffer, 0, file.size);
-
-    string file_full_path = file.path.string();
-    crete_make_concolic(buffer, file.size, filename.c_str());
-
-    memset(buffer, 0, file.size);
-}
-
-void crete_make_concolic_file(const config::File& file)
-{
-    // Since we don't know what file routines will be used (e.g., open() vs fopen()),
-    // initialize both kinds.
-    crete_make_concolic_file_libc_std(file);
-    crete_make_concolic_file_posix_blank(file);
-}
-
-void crete_process_files(const config::HarnessConfiguration& hconfig)
+static inline void crete_process_files(const config::HarnessConfiguration& hconfig)
 {
     const config::Files& files = hconfig.get_files();
     const size_t file_count = files.size();
@@ -191,7 +143,7 @@ void crete_process_files(const config::HarnessConfiguration& hconfig)
     }
 }
 
-static void crete_process_args(const config::Arguments& guest_config_args,
+static inline void crete_process_args(const config::Arguments& guest_config_args,
         int argc, char**& argv)
 {
     assert(guest_config_args.size() == (argc - 1));
@@ -220,7 +172,7 @@ static void crete_process_args(const config::Arguments& guest_config_args,
     }
 }
 
-void crete_process_configuration(const config::HarnessConfiguration& hconfig,
+static inline void crete_process_configuration(const config::HarnessConfiguration& hconfig,
                                  int argc, char**& argv)
 {
     // Note: order matters.
@@ -229,7 +181,7 @@ void crete_process_configuration(const config::HarnessConfiguration& hconfig,
     crete_process_stdin(hconfig);
 }
 
-static void update_proc_maps()
+static inline void update_proc_maps()
 {
     namespace fs = boost::filesystem;
 
@@ -254,7 +206,7 @@ static void update_proc_maps()
     }
 }
 
-void crete_preload_initialize(int argc, char**& argv)
+static inline void crete_preload_initialize(int argc, char**& argv)
 {
     // Should terminate program while being launched as prime
     update_proc_maps();
@@ -266,26 +218,6 @@ void crete_preload_initialize(int argc, char**& argv)
     config::HarnessConfiguration hconfig = crete_load_configuration();
     crete_process_configuration(hconfig, argc, argv);
 }
-
-#if CRETE_HOST_ENV
-bool crete_verify_executable_path_matches(const char* argv0)
-{
-    std::ifstream ifs(CRETE_CONFIG_SERIALIZED_PATH,
-                      ios_base::in | ios_base::binary);
-
-    if(!ifs.good())
-    {
-        throw std::runtime_error("failed to open file: " + std::string(CRETE_CONFIG_SERIALIZED_PATH));
-    }
-
-    boost::archive::text_iarchive ia(ifs);
-    config::RunConfiguration config;
-    ia >> config;
-
-    return fs::equivalent(config.get_executable(), fs::path(argv0));
-}
-#endif // CRETE_HOST_ENV
-
 
 // ********************************************************* //
 // Signal handling
@@ -305,13 +237,13 @@ bool crete_verify_executable_path_matches(const char* argv0)
 
 // Terminate the program gracefully and return the corresponding exit code
 // TODO: xxx does not handle nested signals
-static void crete_signal_handler(int signum)
+static inline void crete_signal_handler(int signum)
 {
     //TODO: xxx _exit() is safer, but atexit()/crete_capture_end() will not be called with _exit()
     exit(CRETE_EXIT_CODE_SIG_BASE + signum);
 }
 
-static void init_crete_signal_handlers(void)
+static inline void init_crete_signal_handlers(void)
 {
     __INIT_CRETE_SIGNAL_HANDLER(SIGABRT);
     __INIT_CRETE_SIGNAL_HANDLER(SIGFPE);
@@ -330,6 +262,7 @@ static void init_crete_signal_handlers(void)
     // SIGUSR1 for timeout
     __INIT_CRETE_SIGNAL_HANDLER(SIGUSR1);
 }
+
 extern "C" {
     // The type of __libc_start_main
     typedef int (*__libc_start_main_t)(
@@ -372,18 +305,8 @@ int __libc_start_main(
         if(orig_libc_start_main == 0)
             throw runtime_error("failed to find __libc_start_main");
 
-#if CRETE_HOST_ENV
-        // HACK (a bit of one)...
-        // TODO: (crete-memcheck) research how to get around the problem of preloading
-        // valgrind as well, in which case we check if the executable name matches.
-        if(crete_verify_executable_path_matches(ubp_av[0]))
-        {
-            crete_preload_initialize(argc, ubp_av);
-        }
-#else
         init_crete_signal_handlers();
         crete_preload_initialize(argc, ubp_av);
-#endif // CRETE_HOST_ENV
     }
     catch(exception& e)
     {

@@ -2596,13 +2596,6 @@ auto extract_initial_test(const config::RunConfiguration& config) -> TestCase
         assert(elem.data_size == file.size);
 
         tc.add_element(elem);
-
-        TestCaseElement elem_posix = elem;
-        std::string posix_name = name + "-posix";
-        elem_posix.name = std::vector<uint8_t>(posix_name.begin(), posix_name.end());
-        elem_posix.name_size = posix_name.size();
-
-        tc.add_element(elem_posix);
     }
 
     if(concolic_stdin.concolic)
@@ -2617,12 +2610,6 @@ auto extract_initial_test(const config::RunConfiguration& config) -> TestCase
         std::string name = "crete-stdin";
         elem.name = std::vector<uint8_t>(name.begin(), name.end());
         elem.name_size = elem.name.size();
-
-        tc.add_element(elem);
-
-        name = "crete-stdin-posix";
-        elem.name = std::vector<uint8_t>(name.begin(), name.end());
-        elem.name_size = name.size();
 
         tc.add_element(elem);
     }
