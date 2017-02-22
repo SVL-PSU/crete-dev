@@ -408,16 +408,16 @@ void QemuRuntimeInfo::cross_check_cpuState(klee::ExecutionState &state,
     // Adjust the tb_index: cross_check_cpuState() is being called
     // before the execution of the next interested tb
     uint64_t tb_index = tb_index_input - 1;
+    assert(tb_index < m_streamed_tb_count);
 
-    if(tb_index >= m_streamed_tb_count) {
-        read_streamed_trace();
-        assert((m_streamed_tb_count - tb_index) == m_debug_cpuStateSyncTables.size());
-    }
+    //TODO: xxx skip the check on the last tb of streamed trace, as it is not available
+    if( tb_index < (m_streamed_tb_count - m_debug_cpuStateSyncTables.size()))
+        return;
 
     uint64_t adjusted_tb_index = tb_index - (m_streamed_tb_count - m_debug_cpuStateSyncTables.size());
 
     assert(m_debug_cpuStateSyncTables[adjusted_tb_index].first);
-    vector<CPUStateElement> correct_cpuStates =
+    const vector<CPUStateElement>& correct_cpuStates =
             m_debug_cpuStateSyncTables[adjusted_tb_index].second;
 
     bool cross_check_passed = true;
