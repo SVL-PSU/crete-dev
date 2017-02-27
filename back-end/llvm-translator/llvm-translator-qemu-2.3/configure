@@ -58,6 +58,7 @@ compile_prog() {
 compile_prog_cxx() {
   local_cxxflags="$1"
   local_ldflags="$2"
+  echo  "$cxx $QEMU_CFLAGS $QEMU_CXXFLAGS $local_cxxflags -o $TMPE $TMPCXX $LDFLAGS $local_ldflags"
   $cxx $QEMU_CFLAGS $QEMU_CXXFLAGS $local_cxxflags -o $TMPE $TMPCXX $LDFLAGS $local_ldflags > /dev/null 2> /dev/null
 }
 
@@ -1300,6 +1301,7 @@ feature_not_found() {
   echo "ERROR: User requested feature $feature"
   echo "ERROR: configure was not able to find it"
   echo "ERROR"
+
   exit 1;
 }
 
@@ -2043,7 +2045,7 @@ fi
 
 if test "$llvm" != "no" -o "$s2e" != "no" ; then
   cat > $TMPCXX << EOF
-#include <llvm/LLVMContext.h>
+#include <llvm/IR/LLVMContext.h>
 int main(void) { llvm::LLVMContext& c = llvm::getGlobalContext(); return 0; }
 EOF
   if test "$llvmdir" != ""; then
@@ -2056,6 +2058,11 @@ EOF
 
   llvm_ldflags=`$llvm_config $llvm_components --ldflags 2> /dev/null`
   llvm_libs=`$llvm_config $llvm_components --libs 2> /dev/null`
+
+  echo "llvm_config: $llvm_config"
+  echo "llvm_cxxflags: $llvm_cxxflags"
+  echo "llvm_ldflags: $llvm_ldflags"
+  echo "llvm_libs: $llvm_libs"
 
   if compile_prog_cxx "$llvm_cxxflags" "$llvm_libs $llvm_ldflags $LDASAN $ASANLIBPATH" ; then
     : LLVM found

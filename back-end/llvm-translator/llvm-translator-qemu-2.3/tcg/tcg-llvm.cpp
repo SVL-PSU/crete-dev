@@ -43,12 +43,25 @@ extern "C" {
 
 #include "tcg-llvm.h"
 
+#if defined(USE_LLVM_3_4)
+// LLVM-3.4
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/Module.h>
+#include <llvm/IR/Intrinsics.h>
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/Support/MemoryBuffer.h>
+#elif defined(USE_LLVM_3_2)
+// LLVM-3.2
 #include <llvm/LLVMContext.h>
 #include <llvm/Module.h>
 #include <llvm/Intrinsics.h>
-#include <llvm/Analysis/Verifier.h>
 #include <llvm/IRBuilder.h>
+#else
+#error "only support with llvm 3.2 and llvm 3.4"
+#endif
 
+
+#include <llvm/Analysis/Verifier.h>
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/Threading.h>
 #include <llvm/Support/DynamicLibrary.h>
@@ -117,7 +130,16 @@ public:
         verifyModule(*m_module, PrintMessageAction);
 
         std::string error;
-        llvm::raw_fd_ostream o(fileName.c_str(), error, llvm::raw_fd_ostream::F_Binary);
+
+#if defined(USE_LLVM_3_4)
+        llvm::raw_fd_ostream o(fileName.c_str(), error,
+                llvm::sys::fs::F_Binary);        // llvm-3.4
+#elif defined(USE_LLVM_3_2)
+        llvm::raw_fd_ostream o(fileName.c_str(), error,
+                llvm::raw_fd_ostream::F_Binary); // llvm-3.2
+#else
+#error "only support with llvm 3.2 and llvm 3.4"
+#endif
 
         // Output the bitcode file to stdout
         llvm::WriteBitcodeToFile(m_module, o);
@@ -1551,17 +1573,57 @@ void TCGLLVMContext::writeBitCodeToFile(const std::string &fileName) {
 	m_private->writeBitCodeToFile(fileName);
 }
 
+// NOTE: Code from KLEE
 void TCGLLVMContext::linkWithLibrary(const std::string& libraryName)
 {
-	llvm::Linker linker("tcg_llvm_ctx", getModule(), false);
-	llvm::sys::Path libraryPath(libraryName);
-	bool native = false;
+#if defined(USE_LLVM_3_4)
+    Module *module = getModule();
 
-	  if (linker.LinkInFile(libraryPath, native)) {
-	    assert(0 && "linking in library failed!");
-	  }
+    OwningPtr<MemoryBuffer> Buffer;
+    if (error_code ec = MemoryBuffer::getFile(libraryName,Buffer))
+    {
+        fprintf(stderr, "Link with library %s failed: %s", libraryName.c_str(),
+                ec.message().c_str());
+        assert(0);
+    }
 
-	 linker.releaseModule();
+    sys::fs::file_magic magic = sys::fs::identify_magic(Buffer->getBuffer());
+
+    LLVMContext &Context = getGlobalContext();
+    std::string ErrorMessage;
+
+    if (magic == sys::fs::file_magic::bitcode)
+    {
+        Module *Result = 0;
+        Result = ParseBitcodeFile(Buffer.get(), Context, &ErrorMessage);
+
+        if (!Result || Linker::LinkModules(module, Result, Linker::DestroySource,
+                &ErrorMessage)) {
+            fprintf(stderr, "Link with library %s failed: %s", libraryName.c_str(),
+                    ErrorMessage.c_str());
+            assert(0);
+        }
+
+        delete Result;
+    } else {
+        fprintf(stderr, "Link with library %s failed: Unrecognized file type.",
+                libraryName.c_str());
+        assert(0);
+    }
+
+#elif defined(USE_LLVM_3_2)
+    llvm::Linker linker("tcg_llvm_ctx", getModule(), false);
+    llvm::sys::Path libraryPath(libraryName);
+    bool native = false;
+
+    if (linker.LinkInFile(libraryPath, native)) {
+        assert(0 && "linking in library failed!");
+    }
+
+    linker.releaseModule();
+#else
+#error "only support with llvm 3.2 and llvm 3.4"
+#endif
 }
 
 void TCGLLVMContext::crete_init_helper_names(const map<uint64_t, string>& helper_names)
