@@ -1,10 +1,10 @@
 # !bin/bash
 
 ### Note:
-# 1. run this script under i386-softmmu
+# 1. run this script under x86_64-softmmu
 # 2. use -O0 -fno-inline for debugging
 
-echo "  LLVMCC    bc_i386_helpers.bc" && clang      \
+echo "  LLVMCC    bc_x86_64_helpers.bc" && clang-3.4  \
     -c                                              \
     -O2                                             \
     -I./ 	                                    \

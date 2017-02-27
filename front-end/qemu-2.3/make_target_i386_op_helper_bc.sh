@@ -4,9 +4,9 @@
 # 1. run this script under i386-softmmu
 # 2. use -O0 -fno-inline for debugging
 
-echo "  LLVMCC    bc_i386_helpers.bc" && clang      \
+echo "  LLVMCC    bc_i386_helpers.bc" && clang-3.4  \
     -c                                              \
-    -O0 -fno-inline                                 \
+    -O2                                             \
     -I./ 	                                    \
     -I../ 	                                    \
     -I../include 	                            \
@@ -27,7 +27,7 @@ echo "  LLVMCC    bc_i386_helpers.bc" && clang      \
     ../target-i386/bc_i386_helpers.c                \
     -o bc_i386_helpers.bc
 
-    # -O2                                             \
+    # -O0 -fno-inline                                 \
 
 
 ### old flags
