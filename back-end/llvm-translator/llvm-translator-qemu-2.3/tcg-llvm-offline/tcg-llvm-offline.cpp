@@ -14,8 +14,6 @@
 
 #if defined(TCG_LLVM_OFFLINE)
 #include "tcg-llvm.h"
-#include <llvm/Support/FileSystem.h>
-#include <llvm/Support/Path.h>
 #endif // defined(TCG_LLVM_OFFLINE)
 
 using namespace std;
@@ -377,9 +375,8 @@ void x86_llvm_translator()
     tcg_llvm_ctx->generate_crete_main();
 
     //5. Write out the translated llvm bitcode to file in the current folder
-    llvm::sys::Path bitcode_path = llvm::sys::Path::GetCurrentDirectory();
-    bitcode_path.appendComponent("dump_llvm_offline.bc");
-    tcg_llvm_ctx->writeBitCodeToFile(bitcode_path.str());
+    fs::path bitcode_path = fs::current_path() / "dump_llvm_offline.bc";
+    tcg_llvm_ctx->writeBitCodeToFile(bitcode_path.string());
 
     cerr << "offline translator is done.\n" << endl;
     //6. cleanup

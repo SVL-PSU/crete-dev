@@ -63,8 +63,6 @@ void tcg_llvm_gen_code(struct TCGLLVMContext *l, struct TCGContext *s,
 
 const char* tcg_llvm_get_func_name(struct TranslationBlock *tb);
 
-void tcg_llvm_initHelper(struct TCGLLVMContext *l);
-
 #if defined(TCG_LLVM_OFFLINE)
 void cpu_gen_llvm(CPUState *env, TranslationBlock *tb);
 int get_llvm_tbCount(struct TCGLLVMContext *l);
@@ -109,11 +107,6 @@ public:
 
     llvm::Module* getModule();
     llvm::ModuleProvider* getModuleProvider();
-
-    llvm::ExecutionEngine* getExecutionEngine();
-
-    void deleteExecutionEngine();
-    llvm::FunctionPassManager* getFunctionPassManager() const;
 
     /** Called after linking all helper libraries */
     void initializeHelpers();
