@@ -43,52 +43,14 @@ extern "C" {
 
 #include "tcg-llvm.h"
 
-extern "C" {
-//#include "config.h"
-#include "qemu-common.h"
-#include "disas.h"
-
-#if defined(CONFIG_SOFTMMU)
-
-#include "softmmu_defs.h"
-
-
-static void *qemu_ld_helpers[5] = {
-    (void*) __ldb_mmu,
-    (void*) __ldw_mmu,
-    (void*) __ldl_mmu,
-    (void*) __ldq_mmu,
-    (void*) __ldq_mmu,
-};
-
-static void *qemu_st_helpers[5] = {
-    (void*) __stb_mmu,
-    (void*) __stw_mmu,
-    (void*) __stl_mmu,
-    (void*) __stq_mmu,
-    (void*) __stq_mmu,
-};
-
-#endif
-
-int execute_llvm = 0;
-}
-
-#include <llvm/DerivedTypes.h>
-#include <llvm/ExecutionEngine/ExecutionEngine.h>
-#include <llvm/ExecutionEngine/JITMemoryManager.h>
-#include <llvm/ExecutionEngine/JIT.h>
 #include <llvm/LLVMContext.h>
 #include <llvm/Module.h>
-#include <llvm/PassManager.h>
 #include <llvm/Intrinsics.h>
 #include <llvm/Analysis/Verifier.h>
-#include <llvm/DataLayout.h>
-#include <llvm/Support/TargetSelect.h>
-#include <llvm/Transforms/Scalar.h>
 #include <llvm/IRBuilder.h>
-#include <llvm/Support/Threading.h>
 
+#include <llvm/Support/TargetSelect.h>
+#include <llvm/Support/Threading.h>
 #include <llvm/Support/DynamicLibrary.h>
 #include <llvm/Support/raw_ostream.h>
 
@@ -116,33 +78,12 @@ static uint64_t last_idx = 0;
 
 using namespace llvm;
 
-class TJITMemoryManager;
-
 struct TCGLLVMContextPrivate {
     LLVMContext& m_context;
     IRBuilder<> m_builder;
 
     /* Current m_module */
     Module *m_module;
-
-    /* JIT engine */
-    TJITMemoryManager *m_jitMemoryManager;
-    ExecutionEngine *m_executionEngine;
-
-    /* Function pass manager (used for optimizing the code) */
-    FunctionPassManager *m_functionPassManager;
-
-    /* Declaration of a wrapper function for helpers */
-    Function *m_helperTraceMemoryAccess;
-    Function *m_helperTraceInstruction;
-    Function *m_helperForkAndConcretize;
-    Function *m_helperMakeSymbolic;
-    Function *m_helperGetValue;
-    Function* m_qemu_ld_helpers[5];
-    Function* m_qemu_st_helpers[5];
-
-    // BOBO: xxx potential optimization
-    Function** new_qemu_memo_helpers;
 
     /* Count of generated translation blocks */
     int m_tbCount;
@@ -182,17 +123,6 @@ public:
         llvm::WriteBitcodeToFile(m_module, o);
     }
 #endif
-
-    void deleteExecutionEngine() {
-        if (m_executionEngine) {
-            delete m_executionEngine;
-            m_executionEngine = NULL;
-        }
-    }
-
-    FunctionPassManager *getFunctionPassManager() const {
-        return m_functionPassManager;
-    }
 
     /* Shortcuts */
     llvm::Type* intType(int w) { return IntegerType::get(m_context, w); }
@@ -251,18 +181,12 @@ public:
         assert(false && "Not a constant");
     }
 
-    void initializeHelpers();
-
-
     BasicBlock* getLabel(uint64_t idx);
     void clearLabels();
     void delLabel(int idx);
     void startNewBasicBlock(BasicBlock *bb = NULL);
 
     /* Code generation */
-    Value* generateQemuMemOp(bool ld, Value *value, Value *addr,
-                             int mem_index, int bits);
-
     void generateTraceCall(uintptr_t pc);
     int generateOperation(TCGOp* op, int opc, const TCGArg *args);
 
@@ -288,93 +212,6 @@ private:
     uint64_t m_cpuState_size;
 };
 
-/* Custom JITMemoryManager in order to capture the size of
- * the last generated function */
-class TJITMemoryManager: public JITMemoryManager {
-    JITMemoryManager* m_base;
-    ptrdiff_t m_lastFunctionSize;
-public:
-    TJITMemoryManager():
-        m_base(JITMemoryManager::CreateDefaultMemManager()),
-        m_lastFunctionSize(0) {}
-    ~TJITMemoryManager() { delete m_base; }
-
-    ptrdiff_t getLastFunctionSize() const { return m_lastFunctionSize; }
-
-    uint8_t *startFunctionBody(const Function *F, uintptr_t &ActualSize) {
-        m_lastFunctionSize = 0;
-        return m_base->startFunctionBody(F, ActualSize);
-    }
-    void endFunctionBody(const Function *F, uint8_t *FunctionStart,
-                                uint8_t *FunctionEnd) {
-        m_lastFunctionSize = FunctionEnd - FunctionStart;
-        m_base->endFunctionBody(F, FunctionStart, FunctionEnd);
-    }
-
-    void setMemoryWritable() { m_base->setMemoryWritable(); }
-    void setMemoryExecutable() { m_base->setMemoryExecutable(); }
-    void setPoisonMemory(bool poison) { m_base->setPoisonMemory(poison); }
-    void AllocateGOT() { m_base->AllocateGOT(); }
-    uint8_t *getGOTBase() const { return m_base->getGOTBase(); }
-    //void SetDlsymTable(void *ptr) { m_base->SetDlsymTable(ptr); }
-    //void *getDlsymTable() const { return m_base->getDlsymTable(); }
-    uint8_t *allocateStub(const GlobalValue* F, unsigned StubSize,
-                                unsigned Alignment) {
-        return m_base->allocateStub(F, StubSize, Alignment);
-    }
-    uint8_t *allocateSpace(intptr_t Size, unsigned Alignment) {
-        return m_base->allocateSpace(Size, Alignment);
-    }
-    uint8_t *allocateGlobal(uintptr_t Size, unsigned Alignment) {
-        return m_base->allocateGlobal(Size, Alignment);
-    }
-    uint8_t *allocateCodeSection(uintptr_t Size, unsigned Alignment,
-                                 unsigned SectionID) {
-        return m_base->allocateCodeSection(Size, Alignment, SectionID);
-    }
-    uint8_t *allocateDataSection(uintptr_t Size, unsigned Alignment,
-                                 unsigned SectionID) {
-        return m_base->allocateDataSection(Size, Alignment, SectionID);
-    }
-    void *getPointerToNamedFunction(const std::string &Name,
-                                    bool AbortOnFailure = true) {
-        return m_base->getPointerToNamedFunction(Name, AbortOnFailure);
-    }
-    //void deallocateMemForFunction(const Function *F) {
-    //    m_base->deallocateMemForFunction(F);
-    //}
-
-    virtual void deallocateFunctionBody(void *Body) {
-        m_base->deallocateFunctionBody(Body);
-    }
-
-    uint8_t* startExceptionTable(const Function* F, uintptr_t &ActualSize) {
-        return m_base->startExceptionTable(F, ActualSize);
-    }
-    void endExceptionTable(const Function *F, uint8_t *TableStart,
-                                 uint8_t *TableEnd, uint8_t* FrameRegister) {
-        m_base->endExceptionTable(F, TableStart, TableEnd, FrameRegister);
-    }
-    virtual void deallocateExceptionTable(void *Body) {
-        m_base->deallocateExceptionTable(Body);
-    }
-    bool CheckInvariants(std::string &ErrorStr) {
-        return m_base->CheckInvariants(ErrorStr);
-    }
-    size_t GetDefaultCodeSlabSize() {
-        return m_base->GetDefaultCodeSlabSize();
-    }
-    size_t GetDefaultDataSlabSize() {
-        return m_base->GetDefaultDataSlabSize();
-    }
-    size_t GetDefaultStubSlabSize() {
-        return m_base->GetDefaultStubSlabSize();
-    }
-    unsigned GetNumCodeSlabs() { return m_base->GetNumCodeSlabs(); }
-    unsigned GetNumDataSlabs() { return m_base->GetNumDataSlabs(); }
-    unsigned GetNumStubSlabs() { return m_base->GetNumStubSlabs(); }
-};
-
 TCGLLVMContextPrivate::TCGLLVMContextPrivate()
     : m_context(getGlobalContext()), m_builder(m_context), m_tbCount(0),
       m_tcgContext(NULL), m_tbFunction(NULL)
@@ -387,70 +224,10 @@ TCGLLVMContextPrivate::TCGLLVMContextPrivate()
     InitializeNativeTarget();
 
     m_module = new Module("tcg-llvm", m_context);
-
-    m_jitMemoryManager = new TJITMemoryManager();
-
-    std::string error;
-    m_executionEngine = ExecutionEngine::createJIT(
-            m_module, &error, m_jitMemoryManager);
-    if(m_executionEngine == NULL) {
-        std::cerr << "Unable to create LLVM JIT: " << error << std::endl;
-        exit(1);
-    }
-
-    m_functionPassManager = new FunctionPassManager(m_module);
-    m_functionPassManager->add(
-            new DataLayout(*m_executionEngine->getDataLayout()));
-
-    m_functionPassManager->add(createReassociatePass());
-    m_functionPassManager->add(createConstantPropagationPass());
-    m_functionPassManager->add(createInstructionCombiningPass());
-    m_functionPassManager->add(createGVNPass());
-    m_functionPassManager->add(createDeadStoreEliminationPass());
-    m_functionPassManager->add(createCFGSimplificationPass());
-    m_functionPassManager->add(createPromoteMemoryToRegisterPass());
-
-    //m_functionPassManager->add(new SelectRemovalPass());
-
-    m_functionPassManager->doInitialization();
 }
 
 TCGLLVMContextPrivate::~TCGLLVMContextPrivate()
 {
-    delete m_functionPassManager;
-
-    // the following line will also delete
-    // m_moduleProvider, m_module and all its functions
-    if (m_executionEngine) {
-        delete m_executionEngine;
-    }
-}
-
-
-void TCGLLVMContextPrivate::initializeHelpers()
-{
-    m_qemu_ld_helpers[0] = m_module->getFunction("__ldb_mmu");
-    m_qemu_ld_helpers[1] = m_module->getFunction("__ldw_mmu");
-    m_qemu_ld_helpers[2] = m_module->getFunction("__ldl_mmu");
-    m_qemu_ld_helpers[3] = m_module->getFunction("__ldq_mmu");
-    m_qemu_ld_helpers[4] = m_module->getFunction("__ldq_mmu");
-
-    m_qemu_st_helpers[0] = m_module->getFunction("__stb_mmu");
-    m_qemu_st_helpers[1] = m_module->getFunction("__stw_mmu");
-    m_qemu_st_helpers[2] = m_module->getFunction("__stl_mmu");
-    m_qemu_st_helpers[3] = m_module->getFunction("__stq_mmu");
-    m_qemu_st_helpers[4] = m_module->getFunction("__stq_mmu");
-
-//    assert(m_helperTraceMemoryAccess);
-// XXX: is this really not needed on ARM?
-#ifndef TARGET_ARM
-//    assert(m_helperMakeSymbolic);
-#endif
-//    assert(m_helperGetValue);
-    for(int i = 0; i < 5; ++i) {
-        assert(m_qemu_ld_helpers[i]);
-        assert(m_qemu_st_helpers[i]);
-    }
 }
 
 Value* TCGLLVMContextPrivate::getPtrForValue(int idx)
@@ -707,49 +484,6 @@ void TCGLLVMContextPrivate::startNewBasicBlock(BasicBlock *bb)
     /* Invalidate all pointers to globals */
     for(int i=0; i<m_tcgContext->nb_globals; ++i)
         delPtrForValue(i);
-}
-
-inline Value* TCGLLVMContextPrivate::generateQemuMemOp(bool ld,
-        Value *value, Value *addr, int mem_index, int bits)
-{
-    assert(addr->getType() == intType(TARGET_LONG_BITS));
-    assert(ld || value->getType() == intType(bits));
-    assert(TCG_TARGET_REG_BITS == 64); //XXX
-
-#ifdef CONFIG_SOFTMMU
-    assert(!execute_llvm);
-
-    if(ld) {
-        return m_builder.CreateCall2(m_qemu_ld_helpers[bits>>4], addr,
-                    ConstantInt::get(intType(8*sizeof(int)), mem_index));
-    } else {
-
-#if defined(CRETE_DEBUG) && defined(CRETE_DEBUG_LLVM)
-    m_qemu_st_helpers[bits>>4]->dump();
-    addr->dump();
-    value->dump();
-    ConstantInt::get(intType(8*sizeof(int)), mem_index)->dump();
-#endif // defined(CRETE_DEBUG) && defined(CRETE_DEBUG_LLVM)
-
-        m_builder.CreateCall3(m_qemu_st_helpers[bits>>4], addr, value,
-                    ConstantInt::get(intType(8*sizeof(int)), mem_index));
-        return NULL;
-    }
-
-#else // CONFIG_SOFTMMU
-    assert(0); // for llvm-offline-translator, it should always be softmmu
-
-    addr = m_builder.CreateZExt(addr, wordType());
-    addr = m_builder.CreateAdd(addr,
-        ConstantInt::get(wordType(), GUEST_BASE));
-    addr = m_builder.CreateIntToPtr(addr, intPtrType(bits));
-    if(ld) {
-        return m_builder.CreateLoad(addr);
-    } else {
-        m_builder.CreateStore(value, addr);
-        return NULL;
-    }
-#endif // CONFIG_SOFTMMU
 }
 
 /*
@@ -1025,8 +759,6 @@ int TCGLLVMContextPrivate::generateOperation(TCGOp* op, int opc, const TCGArg *a
                 helperFunc = Function::Create(
                         FunctionType::get(retType, argTypes, false),
                         Function::ExternalLinkage, funcName, m_module);
-                m_executionEngine->addGlobalMapping(helperFunc,
-                                                    (void*) helperAddrC);
                 /* XXX: Why do we need this ? */
                 sys::DynamicLibrary::AddSymbol(funcName, (void*) helperAddrC);
             }
@@ -1642,16 +1374,8 @@ void TCGLLVMContextPrivate::generateCode(TCGContext *s, TranslationBlock *tb)
     //m_functionPassManager->run(*m_tbFunction);
 
     tb->llvm_function = m_tbFunction;
-
-    if(execute_llvm || qemu_loglevel_mask(CPU_LOG_LLVM_ASM)) {
-        tb->llvm_tc_ptr = (uint8_t*)
-                m_executionEngine->getPointerToFunction(m_tbFunction);
-        tb->llvm_tc_end = tb->llvm_tc_ptr +
-                m_jitMemoryManager->getLastFunctionSize();
-    } else {
-        tb->llvm_tc_ptr = 0;
-        tb->llvm_tc_end = 0;
-    }
+    tb->llvm_tc_ptr = 0;
+    tb->llvm_tc_end = 0;
 
 #ifdef DEBUG_DISAS
     if (unlikely(qemu_loglevel_mask(CPU_LOG_TB_OP))) {
@@ -1798,16 +1522,6 @@ TCGLLVMContext::~TCGLLVMContext()
     delete m_private;
 }
 
-llvm::FunctionPassManager* TCGLLVMContext::getFunctionPassManager() const
-{
-    return m_private->getFunctionPassManager();
-}
-
-void TCGLLVMContext::deleteExecutionEngine()
-{
-    m_private->deleteExecutionEngine();
-}
-
 LLVMContext& TCGLLVMContext::getLLVMContext()
 {
     return m_private->m_context;
@@ -1817,18 +1531,6 @@ Module* TCGLLVMContext::getModule()
 {
     return m_private->m_module;
 }
-
-ExecutionEngine* TCGLLVMContext::getExecutionEngine()
-{
-    return m_private->m_executionEngine;
-}
-
-
-void TCGLLVMContext::initializeHelpers()
-{
-    return m_private->initializeHelpers();
-}
-
 
 void TCGLLVMContext::generateCode(TCGContext *s, TranslationBlock *tb)
 {
@@ -1931,11 +1633,6 @@ const char* tcg_llvm_get_func_name(TranslationBlock *tb)
         buf[0] = 0;
     }
     return buf;
-}
-
-void tcg_llvm_initHelper(struct TCGLLVMContext *l)
-{
-	l->initializeHelpers();
 }
 
 #ifdef TCG_LLVM_OFFLINE
