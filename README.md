@@ -461,7 +461,7 @@ $ sudo rm -rf /var/lib/apt/lists/*
 The following apt-get packages are required:
 ```bash
 sudo apt-get update
-sudo apt-get install build-essential lcov libcap-dev flex bison cmake libelf-dev subversion git libtool libpixman-1-dev
+sudo apt-get install build-essential lcov libcap-dev flex bison cmake libelf-dev subversion git libtool libpixman-1-dev minisat
 sudo apt-get build-dep qemu
 ```
 
