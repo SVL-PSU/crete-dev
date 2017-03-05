@@ -15,7 +15,16 @@ matrix:
 
 addons:
   apt:
+    sources:
+        - sourceline: 'ppa:ubuntu-toolchain-r/test'
+        - sourceline: 'deb http://llvm.org/apt/trusty/ llvm-toolchain-trusty-3.4 main'
+          key_url: 'http://llvm.org/apt/llvm-snapshot.gpg.key'
+        - sourceline: 'deb-src http://llvm.org/apt/trusty/ llvm-toolchain-trusty-3.4 main'
+          key_url: 'http://llvm.org/apt/llvm-snapshot.gpg.key'
+        - kalakris-cmake
     packages:
+    - gcc-4.8
+    - g++-4.8
     - build-essential
     - lcov
     - libcap-dev
@@ -27,6 +36,11 @@ addons:
     - git
     - libtool
     - libpixman-1-dev
+    - minisat
+    - clang-3.4
+    - llvm-3.4
+    - llvm-3.4-dev
+    - llvm-3.4-tools
 
 before_install:
     ###########################################################################
@@ -65,14 +79,10 @@ before_install:
       fi
 
     - if [[ "$TARGET_DIST" == "precise" ]]; then
-         wget http://llvm.org/releases/3.2/clang+llvm-3.2-x86_64-linux-ubuntu-12.04.tar.gz;
-         tar xf clang+llvm-3.2-x86_64-linux-ubuntu-12.04.tar.gz;
-         CXX=./clang+llvm-3.2-x86_64-linux-ubuntu-12.04/bin/clang cmake $CRETE_SRC;
+         CXX=`which clang-3.4` cmake $CRETE_SRC;
       fi
 
 script:
     # Build CRETE
     - make boost
-    - make llvm-3.2
-    - make stp-r940
-    - make all
+    - make -j7
