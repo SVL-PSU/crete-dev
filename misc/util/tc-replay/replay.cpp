@@ -467,6 +467,11 @@ static void timeout_handler(int signum)
     fprintf(stderr, "Send timeout (%d seconds) signal to its child process\n", monitored_timeout);
     assert(monitored_pid != 0);
     kill(monitored_pid, SIGUSR1);
+
+    // exit() can cause deadlock within signal handlers, but it is required for coverage
+    // Double kill the process
+    sleep(1);
+    kill(monitored_pid, SIGKILL);
 }
 
 static inline void init_timeout_handler()
