@@ -42,14 +42,16 @@ error_summary()
     grep -c "debug_regs" < $INPUT_DIR/log/node_error.log
 
     printf "\nError Reported by KLEE:\n"
-    printf "Overshift error: "
-    grep -c "^KLEE: ERROR: (location information missing) overshift error$" < $INPUT_DIR/log/node_error.log
     printf "STP timed out: "
-    grep -c "^error: STP timed out" < $INPUT_DIR/log/node_error.log
-    printf "Over memory cap: "
-    grep -c "^KLEE\: WARNING\: killing 1 states (over memory cap)" < $INPUT_DIR/log/node_error.log
+    grep -c "STP timed out" < $INPUT_DIR/log/node_error.log
     printf "HaltTimer: "
     grep -c "KLEE: HaltTimer invoked" < $INPUT_DIR/log/node_error.log
+    printf "max-instruction-time exceeded: "
+    grep -c "max-instruction-time exceeded" < $INPUT_DIR/log/node_error.log
+    printf "Over memory cap: "
+    grep -c "^KLEE\: WARNING\: killing 1 states (over memory cap)" < $INPUT_DIR/log/node_error.log
+    printf "Overshift error: "
+    grep -c "^KLEE: ERROR: (location information missing) overshift error$" < $INPUT_DIR/log/node_error.log
     printf "Invalid test case: "
     grep -c "Invalid test case" < $INPUT_DIR/log/node_error.log
     printf "Trace-tag: forking not from captured bitcode: "

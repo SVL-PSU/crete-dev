@@ -599,7 +599,7 @@ static bool is_klee_log_correct(const boost::filesystem::path& file)
         BOOST_THROW_EXCEPTION(Exception() << err::file_open_failed(file.string()));
     }
 
-    boost::regex valid_patterns("KLEE: output directory = \"klee-out-0\"|"
+    boost::regex valid_patterns("KLEE: output directory .*klee-out-0\"|"
                                 "(KLEE: done: total instructions = )[0-9]+|"
                                 "(KLEE: done: completed paths = )[0-9]+|"
                                 "(KLEE: done: generated tests = )[0-9]+"
