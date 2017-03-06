@@ -481,7 +481,7 @@ sudo apt-mark hold libbison-dev bison # Prevent apt-get from updating.
 
 Grab a copy of the source tree:
 ```bash
-git clone https://github.com/SVL-PSU/crete-dev.git crete
+git clone --recursive https://github.com/SVL-PSU/crete-dev.git crete
 ```
 
 ### 7.3 Preparing the Environment
