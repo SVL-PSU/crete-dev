@@ -1166,6 +1166,7 @@ public:
     auto write_statistics() -> void;
     auto test_pool() -> TestPool&;
     auto trace_pool() -> TracePool&;
+    auto store_config_file() -> void;
     auto set_up_root_dir() -> void;
     auto launch_node_registrar(Port master) -> void;
     auto elapsed_time() -> uint64_t;
@@ -1740,6 +1741,21 @@ struct DispatchFSM_::terminate
     template <class EVT,class FSM,class SourceState,class TargetState>
     auto operator()(EVT const&, FSM& fsm, SourceState&, TargetState&) -> void
     {
+        fs::path coverage_exec = fsm.options_.coverage.cmd_path;
+        if(!coverage_exec.empty() && fs::is_regular(coverage_exec))
+        {
+            std::string cmd = fs::canonical(coverage_exec).string() + " " +
+                    fs::canonical(fsm.root_.parent_path()).string();;
+
+            fprintf(stderr, " coverage_cmd = %s \n"
+                    "Running batch_coverage ... ",
+                    cmd.c_str());
+
+            system(cmd.c_str());
+
+            fprintf(stderr, " Finished batch_coverage.\n");
+        }
+
         // TODO: Hacky means of shutting down NodeRegistrar.
         // Cont: we shouldn't have to pretend to be a node to cause it to shut down.
         Client client{"localhost", std::to_string(fsm.master_port_)};
@@ -2000,6 +2016,45 @@ auto DispatchFSM_::trace_pool() -> TracePool&
     return trace_pool_;
 }
 
+auto DispatchFSM_::store_config_file() -> void
+{
+    namespace pt = boost::property_tree;
+
+    if(root_.parent_path().filename() != dispatch_root_dir_name)
+    {
+        return;
+    }
+
+    if(!fs::exists(root_))
+    {
+        if(!fs::create_directories(root_))
+        {
+            BOOST_THROW_EXCEPTION(Exception{} << err::file_create{root_.string()});
+        }
+    }
+
+    fs::path config_path = options_.file_path;
+    fs::ifstream ifs(config_path);
+
+    if(!ifs.good())
+    {
+        BOOST_THROW_EXCEPTION(Exception{} << err::file_open_failed{config_path.string()});
+    }
+
+    pt::ptree config;
+
+    pt::read_xml(ifs,
+                 config,
+                 boost::property_tree::xml_parser::trim_whitespace |
+                 boost::property_tree::xml_parser::no_comments);
+    ifs.close();
+
+    fs::path out_path = root_ / dispatch_config_file_name;
+    boost::property_tree::write_xml(
+            out_path.string(), config, std::locale(),
+            boost::property_tree::xml_writer_make_settings<std::string>('\t', 1));
+}
+
 auto DispatchFSM_::set_up_root_dir() -> void
 {
     auto timestamp_root = root_.filename();
@@ -2010,6 +2065,8 @@ auto DispatchFSM_::set_up_root_dir() -> void
 
         if(root_.parent_path().filename() == dispatch_root_dir_name)
         {
+            store_config_file();
+
             timestamp_root = root_.filename();
             root_ /= target;
         }

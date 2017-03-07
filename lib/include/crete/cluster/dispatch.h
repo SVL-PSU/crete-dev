@@ -34,6 +34,8 @@ const auto dispatch_log_vm_dir_name = std::string{"vm"};
 const auto dispatch_log_svm_dir_name = std::string{"svm"};
 const auto dispatch_node_error_log_file_name = std::string{"node_error.log"};
 const auto dispatch_last_root_symlink = std::string{"last"};
+const auto dispatch_config_file_name = std::string{"dispatch_config.xml"};
+
 const auto vm_test_multiplier = 1u;
 const auto vm_trace_multiplier = 20u;
 
