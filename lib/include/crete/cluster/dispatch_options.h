@@ -165,6 +165,19 @@ struct Profile
     }
 };
 
+struct Coverage
+{
+    std::string cmd_path;
+
+    template <class Archive>
+    void serialize(Archive& ar, const unsigned int version)
+    {
+        (void)version;
+
+        ar & cmd_path;
+    }
+};
+
 struct Dispatch
 {
     Mode mode;
@@ -173,6 +186,8 @@ struct Dispatch
     Test test;
     Trace trace;
     Profile profile;
+    Coverage coverage;
+    std::string file_path;
 
     template <class Archive>
     void serialize(Archive& ar, const unsigned int version)
@@ -185,6 +200,8 @@ struct Dispatch
         ar & test;
         ar & trace;
         ar & profile;
+        ar & coverage;
+        ar & file_path;
     }
 };
 
