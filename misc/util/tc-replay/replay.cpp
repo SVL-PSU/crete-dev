@@ -18,7 +18,8 @@ namespace crete
 CreteReplay::CreteReplay(int argc, char* argv[]) :
     m_ops_descr(make_options()),
     m_cwd(fs::current_path()),
-    m_init_sandbox(true)
+    m_init_sandbox(true),
+    m_enable_log(false)
 {
     process_options(argc, argv);
     setup_launch();
@@ -38,6 +39,7 @@ po::options_description CreteReplay::make_options()
                 "directory")
         ("input-sandbox,j", po::value<fs::path>(), "input sandbox/jail directory")
         ("no-ini-sandbox,n", po::bool_switch(), "do not initialize sandbox to accumulate coverage info")
+        ("log,l", po::bool_switch(), "enable log the output of replayed programs")
         ;
 
     return desc;
@@ -105,6 +107,13 @@ void CreteReplay::process_options(int argc, char* argv[])
         m_seed_mode = true;
     } else {
         m_seed_mode = false;
+    }
+
+    if(m_var_map.count("log"))
+    {
+        bool input = m_var_map["log"].as<bool>();
+
+        m_enable_log = input;
     }
 
     if(!fs::exists(m_exec))
@@ -512,7 +521,15 @@ void CreteReplay::replay()
 
     // Read all test cases to replay
     vector<TestCase> tcs = retrieve_tests(m_tc_dir.string());
-    fs::ofstream ofs_replay_log(m_cwd / replay_log_file, std::ios_base::app);
+
+    fs::ofstream ofs_replay_log;
+
+    if(m_enable_log)
+    {
+        ofs_replay_log.open(m_cwd / replay_log_file, std::ios_base::app);
+    } else {
+        ofs_replay_log.open("/dev/null");
+    }
 
     ofs_replay_log << "Replay Summary: [" << currentDateTime() << "]\n"
             << "Executable path: " << m_exec.string() << endl

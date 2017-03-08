@@ -37,6 +37,7 @@ private:
 
     fs::path m_input_sandbox;
     bool m_init_sandbox;
+    bool m_enable_log;
     fs::path m_guest_config_serialized;
     fs::path m_current_tc;
 
