@@ -1,24 +1,24 @@
 # To generate branch coverage:
 # editing your .lcovrc file (copied from /etc/lcovrc) to change lcov_branch_coverage setting to 1
 
-# HOST_CRETE_BIN_DIR="/home/chenbo/crete/crete-dev/build/bin/"
-# HOST_PROG_DIR="/home/chenbo/crete/replay-evals/coreutils-6.10/coverage/src"
+HOST_CRETE_BIN_DIR="/home/chenbo/crete/build/bin/"
+HOST_PROG_DIR="/home/chenbo/crete/replay-evals/coreutils-6.10/coverage/src"
 
-# CRETE_BIN_DIR=$HOST_CRETE_BIN_DIR
-# PARSEGCOVCMD=$CRETE_BIN_DIR/../../misc/scripts/replay/parse_gcov_coreutils.py
-# PROG_DIR=$HOST_PROG_DIR
-# LCOV_DIR=$HOST_PROG_DIR/
-# SANDBOX="/home/chenbo/crete/replay-evals/sandbox"
+CRETE_BIN_DIR=$HOST_CRETE_BIN_DIR
+PARSEGCOVCMD=$CRETE_BIN_DIR/../../crete-dev/misc/scripts/replay/parse_gcov_coreutils.py
+PROG_DIR=$HOST_PROG_DIR
+LCOV_DIR=$HOST_PROG_DIR/
+SANDBOX="/home/chenbo/crete/replay-evals/sandbox"
 
 
-GUEST_CRETE_BIN_DIR="/home/test/guest-build/bin"
-GUEST_PROG_DIR="/home/test/tests/coreutils-6.10/coverage/src/"
+# GUEST_CRETE_BIN_DIR="/home/test/guest-build/bin"
+# GUEST_PROG_DIR="/home/test/tests/coreutils-6.10/coverage/src/"
 
-CRETE_BIN_DIR=$GUEST_CRETE_BIN_DIR
-PARSEGCOVCMD=$CRETE_BIN_DIR/../../guest/scripts/replay/parse_gcov_coreutils.py
-PROG_DIR=$GUEST_PROG_DIR
-LCOV_DIR=$GUEST_PROG_DIR/
-SANDBOX="/home/test/klee-sandbox"
+# CRETE_BIN_DIR=$GUEST_CRETE_BIN_DIR
+# PARSEGCOVCMD=$CRETE_BIN_DIR/../../guest/scripts/replay/parse_gcov_coreutils.py
+# PROG_DIR=$GUEST_PROG_DIR
+# LCOV_DIR=$GUEST_PROG_DIR/
+# SANDBOX="/home/test/klee-sandbox"
 
 # ======================================
 # complete list
