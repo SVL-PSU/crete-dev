@@ -461,62 +461,43 @@ $ sudo rm -rf /var/lib/apt/lists/*
 The following apt-get packages are required:
 ```bash
 sudo apt-get update
-sudo apt-get install build-essential lcov libcap-dev flex bison cmake libelf-dev subversion git libtool libpixman-1-dev minisat
-sudo apt-get build-dep qemu
+sudo apt-get install build-essential libcap-dev flex bison cmake libelf-dev git libtool libpixman-1-dev minisat zlib1g-dev libglib2.0-dev
 ```
 
-If your host system is Ubuntu 14.04, you will need to revert to an older version of bison:
+LLVM 3.4 is also required to build CRETE, and the LLVM packages provided by LLVM
+itself is recommended. Please check [LLVM Package
+Repository](http://apt.llvm.org/) for details. For the recent Ubuntu (≥ 12.04
+and ≤ 15.10, e.g. 14.04 LTS) or Debian, please use the following instructions to
+install LLVM 3.4:
 ```bash
-sudo apt-get remove libbison-dev bison # Remove current version of bison.
-sudo apt-get update # For good measure.
-wget https://launchpad.net/ubuntu/+source/bison/1:2.5.dfsg-2.1/+build/3270698/+files/libbison-dev_2.5.dfsg-2.1_amd64.deb
-wget https://launchpad.net/ubuntu/+source/bison/1:2.5.dfsg-2.1/+build/3270698/+files/bison_2.5.dfsg-2.1_amd64.deb
-# Install bison-2.5 which is required by the dependency STP.
-sudo dpkg -i libbison-dev_2.5.dfsg-2.1_amd64.deb
-sudo dpkg -i bison_2.5.dfsg-2.1_amd64.deb
-sudo apt-mark hold libbison-dev bison # Prevent apt-get from updating.
+echo "deb http://llvm.org/apt/trusty/ llvm-toolchain-trusty-3.4 main" | sudo tee -a /etc/apt/sources.list
+echo "deb-src http://llvm.org/apt/trusty/ llvm-toolchain-trusty-3.4 main" | sudo tee -a /etc/apt/sources.list
+wget -O - http://llvm.org/apt/llvm-snapshot.gpg.key|sudo apt-key add -
+sudo apt-get update
+sudo apt-get install clang-3.4 llvm-3.4 llvm-3.4-dev llvm-3.4-tools
 ```
 
-### 7.2 Source Tree
+### 7.2 Building
+>#### Warning
+
+> CRETE uses Boost 1.59.0. If any other version of Boost is installed on the system, there may be conflicts. It is recommended that you remove any conflicting Boost versions.
+
+>#### Note
+
+> CRETE requires a C++11 compatible compiler.
+> We recommend clang++-3.4 or g++-4.9 or higher versions of these compilers.
 
 Grab a copy of the source tree:
 ```bash
 git clone --recursive https://github.com/SVL-PSU/crete-dev.git crete
 ```
 
-### 7.3 Preparing the Environment
->#### Warning
-
-> CRETE uses Boost 1.59.0. If any other version of Boost is installed on the system, there may be conflicts. It is recommended that you remove any conflicting Boost versions.
-
-If you are using Ubuntu 14.04, you will need to make the compiler aware of the location of some header files.
-The exact location will depend on your version of gcc. To find this location:
-```bash
-locate bits/c++config.h
-```
-If the result is, for example:
-```bash
-/usr/include/x86_64-linux-gnu/c++/4.8/bits/c++config.h
-```
-Then you would do, for example:
-```bash
-echo 'export CPLUS_INCLUDE_PATH=$CPLUS_INCLUDE_PATH:/usr/include/x86_64-linux-gnu/c++/4.8' >> ~/.bashrc
-source ~/.bashrc
-```
-
-### 7.4 Building
-
->#### Note
-
-> CRETE requires a C++11 compatible compiler.
-> We recommend clang-3.2 or g++-4.9 or higher versions of these compilers.
-
 From outside of CRETE's top-level directory:
 ```bash
 mkdir crete-build
 cd crete-build
-cmake ../crete -DCMAKE_CXX_COMPILER=/path/to/c++11/compatible/compiler
-make # This will take a while; do NOT use -j
+CXX=clang++-3.4 cmake ../crete
+make # use -j to speedup
 ```
 
 If you like, you can add the executables and libraries to your .bashrc file:
