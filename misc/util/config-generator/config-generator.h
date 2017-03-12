@@ -41,6 +41,8 @@ private:
     string m_outputDirectory;
 };
 
+struct ParsedSymArgs;
+
 class CreteTests
 {
 public:
@@ -53,6 +55,8 @@ public:
 private:
     void parse_cmdline_tests(const char *input_file);
     void initBaseOutputDirectory();
+
+    void generate_crete_config(const ParsedSymArgs& parsed_config, const string& exec_name);
 private:
     // <test pattern string, crete test>
 //    multimap<string, string> m_crete_tests;
