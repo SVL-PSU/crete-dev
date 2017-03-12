@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <iterator>
 #include <assert.h>
+#include <map>
 
 #include <boost/filesystem.hpp>
 #include <boost/property_tree/ptree.hpp>
@@ -529,6 +530,9 @@ struct SymArgsConfig
     SymArgsConfig(uint64_t min, uint64_t max, uint64_t size)
     :m_min_sym_num(min), m_max_sym_num(max), m_sym_size(size) {}
 
+    SymArgsConfig()
+    :m_min_sym_num(0), m_max_sym_num(0), m_sym_size(0) {}
+
     ~SymArgsConfig(){};
 
     void print(const string& name) const
@@ -538,60 +542,180 @@ struct SymArgsConfig
     }
 };
 
-const SymArgsConfig KLEE_SYM_ARGS_CONFIG_1(0, 1, 10);
-const SymArgsConfig KLEE_SYM_ARGS_CONFIG_2(0, 2, 2);
-const uint64_t KLEE_SYM_FILE_SIZE  = 8;
-const uint64_t KLEE_SYM_STDIN_SIZE = 8;
-
-const uint64_t DASE_GREP_DIFF_SYM_FILE_SIZE  = 100;
+typedef vector<uint64_t> parsedSymArgs_ty;
 
 struct ParsedSymArgs
 {
     vector<uint64_t> m_sym_args;
-    uint64_t m_sym_file_size;
+    vector<uint64_t> m_sym_file_size;
     uint64_t m_sym_stdin_size;
 
-    ParsedSymArgs(uint64_t sym_file_size, uint64_t sym_stdin_size): m_sym_args(vector<uint64_t>()),
+    ParsedSymArgs(vector<uint64_t> sym_file_size, uint64_t sym_stdin_size): m_sym_args(vector<uint64_t>()),
             m_sym_file_size(sym_file_size),
             m_sym_stdin_size(sym_stdin_size) {}
 };
 
-// Rules: sym-args from config1 always come before the ones from config2
-static vector<ParsedSymArgs> parse_symArgsConfig(const SymArgsConfig& config1,
-        const SymArgsConfig& config2, const uint64_t sym_file_size,
-        const uint64_t sym_stdin_size)
+class ExprSetup
 {
-//    config1.print("config1");
-//    config2.print("config2");
+private:
+    vector<SymArgsConfig> m_sym_args_configs;
+    vector<uint64_t> m_sym_file_size;
+    uint64_t m_sym_std_size;
 
-    vector<ParsedSymArgs> ret;
-    for(uint64_t count1 = config1.m_min_sym_num;
-            count1 <= config1.m_max_sym_num; ++count1)
+public:
+    ExprSetup(SymArgsConfig sym_args_config_1, SymArgsConfig sym_args_config_2,
+            vector<uint64_t> sym_file_size, uint64_t sym_std_size)
+    :m_sym_args_configs(vector<SymArgsConfig>()),
+     m_sym_file_size(sym_file_size), m_sym_std_size(sym_std_size)
     {
-        for(uint64_t count2 = config2.m_min_sym_num;
-                count2 <= config2.m_max_sym_num; ++count2)
-        {
-            ParsedSymArgs parsed(sym_file_size, sym_stdin_size);
+        m_sym_args_configs.push_back(sym_args_config_1);
+        m_sym_args_configs.push_back(sym_args_config_2);
+    }
 
-            for(uint64_t i = 0; i < count1; ++i)
-            {
-                parsed.m_sym_args.push_back(config1.m_sym_size);
-            }
+    ExprSetup(SymArgsConfig sym_args_config_1, vector<uint64_t> sym_file_size, uint64_t sym_std_size)
+    :m_sym_args_configs(vector<SymArgsConfig>()),
+     m_sym_file_size(sym_file_size), m_sym_std_size(sym_std_size)
+    {
+        m_sym_args_configs.push_back(sym_args_config_1);
+    }
 
-            for(uint64_t i = 0; i < count2; ++i)
-            {
-                parsed.m_sym_args.push_back(config2.m_sym_size);
-            }
+    ~ExprSetup() {};
 
-            if(!parsed.m_sym_args.empty())
-            {
-                ret.push_back(parsed);
-            }
+    // Rules: sym-args from config1 always come before the ones from config2
+    vector<ParsedSymArgs> get_ParsedSymArgs() const;
+
+private:
+};
+
+static set<parsedSymArgs_ty> get_ParsedSymArgs_internal(const vector<SymArgsConfig>& not_parsed)
+{
+    if(not_parsed.empty())
+    {
+        return set<parsedSymArgs_ty>();
+    }
+
+    set<parsedSymArgs_ty> parsed_configs = get_ParsedSymArgs_internal(vector<SymArgsConfig>(not_parsed.begin(), not_parsed.end() - 1));
+
+    const SymArgsConfig& last_config = not_parsed.back();
+    set<parsedSymArgs_ty> parsed_last_config;
+
+    for(uint64_t i = last_config.m_min_sym_num; i <= last_config.m_max_sym_num; ++i)
+    {
+        parsed_last_config.insert(parsedSymArgs_ty(i, last_config.m_sym_size));
+    }
+
+    if (parsed_last_config.empty())
+        return parsed_configs;
+    else if(parsed_configs.empty())
+        return parsed_last_config;
+
+    assert(!parsed_last_config.empty() && !parsed_configs.empty());
+
+    set<parsedSymArgs_ty> ret;
+    for(set<parsedSymArgs_ty>::const_iterator out_it = parsed_configs.begin();
+            out_it != parsed_configs.end(); ++out_it) {
+        for(set<parsedSymArgs_ty>::const_iterator in_it = parsed_last_config.begin();
+                in_it != parsed_last_config.end(); ++in_it) {
+            parsedSymArgs_ty temp;
+            temp.reserve(out_it->size() + in_it->size());
+            temp.insert(temp.end(), out_it->begin(), out_it->end());
+            temp.insert(temp.end(), in_it->begin(), in_it->end());
+            ret.insert(temp);
         }
     }
 
     return ret;
 }
+
+vector<ParsedSymArgs> ExprSetup::get_ParsedSymArgs() const
+{
+    set<parsedSymArgs_ty> parsedSymArgs = get_ParsedSymArgs_internal(m_sym_args_configs);
+    vector<ParsedSymArgs> ret;
+
+    ParsedSymArgs temp(m_sym_file_size, m_sym_std_size);
+    for(set<parsedSymArgs_ty>::const_iterator it = parsedSymArgs.begin();
+            it != parsedSymArgs.end(); ++it)
+    {
+        if(it->empty()) continue;
+
+        temp.m_sym_args = vector<uint64_t>(it->begin(), it->end());
+        ret.push_back(temp);
+    }
+
+    return ret;
+}
+
+// === klee setup ===
+// normal: --sym-args 0 1 10 --sym-args 0 2 2 --sym-files 1 8 --sym-stdin 8 --sym-stdout
+const ExprSetup KLEE_SETUP_NORMAL(
+        SymArgsConfig(0, 1, 10),
+        SymArgsConfig(0, 2, 2),
+        vector<uint64_t>(1, 8),
+        8);
+
+// mknod: --sym-args 0 1 10 --sym-args 0 3 2 --sym-files 1 8 --sym-stdin 8 --sym-stdout
+const ExprSetup KLEE_SETUP_MKNOD(
+        SymArgsConfig(0, 1, 10),
+        SymArgsConfig(0, 3, 2),
+        vector<uint64_t>(1, 8),
+        8);
+
+// pathchk: --sym-args 0 1 2 --sym-args 0 1 300 --sym-files 1 8 --sym-stdin 8 --sym-stdout
+const ExprSetup KLEE_SETUP_PATHCHK(
+        SymArgsConfig(0, 1, 2),
+        SymArgsConfig(0, 1, 300),
+        vector<uint64_t>(1, 8),
+        8);
+
+// dd: --sym-args 0 3 10 --sym-files 1 8 --sym-stdin 8 --sym-stdout
+const ExprSetup KLEE_SETUP_DD(
+        SymArgsConfig(0, 3, 10),
+        vector<uint64_t>(1, 8),
+        8);
+
+// expr: --sym-args 0 1 10 --sym-args 0 3 2 --sym-stdout
+const ExprSetup KLEE_SETUP_EXPR(
+        SymArgsConfig(0, 1, 10),
+        SymArgsConfig(0, 3, 2),
+        vector<uint64_t>(),
+        8);
+
+// dircolors: --sym-args 0 3 10 --sym-files 2 12 --sym-stdin 12 --sym-stdout
+const ExprSetup KLEE_SETUP_DIRCOLORS(
+        SymArgsConfig(0, 3, 10),
+        vector<uint64_t>(2, 12),
+        12);
+
+// echo: --sym-args 0 4 300 --sym-files 2 30 --sym-stdin 30 --sym-stdout
+const ExprSetup KLEE_SETUP_ECHO(
+        SymArgsConfig(0, 4, 300),
+        vector<uint64_t>(2, 30),
+        30);
+
+// od: --sym-args 0 3 10 --sym-files 2 12 --sym-stdin 12 --sym-stdout
+const ExprSetup KLEE_SETUP_OD(
+        SymArgsConfig(0, 3, 10),
+        vector<uint64_t>(2, 12),
+        12);
+
+// printf: --sym-args 0 3 10 --sym-files 2 12 --sym-stdin 12 --sym-stdout
+const ExprSetup KLEE_SETUP_PRINTF(
+        SymArgsConfig(0, 3, 10),
+        vector<uint64_t>(2, 12),
+        12);
+
+const map<string, const ExprSetup> coreutil_klee_osdi_special {
+        {"dd", KLEE_SETUP_DD},
+        {"dircolors", KLEE_SETUP_DIRCOLORS},
+        {"echo", KLEE_SETUP_ECHO},
+        {"expr", KLEE_SETUP_EXPR},
+        {"mknod",KLEE_SETUP_MKNOD},
+        {"od", KLEE_SETUP_OD},
+        {"pathchk", KLEE_SETUP_PATHCHK},
+        {"printf", KLEE_SETUP_PRINTF}
+};
+
+const uint64_t DASE_GREP_DIFF_SYM_FILE_SIZE  = 100;
 
 static void printf_parsed_config(const vector<ParsedSymArgs>& configs)
 {
@@ -603,9 +727,81 @@ static void printf_parsed_config(const vector<ParsedSymArgs>& configs)
         {
             fprintf(stderr, "%lu ", it->m_sym_args[i]);
         }
-        fprintf(stderr, "], sym-file [%lu], sym-stdin[%lu]\n",
-                it->m_sym_file_size, it->m_sym_stdin_size);
+
+        fprintf(stderr, "],");
+        if(!it->m_sym_file_size.empty())
+        {
+            fprintf(stderr, "sym-file [%lu, %lu bytes], ",
+                            it->m_sym_file_size.size(),
+                            it->m_sym_file_size.front());
+        }
+
+        fprintf(stderr, "sym-stdin[%lu]\n", it->m_sym_stdin_size);
     }
+}
+
+
+void CreteTests::generate_crete_config(const ParsedSymArgs& parsed_config,
+        const string& exec_name)
+{
+    config::RunConfiguration crete_config;
+    crete_config.set_executable(exec_name);
+
+    // 1. sym-args
+    const vector<uint64_t>& sym_args = parsed_config.m_sym_args;
+    for(uint64_t j = 0; j < sym_args.size(); ++j)
+    {
+        config::Argument arg;
+
+        arg.index = j + 1; // Offset by one b/c of argv[0]
+        arg.size = sym_args[j];
+        arg.value.resize(arg.size, 0);
+        arg.concolic = true;
+        crete_config.add_argument(arg);
+    }
+
+    // 2. sym-stdin
+    if(parsed_config.m_sym_stdin_size > 0)
+    {
+        config::STDStream config_stdin;
+        config_stdin.size = parsed_config.m_sym_stdin_size;
+        config_stdin.value.resize(config_stdin.size, 0);
+        config_stdin.concolic = true;
+        crete_config.set_stdin(config_stdin);
+    }
+
+    // 3. sym-file
+    for(uint64_t i = 0; i <= parsed_config.m_sym_file_size.size(); ++i)
+    {
+        if(i > parsed_config.m_sym_args.size()) break;
+
+        if(i != 0)
+        {
+            // Remove the last argument for adding symbolic file
+            crete_config.remove_last_argument();
+
+            config::File config_file;
+            stringstream sym_file_name;
+            sym_file_name << "crete_sym_file_" << i;
+
+            config_file.path = fs::path(CRETE_RAMDISK_PATH) / sym_file_name.str();
+            config_file.size = parsed_config.m_sym_file_size.front();
+            config_file.concolic = true;
+            crete_config.add_file(config_file);
+        }
+
+        stringstream config_name;
+        config_name << "auto." << std::setfill('0') << std::setw(3) << ++m_config_count << "."
+                    << fs::path(exec_name).filename().string() << ".xml" ;
+        fs::path out_config_file = fs::path(m_outputDirectory) / config_name.str();
+        cerr << out_config_file.string() << endl;
+
+        boost::property_tree::ptree pt_config;
+        crete_config.write_mini(pt_config);
+        boost::property_tree::write_xml(
+                out_config_file.string(), pt_config, std::locale(),
+                boost::property_tree::xml_writer_make_settings<std::string>('\t', 1));
+    };
 }
 
 // suite_name: "klee" for coreutils, or "dase" for grep/diff
@@ -615,95 +811,43 @@ void CreteTests::gen_crete_tests_coreutils_grep_diff(string suite_name)
     set<string> eval;
     if(suite_name == "klee")
     {
-        parsed_configs = parse_symArgsConfig(KLEE_SYM_ARGS_CONFIG_1, KLEE_SYM_ARGS_CONFIG_2,
-                KLEE_SYM_FILE_SIZE, KLEE_SYM_STDIN_SIZE);
+        vector<ParsedSymArgs> normal_configs = KLEE_SETUP_NORMAL.get_ParsedSymArgs();
+        for(set<string>::const_iterator it = coreutil_klee_osdi.begin();
+                it != coreutil_klee_osdi.end(); ++ it) {
+            map<string, const ExprSetup>::const_iterator special_setup_it =  coreutil_klee_osdi_special.find(*it);
+            if( special_setup_it != coreutil_klee_osdi_special.end())
+            {
+                parsed_configs = special_setup_it->second.get_ParsedSymArgs();
+            } else {
+                parsed_configs = normal_configs;
+            }
 
-        eval = coreutil_klee_osdi;
+            printf_parsed_config(parsed_configs);
+
+            for(uint64_t i = 0; i < parsed_configs.size(); ++i)
+            {
+                generate_crete_config(parsed_configs[i], (guest_executable_folder + *it));
+            }
+        }
     } else if (suite_name == "dase") {
-        parsed_configs = parse_symArgsConfig(KLEE_SYM_ARGS_CONFIG_1, KLEE_SYM_ARGS_CONFIG_2,
-                DASE_GREP_DIFF_SYM_FILE_SIZE, KLEE_SYM_STDIN_SIZE);
+//        parsed_configs = parse_symArgsConfig(KLEE_SYM_ARGS_CONFIG_1, KLEE_SYM_ARGS_CONFIG_2,
+//                DASE_GREP_DIFF_SYM_FILE_SIZE, KLEE_SYM_STDIN_SIZE);
 
-        eval = dase_expr;
+//        eval = dase_expr;
+        assert(0);
     } else if (suite_name == "basetools") {
-        parsed_configs = parse_symArgsConfig(KLEE_SYM_ARGS_CONFIG_1, KLEE_SYM_ARGS_CONFIG_2,
-                DASE_GREP_DIFF_SYM_FILE_SIZE, KLEE_SYM_STDIN_SIZE);
+//        parsed_configs = parse_symArgsConfig(KLEE_SYM_ARGS_CONFIG_1, KLEE_SYM_ARGS_CONFIG_2,
+//                DASE_GREP_DIFF_SYM_FILE_SIZE, KLEE_SYM_STDIN_SIZE);
 
-        eval = baseTools;
+//        eval = baseTools;
+        assert(0);
     } else {
         assert(0);
     }
 
-    printf_parsed_config(parsed_configs);
 
     // Generate all configs for each gnu coreutil progs
-    for(set<string>::const_iterator it = eval.begin();
-            it != eval.end(); ++ it) {
-        for(uint64_t i = 0; i < parsed_configs.size(); ++i)
-        {
-            const ParsedSymArgs& parsed_config =  parsed_configs[i];
-            config::RunConfiguration crete_config;
-            crete_config.set_executable(guest_executable_folder + *it);
 
-            // 1. sym-args
-            const vector<uint64_t>& sym_args = parsed_config.m_sym_args;
-            for(uint64_t j = 0; j < sym_args.size(); ++j)
-            {
-                config::Argument arg;
-
-                arg.index = j + 1; // Offset by one b/c of argv[0]
-                arg.size = sym_args[j];
-                arg.value.resize(arg.size, 0);
-                arg.concolic = true;
-                crete_config.add_argument(arg);
-            }
-
-            // 2. sym-stdin
-            config::STDStream config_stdin;
-            config_stdin.size = parsed_config.m_sym_stdin_size;
-            config_stdin.value.resize(config_stdin.size, 0);
-            config_stdin.concolic = true;
-            crete_config.set_stdin(config_stdin);
-
-            // 3. sym-file
-            // 3.1 w/o sym-file
-            {
-                stringstream config_name;
-                config_name << "auto." << *it << "."  << ++m_config_count  << ".xml" ;
-                fs::path out_config_file = fs::path(m_outputDirectory) / config_name.str();
-                cerr << out_config_file.string() << endl;
-
-                boost::property_tree::ptree pt_config;
-                crete_config.write_mini(pt_config);
-                boost::property_tree::write_xml(
-                        out_config_file.string(), pt_config, std::locale(),
-                        boost::property_tree::xml_writer_make_settings<std::string>('\t', 1));
-
-            }
-
-            // 3.2 with sym-file and the last arg is the name of symfile
-            {
-                // Remove the last argument for adding symbolic file
-                crete_config.remove_last_argument();
-
-                config::File config_file;
-                config_file.path = fs::path(CRETE_RAMDISK_PATH) / "input.data";
-                config_file.size = parsed_config.m_sym_file_size;
-                config_file.concolic = true;
-                crete_config.add_file(config_file);
-
-                stringstream config_name;
-                config_name << "auto." << *it << "."  << ++m_config_count  << ".xml" ;
-                fs::path out_config_file = fs::path(m_outputDirectory) / config_name.str();
-                cerr << out_config_file.string() << endl;
-
-                boost::property_tree::ptree pt_config;
-                crete_config.write_mini(pt_config);
-                boost::property_tree::write_xml(
-                        out_config_file.string(), pt_config, std::locale(),
-                        boost::property_tree::xml_writer_make_settings<std::string>('\t', 1));
-            }
-        }
-    }
 
     return;
 }
