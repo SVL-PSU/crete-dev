@@ -39,6 +39,7 @@ po::options_description CreteReplay::make_options()
                 "directory")
         ("input-sandbox,j", po::value<fs::path>(), "input sandbox/jail directory")
         ("no-ini-sandbox,n", po::bool_switch(), "do not initialize sandbox to accumulate coverage info")
+        ("environment,v", po::value<fs::path>(), "environment variables")
         ("log,l", po::bool_switch(), "enable log the output of replayed programs")
         ;
 
@@ -100,6 +101,18 @@ void CreteReplay::process_options(int argc, char* argv[])
         fprintf(stderr, "[crete-replay] input_sandbox_dir = %s, m_init_sandbox = %d\n",
                 m_input_sandbox.string().c_str(), m_init_sandbox);
 
+    }
+
+    if(m_var_map.count("environment"))
+    {
+        fs::path p = m_var_map["environment"].as<fs::path>();
+
+        if(!fs::exists(p) && !fs::is_regular(p))
+        {
+            BOOST_THROW_EXCEPTION(Exception() << err::file_missing(p.string()));
+        }
+
+        m_environment = p;
     }
 
     if(m_var_map.count("seed-only"))
@@ -373,12 +386,27 @@ void CreteReplay::setup_launch()
     m_launch_ctx.output_behavior.insert(bp::behavior_map::value_type(STDERR_FILENO, bp::redirect_stream_to_stdout()));
     m_launch_ctx.input_behavior.insert(bp::behavior_map::value_type(STDIN_FILENO, bp::capture_stream()));
 
-    //TODO: xxx unified the environment, may use klee's env.sh
-    m_launch_ctx.environment = bp::self::get_environment();
-    m_launch_ctx.environment.erase("LD_PRELOAD");
-    m_launch_ctx.environment.insert(bp::environment::value_type("LD_PRELOAD", "libcrete_replay_preload.so"));
-
     m_launch_ctx.work_directory = m_launch_directory.string();
+
+    if(!m_environment.empty())
+    {
+        assert(m_launch_ctx.environment.empty());
+        std::ifstream ifs (m_environment.string().c_str());
+        if(!ifs.good())
+            BOOST_THROW_EXCEPTION(Exception() << err::file_open_failed(m_environment.string()));
+
+        std::string env_name;
+        std::string env_value;
+        while(ifs >> env_name >> env_value)
+        {
+            m_launch_ctx.environment.insert(bp::environment::value_type(env_name, env_value));
+        }
+    } else {
+        m_launch_ctx.environment = bp::self::get_environment();
+    }
+    m_launch_ctx.environment.insert(bp::environment::value_type("LD_PRELOAD", "libcrete_replay_preload.so"));
+    m_launch_ctx.environment.erase("PWD");
+    m_launch_ctx.environment.insert(bp::environment::value_type("PWD", fs::canonical(m_launch_ctx.work_directory).string()));
 
     if(!m_input_sandbox.empty())
     {
