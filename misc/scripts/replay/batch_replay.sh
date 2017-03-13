@@ -136,13 +136,17 @@ main()
                 $CRETE_BIN_DIR/crete-tc-replay -e $PROG_DIR/$target_prog \
                                                -c $config_file_path      \
                                                -t $test_case_dir         \
-                                               -j $SANDBOX >> crete-coverage-progress.log
+                                               -j $SANDBOX               \
+                                               -v /home/chenbo/crete/crete-dev/front-end/guest/sandbox/env/klee-test.env \
+                                               >> crete-coverage-progress.log
             else
                 printf "[W/ sandbox and W/O init_sandbox] executing $target_prog with tc from \'$test_case_dir\'...\n"
                 $CRETE_BIN_DIR/crete-tc-replay -e $PROG_DIR/$target_prog \
                                                -c $config_file_path      \
                                                -t $test_case_dir         \
-                                               -j $SANDBOX -n >> crete-coverage-progress.log
+                                               -j $SANDBOX               \
+                                               -v /home/chenbo/crete/crete-dev/front-end/guest/sandbox/env/klee-test.env \
+                                               -n >> crete-coverage-progress.log
             fi
         fi
     done

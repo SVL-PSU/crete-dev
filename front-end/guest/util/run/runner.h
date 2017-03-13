@@ -35,6 +35,7 @@ private:
     std::string ip_;
     boost::filesystem::path target_config_;
     boost::filesystem::path sandbox_dir_;
+    boost::filesystem::path environment_path_;
     bool stopped_;
 };
 

@@ -75,6 +75,7 @@ private:
     bp::posix_context m_launch_ctx;
 
     fs::path m_sandbox_dir;
+    fs::path m_environment;
     fs::path m_proc_map;
     fs::path m_guest_config_serialized;
 
@@ -341,15 +342,18 @@ struct start // Basically, serves as constructor.
 {
     start(const std::string& host_ip,
           const fs::path& config,
-          const fs::path& sandbox) :
+          const fs::path& sandbox,
+          const fs::path& environment) :
         host_ip_(host_ip),
         config_(config),
-        sandbox_(sandbox)
+        sandbox_(sandbox),
+        environment_(environment)
     {}
 
     const std::string& host_ip_;
     const fs::path& config_;
     const fs::path& sandbox_;
+    const fs::path& environment_;
 };
 
 RunnerFSM_::RunnerFSM_() :
@@ -366,6 +370,7 @@ void RunnerFSM_::init(const start& ev)
     guest_config_path_ = ev.config_;
 
     m_sandbox_dir = ev.sandbox_;
+    m_environment = ev.environment_;
 }
 
 void RunnerFSM_::verify_env(const poll&)
@@ -507,17 +512,34 @@ void RunnerFSM_::setup_launch_exec()
     m_launch_ctx.output_behavior.insert(bp::behavior_map::value_type(STDERR_FILENO, bp::redirect_stream_to_stdout()));
     m_launch_ctx.input_behavior.insert(bp::behavior_map::value_type(STDIN_FILENO, bp::capture_stream()));
 
-    //TODO: xxx unified the environment, may use klee's env.sh
-    m_launch_ctx.environment = bp::self::get_environment();
-    m_launch_ctx.environment.erase("LD_PRELOAD");
-    m_launch_ctx.environment.insert(bp::environment::value_type("LD_PRELOAD", "libcrete_run_preload.so"));
-
     m_launch_ctx.work_directory = m_exec_launch_dir.string();
 
     if(!m_sandbox_dir.empty())
     {
         m_launch_ctx.chroot = CRETE_SANDBOX_PATH;
     }
+
+    if(!m_environment.empty())
+    {
+        assert(m_launch_ctx.environment.empty());
+        std::ifstream ifs (m_environment.string().c_str());
+        if(!ifs.good())
+            BOOST_THROW_EXCEPTION(Exception() << err::file_open_failed(m_environment.string()));
+
+        std::string env_name;
+        std::string env_value;
+        fprintf(stderr, "Using unified environment variables from %s\n", m_environment.string().c_str());
+        while(ifs >> env_name >> env_value)
+        {
+            fprintf(stderr, "%s=%s\n", env_name.c_str(), env_value.c_str());
+            m_launch_ctx.environment.insert(bp::environment::value_type(env_name, env_value));
+        }
+    } else {
+        m_launch_ctx.environment = bp::self::get_environment();
+    }
+    m_launch_ctx.environment.insert(bp::environment::value_type("LD_PRELOAD", "libcrete_run_preload.so"));
+    m_launch_ctx.environment.erase("PWD");
+    m_launch_ctx.environment.insert(bp::environment::value_type("PWD", m_launch_ctx.work_directory));
 
     // 4. setup the path for proc-map and guest_config_serialized
     if(m_sandbox_dir.empty())
@@ -1231,6 +1253,7 @@ po::options_description Runner::make_options()
             ("config,c", po::value<fs::path>(), "configuration file")
             ("ip,i", po::value<std::string>(), "host IP")
             ("sandbox,s", po::value<fs::path>(), "sandbox directory")
+            ("environment,v", po::value<fs::path>(), "environment file")
         ;
 
     return desc;
@@ -1290,6 +1313,18 @@ void Runner::process_options()
 
         sandbox_dir_ = p;
     }
+
+    if(var_map_.count("environment"))
+    {
+        fs::path p = var_map_["environment"].as<fs::path>();
+
+        if(!fs::exists(p) && !fs::is_regular(p))
+        {
+            BOOST_THROW_EXCEPTION(Exception() << err::file_missing(p.string()));
+        }
+
+        environment_path_ = p;
+    }
 }
 
 void Runner::start_FSM()
@@ -1306,7 +1341,8 @@ void Runner::run()
 {
     start s(ip_,
             target_config_,
-            sandbox_dir_);
+            sandbox_dir_,
+            environment_path_);
 
     fsm_->process_event(s);
 
