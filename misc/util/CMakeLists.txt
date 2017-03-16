@@ -13,8 +13,9 @@ add_custom_target(tc-replay-sandbox-support
   sudo cp ${CMAKE_BINARY_DIR}/bin/libcrete_replay_preload.so /lib
   DEPENDS crete-tc-replay crete_replay_preload)
 
-add_custom_target(
+add_subdirectory(klee-tc-replay)
+
+add_custom_target(klee-tc-replay-sandbox-support
   COMMAND
-  sudo setcap cap_sys_admin,cap_sys_chroot+ep ${CMAKE_BINARY_DIR}/bin/crete-tc-replay &&
-  sudo cp ${CMAKE_BINARY_DIR}/bin/libcrete_replay_preload.so /lib
-  DEPENDS crete-tc-replay crete_replay_preload)
+  sudo setcap cap_sys_admin,cap_sys_chroot+ep ${CMAKE_BINARY_DIR}/bin/klee-tc-replay
+  DEPENDS klee-tc-replay)
