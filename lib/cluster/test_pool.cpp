@@ -65,7 +65,7 @@ auto TestPool::insert_initial_tc_from_config(const TestCase& tc) -> bool
     return true;
 }
 
-auto TestPool::insert(const TestCase& tc) -> bool
+auto TestPool::insert_initial_tc(const TestCase& tc) -> bool
 {
     if(insert_tc_tree(tc))
     {
@@ -76,7 +76,7 @@ auto TestPool::insert(const TestCase& tc) -> bool
     return false;
 }
 
-auto TestPool::insert(const TestCase& tc, const TestCase& input_tc) -> bool
+auto TestPool::insert_internal(const TestCase& tc, const TestCase& input_tc) -> bool
 {
     if(insert_tc_tree(tc, input_tc))
     {
@@ -87,11 +87,11 @@ auto TestPool::insert(const TestCase& tc, const TestCase& input_tc) -> bool
     return false;;
 }
 
-auto TestPool::insert(const std::vector<TestCase>& tcs) -> void
+auto TestPool::insert_initial_tcs(const std::vector<TestCase>& tcs) -> void
 {
     for(const auto& tc : tcs)
     {
-        insert(tc);
+        insert_initial_tc(tc);
     }
 }
 
@@ -104,7 +104,7 @@ auto TestPool::insert(const std::vector<TestCase>& new_tcs, const TestCase& inpu
 
     for(const auto& tc : new_tcs)
     {
-        insert(tc, input_tc);
+        insert_internal(tc, input_tc);
     }
 }
 

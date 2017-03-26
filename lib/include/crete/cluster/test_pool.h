@@ -58,11 +58,8 @@ public:
     auto next() -> boost::optional<TestCase>;
 
     auto insert_initial_tc_from_config(const TestCase& tc) -> bool;
+    auto insert_initial_tcs(const std::vector<TestCase>& tcs) -> void;
 
-    auto insert(const TestCase& tc) -> bool;
-    auto insert(const TestCase& tc, const TestCase& input_tc) -> bool;
-
-    auto insert(const std::vector<TestCase>& tcs) -> void;
     auto insert(const std::vector<TestCase>& new_tcs, const TestCase& input_tc) -> void;
 
     auto clear() -> void;
@@ -75,6 +72,9 @@ private:
     auto write_test_case(const TestCase& tc, const uint64_t tc_index) -> void;
     auto insert_tc_tree(const TestCase& tc) -> bool;
     auto insert_tc_tree(const TestCase& tc, const TestCase& input_tc) -> bool;
+
+    auto insert_internal(const TestCase& tc, const TestCase& input_tc) -> bool;
+    auto insert_initial_tc(const TestCase& tc) -> bool;
 
     auto to_test_hash(const TestCase& tc) -> TestCaseHash;
 };
