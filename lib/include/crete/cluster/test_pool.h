@@ -14,6 +14,8 @@
 
 #include <crete/test_case.h>
 
+namespace fs = boost::filesystem;
+
 namespace crete
 {
 namespace cluster
@@ -43,16 +45,15 @@ class TestPool
 {
 public:
     using TestQueue = std::priority_queue<TestCase, vector<TestCase>, TestPriority>;
-    using TestHash = std::string;
 
 private:
-    boost::filesystem::path root_;
+    fs::path root_;
 
-    boost::unordered_map<TestHash, TestCaseTreeNode> test_tree_;
+    boost::unordered_map<TestCaseHash, TestCaseTreeNode> test_tree_;
     TestQueue next_;
 
 public:
-    TestPool(const boost::filesystem::path& root);
+    TestPool(const fs::path& root);
 
     auto next() -> boost::optional<TestCase>;
 
@@ -75,7 +76,7 @@ private:
     auto insert_tc_tree(const TestCase& tc) -> bool;
     auto insert_tc_tree(const TestCase& tc, const TestCase& input_tc) -> bool;
 
-    auto to_test_hash(const TestCase& tc) -> TestHash;
+    auto to_test_hash(const TestCase& tc) -> TestCaseHash;
 };
 
 } // namespace cluster

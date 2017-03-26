@@ -126,7 +126,7 @@ auto TestPool::count_next() const -> size_t
 
 auto TestPool::write_tc_tree(std::ostream& os) -> void const
 {
-    for(boost::unordered_map<TestHash, TestCaseTreeNode>::const_iterator it = test_tree_.begin();
+    for(boost::unordered_map<TestCaseHash, TestCaseTreeNode>::const_iterator it = test_tree_.begin();
             it != test_tree_.end(); ++it) {
         os << "Node tc-" << it->second.m_tc_index << ": [";
         for(std::vector<uint64_t>::const_iterator c_it = it->second.m_childern_tc_indexes.begin();
@@ -162,7 +162,7 @@ auto TestPool::write_test_case(const TestCase& tc, const uint64_t tc_index) -> v
 
 auto TestPool::insert_tc_tree(const TestCase& tc) -> bool
 {
-    std::string test_hash = to_test_hash(tc);
+    TestCaseHash test_hash = to_test_hash(tc);
     if(test_tree_.find(test_hash) != test_tree_.end())
     {
         return false;
@@ -178,7 +178,7 @@ auto TestPool::insert_tc_tree(const TestCase& tc) -> bool
 
 auto TestPool::insert_tc_tree(const TestCase& tc, const TestCase& input_tc) -> bool
 {
-    std::string test_hash = to_test_hash(tc);
+    TestCaseHash test_hash = to_test_hash(tc);
     if(test_tree_.find(test_hash) != test_tree_.end())
     {
         return false;
@@ -190,19 +190,16 @@ auto TestPool::insert_tc_tree(const TestCase& tc, const TestCase& input_tc) -> b
     write_test_case(tc, test_tree_[test_hash].m_tc_index);
 
     // Set the parent tc_tree_node for this new
-    std::string input_tc_hash = to_test_hash(input_tc);
+    TestCaseHash input_tc_hash = to_test_hash(input_tc);
     assert(test_tree_.find(input_tc_hash) != test_tree_.end());
     test_tree_[input_tc_hash].m_childern_tc_indexes.push_back(test_tree_[test_hash].m_tc_index);
 
     return true;
 }
 
-auto TestPool::to_test_hash(const TestCase& tc) -> TestHash
+auto TestPool::to_test_hash(const TestCase& tc) -> TestCaseHash
 {
-    std::stringstream ss;
-    tc.write(ss);
-
-    return ss.str();
+    return tc.hash();
 }
 
 } // namespace cluster

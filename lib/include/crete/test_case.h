@@ -7,6 +7,8 @@
 #include <iterator>
 #include <crete/trace_tag.h>
 
+#include <boost/functional/hash.hpp>
+
 namespace crete
 {
     struct TestCaseElement
@@ -26,9 +28,31 @@ namespace crete
             ar & data_size;
             ar & data;
         }
+
+#if !defined(CRETE_TC_COMPARE_H)
+        bool operator==(TestCaseElement const& other) const
+        {
+            return  name_size == other.name_size &&
+                    name == other.name &&
+                    data_size == other.data_size &&
+                    data == other.data;
+        }
+#endif
+
+        friend std::size_t hash_value(TestCaseElement const& i)
+        {
+            std::size_t seed = 0;
+            boost::hash_combine(seed, i.name_size);
+            boost::hash_combine(seed, i.name);
+            boost::hash_combine(seed, i.data_size);
+            boost::hash_combine(seed, i.data);
+
+            return seed;
+        }
     };
 
     typedef std::vector<TestCaseElement> TestCaseElements;
+    typedef size_t TestCaseHash;
 
     class TestCase
     {
@@ -50,6 +74,9 @@ namespace crete
         creteTraceTag_ty get_traceTag_semi_explored_node() const { return m_semi_explored_node; }
         creteTraceTag_ty get_traceTag_new_nodes() const { return m_new_nodes; }
 
+        TestCaseHash hash() const; // Hash for test case elements
+        TestCaseHash complete_hash() const;
+
         friend std::ostream& operator<<(std::ostream& os, const TestCase& tc);
 
         template <typename Archive>
@@ -57,18 +84,30 @@ namespace crete
         {
             (void)version;
 
-            ar & elems_;
             ar & priority_;
+
+            ar & elems_;
 
             ar & m_explored_nodes;
             ar & m_semi_explored_node;
             ar & m_new_nodes;
         }
 
+        bool operator==(TestCase const& other) const
+        {
+            return  elems_ == other.elems_;
+        }
+
+        friend std::size_t hash_value(TestCase const& i)
+        {
+            return boost::hash_value(i.elems_);
+        }
+
     protected:
     private:
-        TestCaseElements elems_;
         Priority priority_; // TODO: meaningless now. In the future, can be used to sort tests.
+
+        TestCaseElements elems_;
 
         creteTraceTag_ty m_explored_nodes;
         creteTraceTag_ty m_semi_explored_node;

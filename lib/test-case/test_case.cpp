@@ -91,6 +91,23 @@ namespace crete
         m_new_nodes = new_nodes;
     }
 
+    TestCaseHash TestCase::hash() const
+    {
+        return hash_value(*this);
+    }
+
+    TestCaseHash TestCase::complete_hash() const
+    {
+        std::size_t seed = 0;
+        boost::hash_combine(seed, priority_);
+        boost::hash_combine(seed, elems_);
+        boost::hash_combine(seed, m_explored_nodes);
+        boost::hash_combine(seed, m_semi_explored_node);
+        boost::hash_combine(seed, m_new_nodes);
+
+        return seed;
+    }
+
     TestCaseElement read_test_case_element(istream& is)
     {
         TestCaseElement elem;

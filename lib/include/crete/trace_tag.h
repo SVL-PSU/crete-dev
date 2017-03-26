@@ -6,6 +6,7 @@
 #include <vector>
 
 #include <boost/serialization/vector.hpp>
+#include <boost/functional/hash.hpp>
 
 using namespace std;
 
@@ -28,6 +29,18 @@ struct CreteTraceTagNode
         ar & m_br_taken;
         ar & m_tb_pc;
         ar & m_tb_count;
+    }
+
+    friend std::size_t hash_value(CreteTraceTagNode const& i)
+    {
+        std::size_t seed = 0;
+
+        boost::hash_combine(seed, i.m_last_opc);
+        boost::hash_combine(seed, i.m_br_taken);
+        boost::hash_combine(seed, i.m_tb_pc);
+        boost::hash_combine(seed, i.m_tb_count);
+
+        return seed;
     }
 };
 
