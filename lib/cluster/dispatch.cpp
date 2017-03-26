@@ -1617,7 +1617,7 @@ struct DispatchFSM_::dispatch
                     {
                         if(fsm.options_.vm.initial_tc.get_elements().size() > 0)
                         {
-                            fsm.test_pool_.insert(fsm.options_.vm.initial_tc);
+                            fsm.test_pool_.insert_initial_tcs(vector<TestCase>(1, fsm.options_.vm.initial_tc));
                         }
                         else
                         {
@@ -1631,7 +1631,7 @@ struct DispatchFSM_::dispatch
                         assert(fsm.next_target_seeds_queue_.size() == fsm.next_target_queue_.size()); // FIXME: xxx use exception
 
                         std::vector<TestCase> seeds = retrieve_tests(fsm.current_target_seeds_.string());
-                        fsm.test_pool_.insert(seeds);
+                        fsm.test_pool_.insert_initial_tcs(seeds);
                     }
 
                     nfsm->process_event(vm::poll{});
