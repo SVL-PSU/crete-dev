@@ -1,5 +1,5 @@
-#ifndef CRETE_REPLAY_H
-#define CRETE_REPLAY_H
+#ifndef CRETE_TC_COMPARE_H
+#define CRETE_TC_COMPARE_H
 
 #include <crete/test_case.h>
 #include <crete/harness_config.h>
@@ -40,4 +40,4 @@ private:
 
 }
 
-#endif // CRETE_REPLAY_H
+#endif // CRETE_TC_COMPARE_H
