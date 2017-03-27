@@ -8,6 +8,7 @@
 #include <crete/trace_tag.h>
 
 #include <boost/functional/hash.hpp>
+#include <boost/serialization/utility.hpp>
 
 namespace crete
 {
@@ -53,6 +54,10 @@ namespace crete
 
     typedef std::vector<TestCaseElement> TestCaseElements;
     typedef size_t TestCaseHash;
+    // <index of trace-tag node to negate, index of branch within a tt node to negate>
+    typedef std::pair<uint32_t, uint32_t> TestCasePatchTraceTag_ty;
+    // <index within an tc element, value>
+    typedef std::vector<std::pair<uint32_t, uint8_t> > TestCasePatchElement_ty;
 
     class TestCase
     {
@@ -61,6 +66,10 @@ namespace crete
 
     public:
         TestCase();
+        TestCase(const crete::TestCasePatchTraceTag_ty tcp_tt,
+                 const std::vector<crete::TestCasePatchElement_ty>& tcp_elems);
+        TestCase(const TestCase& tc);
+
         void add_element(const TestCaseElement& e) { elems_.push_back(e); }
 
         const TestCaseElements& get_elements() const { return elems_; }
@@ -76,6 +85,7 @@ namespace crete
 
         TestCaseHash hash() const; // Hash for test case elements
         TestCaseHash complete_hash() const;
+        friend TestCase generate_complete_tc_from_patch(const TestCase& patch, const TestCase& base);
 
         friend std::ostream& operator<<(std::ostream& os, const TestCase& tc);
 
@@ -85,6 +95,10 @@ namespace crete
             (void)version;
 
             ar & priority_;
+
+            ar & m_patch;
+            ar & m_tcp_tt;
+            ar & m_tcp_elems;
 
             ar & elems_;
 
@@ -100,15 +114,26 @@ namespace crete
 
         friend std::size_t hash_value(TestCase const& i)
         {
-            return boost::hash_value(i.elems_);
+            std::size_t seed = 0;
+
+            boost::hash_combine(seed, i.m_tcp_tt);
+            boost::hash_combine(seed, i.m_tcp_elems);
+            boost::hash_combine(seed, i.elems_);
+
+            return seed;
         }
 
     protected:
     private:
         Priority priority_; // TODO: meaningless now. In the future, can be used to sort tests.
 
-        TestCaseElements elems_;
+        // true: is tc_p (test case patch); false: is a tc_c (complete tc)
+        bool m_patch;
 
+        TestCasePatchTraceTag_ty m_tcp_tt;
+        vector<TestCasePatchElement_ty> m_tcp_elems;
+
+        TestCaseElements elems_;
         creteTraceTag_ty m_explored_nodes;
         creteTraceTag_ty m_semi_explored_node;
         creteTraceTag_ty m_new_nodes;
