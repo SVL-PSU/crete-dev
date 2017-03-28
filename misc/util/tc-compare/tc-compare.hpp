@@ -26,6 +26,8 @@ private:
     fs::path m_ref;
     fs::path m_tgt;
 
+    fs::path m_patch;
+
     bool m_tc_folder;
 
 public:
@@ -36,6 +38,7 @@ private:
     void process_options(int argc, char* argv[]);
 
     void compare_tc();
+    void generate_complete_test_from_patch();
 };
 
 }
