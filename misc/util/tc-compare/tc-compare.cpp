@@ -3,6 +3,7 @@
 #include <boost/program_options.hpp>
 
 #include <string>
+#include <sstream>
 
 using namespace std;
 
@@ -15,7 +16,11 @@ CreteTcCompare::CreteTcCompare(int argc, char* argv[]) :
     m_tc_folder(false)
 {
     process_options(argc, argv);
-    compare_tc();
+
+    if(!m_ref.empty())
+        compare_tc();
+    else if (!m_patch.empty())
+        generate_complete_test_from_patch();
 }
 
 po::options_description CreteTcCompare::make_options()
@@ -26,6 +31,7 @@ po::options_description CreteTcCompare::make_options()
         ("help,h", "displays help message")
         ("reference,r", po::value<fs::path>(), "reference test case (folder)")
         ("target,t", po::value<fs::path>(), "target test case (folder)")
+        ("patch,p", po::value<fs::path>(), "patch mode")
         ;
 
     return desc;
@@ -80,6 +86,22 @@ void CreteTcCompare::process_options(int argc, char* argv[])
             assert(fs::is_directory(m_ref));
             assert(fs::is_directory(m_tgt));
             m_tc_folder = true;
+        }
+    } else if (m_var_map.count("patch")) {
+        fs::path p = m_var_map["patch"].as<fs::path>();
+
+        if(!fs::exists(p))
+        {
+            BOOST_THROW_EXCEPTION(Exception() << err::file_missing(p.string()));
+        }
+
+        m_patch = p;
+
+        if(fs::is_directory(m_patch))
+        {
+            m_tc_folder = true;
+        } else {
+            assert(fs::is_regular(m_patch));
         }
     } else {
         BOOST_THROW_EXCEPTION(std::runtime_error("Crete-tc-compare requires reference tc and target tc"));
@@ -146,6 +168,49 @@ static bool compare_tc_internal(const TestCase& t1, const TestCase& t2)
     if(!(t1.get_traceTag_explored_nodes() == t2.get_traceTag_explored_nodes()))
     {
         fprintf(stderr, "+++ traceTag differ: explored_nodes\n");
+        const creteTraceTag_ty& tt_1 = t1.get_traceTag_explored_nodes();
+        const creteTraceTag_ty& tt_2 = t2.get_traceTag_explored_nodes();
+
+        assert(tt_1.size() == tt_2.size());
+
+        for(uint64_t i = 0; i < tt_1.size(); ++i)
+        {
+            const CreteTraceTagNode& node_1 = tt_1[i];
+            const CreteTraceTagNode& node_2 = tt_2[i];
+
+            if(node_1.m_br_taken != node_2.m_br_taken)
+            {
+                fprintf(stderr, "node[%lu] (%lu): m_br_taken differs:\n",
+                        i, tt_1.size());
+
+                fprintf(stderr, "node_1: ");
+                print_br_taken(node_1.m_br_taken);
+                fprintf(stderr, "\n");
+                fprintf(stderr, "node_2: ");
+                print_br_taken(node_2.m_br_taken);
+                fprintf(stderr, "\n");
+            }
+
+            if(node_1.m_last_opc != node_2.m_last_opc)
+            {
+                fprintf(stderr, "node[%lu] (%lu): m_last_opc differs: %d <=> %d\n",
+                        i, tt_1.size(), node_1.m_last_opc, node_2.m_last_opc);
+            }
+
+            if(node_1.m_tb_count != node_2.m_tb_count)
+            {
+                fprintf(stderr, "node[%lu] (%lu): m_tb_count differs: %lu <=> %lu\n",
+                        i, tt_1.size(), node_1.m_tb_count, node_2.m_tb_count);
+            }
+
+            if(node_1.m_tb_pc != node_2.m_tb_pc)
+            {
+                fprintf(stderr, "node[%lu] (%lu): m_tb_pc differs: %lu <=> %lu\n",
+                        i, tt_1.size(), node_1.m_tb_pc, node_2.m_tb_pc);
+            }
+
+        }
+
         ret = false;
     }
 
@@ -164,6 +229,20 @@ static bool compare_tc_internal(const TestCase& t1, const TestCase& t2)
     return ret;
 }
 
+void apply_tc_patch(vector<TestCase>& tcs)
+{
+    TestCase base = retrieve_test_serialized("concrete_inputs.bin");
+
+    vector<TestCase> ret;
+    ret.reserve(tcs.size());
+    for(vector<TestCase>::const_iterator it = tcs.begin();
+            it != tcs.end(); ++it) {
+        ret.push_back(generate_complete_tc_from_patch(*it, base));
+    }
+
+    tcs = ret;
+}
+
 void CreteTcCompare::compare_tc()
 {
     vector<TestCase> ref_tcs;
@@ -177,6 +256,9 @@ void CreteTcCompare::compare_tc()
         tgt_tcs.push_back(retrieve_test_serialized(m_tgt.string()));
     }
 
+    apply_tc_patch(ref_tcs);
+    apply_tc_patch(tgt_tcs);
+
     uint64_t compare_size = ref_tcs.size() < tgt_tcs.size()?ref_tcs.size() : tgt_tcs.size();
 
     for(uint64_t i = 0; i < compare_size; ++i)
@@ -187,6 +269,35 @@ void CreteTcCompare::compare_tc()
         fprintf(stderr, "=================================================\n");
     }
 
+}
+
+void CreteTcCompare::generate_complete_test_from_patch()
+{
+    vector<TestCase> tcs_patch;;
+
+    if(m_tc_folder)
+    {
+        tcs_patch = retrieve_tests_serialized(m_patch.string());
+    } else {
+        tcs_patch.push_back(retrieve_test_serialized(m_patch.string()));
+    }
+
+    fs::path out_folder = m_cwd / "compare-tc-patch-out";
+    fs::create_directories(out_folder);
+
+    uint64_t out_count = 1;
+    TestCase base = retrieve_test_serialized("concrete_inputs.bin");
+
+    for(vector<TestCase>::const_iterator it = tcs_patch.begin();
+            it != tcs_patch.end(); ++it)
+    {
+        TestCase complete = generate_complete_tc_from_patch(*it, base);
+        std::stringstream ss;
+        ss << out_folder.string() << "/" << out_count++ << ".bin";
+        std::ofstream ktest_pool_file(ss.str().c_str(), std::ios_base::out | std::ios_base::binary);
+        assert(ktest_pool_file);
+        write_serialized(ktest_pool_file, complete);
+    }
 }
 
 }
