@@ -66,8 +66,9 @@ namespace crete
 
     public:
         TestCase();
-        TestCase(const crete::TestCasePatchTraceTag_ty tcp_tt,
-                 const std::vector<crete::TestCasePatchElement_ty>& tcp_elems);
+        TestCase(const crete::TestCasePatchTraceTag_ty& tcp_tt,
+                 const std::vector<crete::TestCasePatchElement_ty>& tcp_elems,
+                 const TestCaseHash& base_tc_hash);
         TestCase(const TestCase& tc);
 
         void add_element(const TestCaseElement& e) { elems_.push_back(e); }
@@ -97,6 +98,7 @@ namespace crete
             ar & priority_;
 
             ar & m_patch;
+            ar & m_base_tc_hash;
             ar & m_tcp_tt;
             ar & m_tcp_elems;
 
@@ -129,6 +131,7 @@ namespace crete
 
         // true: is tc_p (test case patch); false: is a tc_c (complete tc)
         bool m_patch;
+        TestCaseHash m_base_tc_hash;
 
         TestCasePatchTraceTag_ty m_tcp_tt;
         vector<TestCasePatchElement_ty> m_tcp_elems;

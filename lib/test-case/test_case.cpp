@@ -78,6 +78,8 @@ namespace crete
             return patch;
 
         // Sanity check
+        assert(patch.m_base_tc_hash == base.hash());
+
         assert(patch.m_patch);
         assert(patch.m_tcp_tt.first || patch.m_tcp_tt.second);
         assert(!patch.m_tcp_elems.empty());
@@ -151,14 +153,17 @@ namespace crete
 
     TestCase::TestCase() :
         priority_(0),
-        m_patch(false)
+        m_patch(false),
+        m_base_tc_hash(0)
     {
     }
 
-    TestCase::TestCase(const crete::TestCasePatchTraceTag_ty tcp_tt,
-            const std::vector<crete::TestCasePatchElement_ty>& tcp_elems)
+    TestCase::TestCase(const crete::TestCasePatchTraceTag_ty& tcp_tt,
+            const std::vector<crete::TestCasePatchElement_ty>& tcp_elems,
+            const TestCaseHash& base_tc_hash)
     :priority_(0),
      m_patch(true),
+     m_base_tc_hash(base_tc_hash),
      m_tcp_tt(tcp_tt),
      m_tcp_elems(tcp_elems)
     {}
@@ -166,6 +171,7 @@ namespace crete
     TestCase::TestCase(const TestCase& tc)
     :priority_(tc.priority_),
      m_patch(tc.m_patch),
+     m_base_tc_hash(tc.m_base_tc_hash),
      m_tcp_tt(tc.m_tcp_tt),
      m_tcp_elems(tc.m_tcp_elems),
      elems_(tc.elems_),
@@ -199,6 +205,7 @@ namespace crete
         std::size_t seed = 0;
         boost::hash_combine(seed, priority_);
         boost::hash_combine(seed, m_patch);
+        boost::hash_combine(seed, m_base_tc_hash);
         boost::hash_combine(seed, m_tcp_tt);
         boost::hash_combine(seed, m_tcp_elems);
         boost::hash_combine(seed, elems_);
