@@ -86,8 +86,12 @@ namespace crete
 
         TestCaseHash hash() const; // Hash for test case elements
         TestCaseHash complete_hash() const;
-        friend TestCase generate_complete_tc_from_patch(const TestCase& patch, const TestCase& base);
+        uint32_t get_tt_last_node_index() const;
+        TestCaseHash get_base_tc_hash() const;
+        bool is_test_patch() const;
+        void assert_tc_patch() const;
 
+        friend TestCase generate_complete_tc_from_patch(const TestCase& patch, const TestCase& base);
         friend std::ostream& operator<<(std::ostream& os, const TestCase& tc);
 
         template <typename Archive>

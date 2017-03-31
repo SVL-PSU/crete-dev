@@ -1652,11 +1652,7 @@ struct DispatchFSM_::dispatch
             {
                 if(nfsm->is_flag_active<svm::flag::test_rxed>())
                 {
-                    // Assumption from svm_node The last test case is the input tc
-                    std::vector<TestCase> new_tcs = nfsm->tests();
-                    TestCase input_tc = new_tcs.back();
-                    new_tcs.pop_back();
-                    fsm.test_pool_.insert(new_tcs, input_tc);
+                    fsm.test_pool_.insert(nfsm->tests());
 
                     nfsm->process_event(svm::test{});
                 }
@@ -2184,7 +2180,7 @@ auto DispatchFSM_::display_status(std::ostream& os) -> void
 
 auto DispatchFSM_::write_tc_tree(std::ostream& os) -> void
 {
-    test_pool_.write_tc_tree(os);
+
 }
 
 auto DispatchFSM_::write_statistics() -> void

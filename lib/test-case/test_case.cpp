@@ -216,6 +216,59 @@ namespace crete
         return seed;
     }
 
+    uint32_t TestCase::get_tt_last_node_index() const
+    {
+        assert(m_semi_explored_node.empty());
+        assert(m_new_nodes.empty());
+
+        if(m_patch)
+        {
+            // +1, as size() starts at 1, while index starts at 0
+            return (m_tcp_tt.first + 1);
+        } else {
+            return m_explored_nodes.size();
+        }
+    }
+
+    TestCaseHash TestCase::get_base_tc_hash() const
+    {
+        return m_base_tc_hash;
+    }
+
+    bool TestCase::is_test_patch() const
+    {
+        return m_patch;
+    }
+
+    void TestCase::assert_tc_patch() const
+    {
+        bool valid_base_tc_hash = (m_base_tc_hash != 0);
+        bool valid_tcp_elems = (!m_tcp_elems.empty());
+        bool valid_elems = elems_.empty();
+        bool valid_m_explored_nodes = m_explored_nodes.empty();
+        bool valid_m_semi_explored_node = m_semi_explored_node.empty();
+        bool valid_m_new_nodes = m_new_nodes.empty();
+
+        if(!(m_patch && valid_base_tc_hash && valid_tcp_elems &&
+                valid_elems && valid_m_explored_nodes &&
+                valid_m_semi_explored_node && valid_m_new_nodes))
+        {
+            namespace fs = boost::filesystem;
+
+            fs::ofstream tmp_of(fs::path("/tmp/debug_tc_" + boost::to_string(this->hash())),
+                    std::ios_base::out | std::ios_base::binary);
+            write_serialized(tmp_of, *this);
+
+            fprintf(stderr, "m_patch = %d, valid_base_tc_hash = %d, valid_tcp_elems = %d\n"
+                    "valid_elems = %d, valid_m_explored_nodes = %d, valid_m_semi_explored_node = %d\n"
+                    "valid_m_new_nodes = %d\n" ,
+                    (int)m_patch, (int)valid_base_tc_hash, (int)valid_tcp_elems,
+                    (int)valid_elems, (int)valid_m_explored_nodes, (int)valid_m_semi_explored_node,
+                    (int)valid_m_new_nodes);
+            assert(0);
+        }
+    }
+
     TestCaseElement read_test_case_element(istream& is)
     {
         TestCaseElement elem;

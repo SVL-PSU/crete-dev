@@ -22,8 +22,8 @@ bool TestPriority::operator() (const TestCase& lhs, const TestCase& rhs) const
   {
       return false;
   } else if (m_tc_sched_strat == BFS) {
-      if(lhs.get_traceTag_explored_nodes().size()
-              > rhs.get_traceTag_explored_nodes().size())
+      if(lhs.get_tt_last_node_index()
+              > rhs.get_tt_last_node_index())
       {
           return true;
       } else {
@@ -42,15 +42,17 @@ TestPool::TestPool(const fs::path& root)
 
 auto TestPool::next() -> boost::optional<TestCase>
 {
-    if(next_.empty())
+    boost::optional<TestCase> ret;
+    assert(!ret);
+
+    // XXX: Iterate until a non-duplicate test case is found
+    while(!next_.empty() && !ret)
     {
-        return boost::optional<TestCase>{};
+        ret = get_complete_tc(next_.top());
+        next_.pop();
     }
 
-    auto tc = next_.top();
-    next_.pop();
-
-    return boost::optional<TestCase>{tc};
+    return ret;
 }
 
 // The initial test case extracted from config will only be used to start the test,
@@ -58,16 +60,69 @@ auto TestPool::next() -> boost::optional<TestCase>
 // the target exec under test
 auto TestPool::insert_initial_tc_from_config(const TestCase& tc) -> bool
 {
-    assert(test_tree_.empty());
     assert(next_.empty());
 
     next_.push(tc);
     return true;
 }
 
-auto TestPool::insert_initial_tc(const TestCase& tc) -> bool
+auto TestPool::insert_initial_tcs(const std::vector<TestCase>& tcs) -> void
 {
-    if(insert_tc_tree(tc))
+    for(const auto& tc : tcs)
+    {
+        insert_internal(tc);
+    }
+}
+
+auto TestPool::insert(const std::vector<TestCase>& tcs) -> void
+{
+    for(const auto& tc : tcs)
+    {
+        // patch tests are the newly generate tcs
+        if(tc.is_test_patch())
+        {
+            tc.assert_tc_patch();
+            insert_internal(tc);
+        } else {
+            TestCaseHash tc_hash = tc.hash();
+            std::pair<BaseTestCache_ty::const_iterator, bool> it = base_tc_cache_.insert(std::make_pair(tc_hash, tc));
+            assert(it.second);
+            write_test_case(tc, root_ / "test-case-base-cache" / std::to_string(tc_hash));
+        }
+    }
+}
+
+auto TestPool::clear() -> void
+{
+    next_ = TestQueue(TestPriority(BFS));
+    all_.clear();
+    base_tc_cache_.clear();
+}
+
+auto TestPool::count_all() const -> size_t
+{
+    return all_.size();
+}
+
+auto TestPool::count_next() const -> size_t
+{
+    return next_.size();
+}
+
+auto TestPool::insert_to_all(const TestCase& tc) -> bool
+{
+    if(all_.insert(tc.hash()).second)
+    {
+        write_test_case(tc, root_ / "test-case" / std::to_string(all_.size()));
+        return true;
+    }
+
+    return false;
+}
+
+auto TestPool::insert_internal(const TestCase& tc) -> bool
+{
+    if(insert_to_all(tc))
     {
         next_.push(tc);
         return true;
@@ -76,130 +131,62 @@ auto TestPool::insert_initial_tc(const TestCase& tc) -> bool
     return false;
 }
 
-auto TestPool::insert_internal(const TestCase& tc, const TestCase& input_tc) -> bool
+auto TestPool::get_complete_tc(const TestCase& patch_tc) -> boost::optional<TestCase> const
 {
-    if(insert_tc_tree(tc, input_tc))
+    if(!patch_tc.is_test_patch())
     {
-        next_.push(tc);
-        return true;
+        return boost::optional<TestCase>{patch_tc};
     }
 
-    return false;;
-}
+    TestCaseHash top_tc_base_hash = patch_tc.get_base_tc_hash();
 
-auto TestPool::insert_initial_tcs(const std::vector<TestCase>& tcs) -> void
-{
-    for(const auto& tc : tcs)
+    // xxx for now, all the tests in next_ are patches, whose base_hash should always be non-zeros
+    assert(top_tc_base_hash != 0);
+    boost::unordered_map<TestCaseHash, TestCase>::const_iterator base_tc =
+            base_tc_cache_.find(top_tc_base_hash);
+    assert(base_tc != base_tc_cache_.end());
+
+    TestCase complete_tc = generate_complete_tc_from_patch(patch_tc, base_tc->second);
+
+    if(base_tc_cache_.find(complete_tc.hash()) == base_tc_cache_.end())
     {
-        insert_initial_tc(tc);
+        return boost::optional<TestCase>{complete_tc};
+    } else {
+        // if the new complete_tc duplicates with cached complete tc
+#if 0
+        fs::path out_temp("/tmp/debug_tp_next_" + std::to_string(patch_tc.hash()));
+        fprintf(stderr, "duplicate test cases:\n"
+                "tc_patch (%s) + base-tc (hash = %lu) duplicates with "
+                "existing base tc (hash = %lu)\n",
+                out_temp.string().c_str(), top_tc_base_hash, complete_tc.hash());
+
+        write_test_case(patch_tc, out_temp);
+        assert(0);
+#endif
+        return boost::optional<TestCase>();
     }
 }
 
-auto TestPool::insert(const std::vector<TestCase>& new_tcs, const TestCase& input_tc) -> void
+auto TestPool::write_test_case(const TestCase& tc, const fs::path out_path) -> void
 {
-    if(test_tree_.empty())
+    if(fs::exists(out_path))
     {
-        insert_tc_tree(input_tc);
+        fprintf(stderr, "out_path = %s\n", out_path.string().c_str());
+        assert(0 && "[Test Pool] Duplicate test case name.\n");
     }
 
-    for(const auto& tc : new_tcs)
-    {
-        insert_internal(tc, input_tc);
-    }
-}
+    if(!fs::exists(out_path.parent_path()))
+        fs::create_directories(out_path.parent_path());
 
-auto TestPool::clear() -> void
-{
-    next_ = TestQueue(TestPriority(BFS));
-    test_tree_.clear();
-}
-
-auto TestPool::count_all() const -> size_t
-{
-    return test_tree_.size();
-}
-
-auto TestPool::count_next() const -> size_t
-{
-    return next_.size();
-}
-
-auto TestPool::write_tc_tree(std::ostream& os) -> void const
-{
-    for(boost::unordered_map<TestCaseHash, TestCaseTreeNode>::const_iterator it = test_tree_.begin();
-            it != test_tree_.end(); ++it) {
-        os << "Node tc-" << it->second.m_tc_index << ": [";
-        for(std::vector<uint64_t>::const_iterator c_it = it->second.m_childern_tc_indexes.begin();
-                c_it != it->second.m_childern_tc_indexes.end(); ++c_it) {
-            os << *c_it << " ";
-        }
-        os << "]\n";
-    }
-}
-
-auto TestPool::write_test_case(const TestCase& tc, const uint64_t tc_index) -> void
-{
-    namespace fs = boost::filesystem;
-
-    auto tc_root = root_ / "test-case";
-
-    if(!fs::exists(tc_root))
-        fs::create_directories(tc_root);
-
-    auto path = tc_root / std::to_string(tc_index);
-
-    assert(!fs::exists(path) && "[Test Pool] Duplicate test case name.\n");
-    fs::ofstream ofs(path,
+    fs::ofstream ofs(out_path,
                      std::ios_base::out | std::ios_base::binary);
 
     if(!ofs.good())
     {
-        BOOST_THROW_EXCEPTION(Exception{} << err::file_open_failed{path.string()});
+        BOOST_THROW_EXCEPTION(Exception{} << err::file_open_failed{out_path.string()});
     }
 
-    tc.write(ofs);
-}
-
-auto TestPool::insert_tc_tree(const TestCase& tc) -> bool
-{
-    TestCaseHash test_hash = to_test_hash(tc);
-    if(test_tree_.find(test_hash) != test_tree_.end())
-    {
-        return false;
-    }
-
-    // Add node to tc_tree_ for this new tc
-    test_tree_[test_hash] = TestCaseTreeNode();
-    test_tree_[test_hash].m_tc_index = test_tree_.size();
-    write_test_case(tc, test_tree_[test_hash].m_tc_index);
-
-    return true;
-}
-
-auto TestPool::insert_tc_tree(const TestCase& tc, const TestCase& input_tc) -> bool
-{
-    TestCaseHash test_hash = to_test_hash(tc);
-    if(test_tree_.find(test_hash) != test_tree_.end())
-    {
-        return false;
-    }
-
-    // Add node to tc_tree_ for this new tc
-    test_tree_[test_hash] = TestCaseTreeNode();
-    test_tree_[test_hash].m_tc_index = test_tree_.size();
-    write_test_case(tc, test_tree_[test_hash].m_tc_index);
-
-    // Set the parent tc_tree_node for this new
-    TestCaseHash input_tc_hash = to_test_hash(input_tc);
-    assert(test_tree_.find(input_tc_hash) != test_tree_.end());
-    test_tree_[input_tc_hash].m_childern_tc_indexes.push_back(test_tree_[test_hash].m_tc_index);
-
-    return true;
-}
-
-auto TestPool::to_test_hash(const TestCase& tc) -> TestCaseHash
-{
-    return tc.hash();
+    write_serialized(ofs, tc);
 }
 
 } // namespace cluster
