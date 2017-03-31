@@ -11,6 +11,7 @@
 #include <boost/filesystem/path.hpp>
 #include <boost/optional.hpp>
 #include <boost/unordered_map.hpp>
+#include <boost/unordered_set.hpp>
 
 #include <crete/test_case.h>
 
@@ -45,12 +46,14 @@ class TestPool
 {
 public:
     using TestQueue = std::priority_queue<TestCase, vector<TestCase>, TestPriority>;
+    using BaseTestCache_ty = boost::unordered_map<TestCaseHash, TestCase>;
 
 private:
     fs::path root_;
 
-    boost::unordered_map<TestCaseHash, TestCaseTreeNode> test_tree_;
+    boost::unordered_set<TestCaseHash> all_;
     TestQueue next_;
+    BaseTestCache_ty base_tc_cache_;
 
 public:
     TestPool(const fs::path& root);
@@ -60,23 +63,17 @@ public:
     auto insert_initial_tc_from_config(const TestCase& tc) -> bool;
     auto insert_initial_tcs(const std::vector<TestCase>& tcs) -> void;
 
-    auto insert(const std::vector<TestCase>& new_tcs, const TestCase& input_tc) -> void;
+    auto insert(const std::vector<TestCase>& tcs) -> void;
 
     auto clear() -> void;
     auto count_all() const -> size_t;
     auto count_next() const -> size_t;
 
-    auto write_tc_tree(std::ostream& os) -> void const;
-
 private:
-    auto write_test_case(const TestCase& tc, const uint64_t tc_index) -> void;
-    auto insert_tc_tree(const TestCase& tc) -> bool;
-    auto insert_tc_tree(const TestCase& tc, const TestCase& input_tc) -> bool;
-
-    auto insert_internal(const TestCase& tc, const TestCase& input_tc) -> bool;
-    auto insert_initial_tc(const TestCase& tc) -> bool;
-
-    auto to_test_hash(const TestCase& tc) -> TestCaseHash;
+    auto insert_to_all(const TestCase& tc) -> bool;
+    auto insert_internal(const TestCase& tc) -> bool;
+    auto get_complete_tc(const TestCase& patch_tc) -> boost::optional<TestCase> const;
+    auto write_test_case(const TestCase& tc, const fs::path out_path) -> void;
 };
 
 } // namespace cluster
