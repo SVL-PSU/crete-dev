@@ -97,14 +97,14 @@ main()
         fi
 
         # execute all the test cases from the current subfolder with target_prog
-        if [ -d  $f/test-case ]; then
+        if [ -d  $f/test-case-parsed ]; then
             # replay under the folder structure of dispatch
             if [ ! -f $f/guest-data/crete-guest-config.serialized ]; then
                 printf "[Error] Missing file: \'crete-guest-config.serialized\' under folder \'$f/guest-data\'"
                 exit
             fi
 
-            test_case_dir=$f/test-case
+            test_case_dir=$f/test-case-parsed
             config_file_path=$f/guest-data/crete-guest-config.serialized
         elif [ -d $f/seeds ]; then
             # replay under the folder structure of crete-config-generator

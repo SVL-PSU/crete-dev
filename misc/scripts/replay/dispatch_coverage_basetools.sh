@@ -9,4 +9,4 @@ $CRETEPATH/crete-tc-compare -b $INPUT_DIR
 
 
 cd $INPUT_DIR
-/home/chenbo/crete/crete-dev/misc/scripts/replay/batch_replay.sh $INPUT_DIR /home/chenbo/crete/crete-dev/misc/scripts/replay/br_coreutils.sh &> dispatch_batch_replay.log
+/home/chenbo/crete/crete-dev/misc/scripts/replay/batch_replay.sh $INPUT_DIR /home/chenbo/crete/crete-dev/misc/scripts/replay/br_basetools.sh &> dispatch_batch_replay.log
