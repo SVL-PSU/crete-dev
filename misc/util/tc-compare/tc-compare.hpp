@@ -27,6 +27,7 @@ private:
     fs::path m_tgt;
 
     fs::path m_patch;
+    fs::path m_batch_patch;
 
     bool m_tc_folder;
 
@@ -39,6 +40,8 @@ private:
 
     void compare_tc();
     void generate_complete_test_from_patch();
+
+    void batch_path_mode();
 };
 
 }
