@@ -272,10 +272,10 @@ void KleeFSM_::exception_caught(Event const&,FSM& fsm,std::exception& e)
                 auto* se = dynamic_cast<SymbolicExecException*>(&e);
 
                 fsm.tests_->clear();
+                // Retrieve the base test case first;
+                fsm.tests_->push_back(retrieve_test_serialized((fsm.trace_dir_ / "concrete_inputs.bin").string()));
                 if(!se->tests_.empty())
                 {
-                    // Retrieve the base test case first;
-                    fsm.tests_->push_back(retrieve_test_serialized((fsm.trace_dir_ / "concrete_inputs.bin").string()));
                     fsm.tests_->insert(fsm.tests_->end(), se->tests_.begin(), se->tests_.end());
                 }
 
@@ -733,10 +733,10 @@ struct KleeFSM_::retrieve_result
             std::vector<TestCase> tmp_tsts = retrieve_tests_serialized((kdir / std::string(CRETE_SVM_TEST_FOLDER)).string());
 
             tests->clear();
+            // Retrieve the base test case at first
+            tests->push_back(retrieve_test_serialized((trace_dir / "concrete_inputs.bin").string()));
             if(!tmp_tsts.empty())
             {
-                // Retrieve the base test case at first
-                tests->push_back(retrieve_test_serialized((trace_dir / "concrete_inputs.bin").string()));
                 tests->insert(tests->end(), tmp_tsts.begin(), tmp_tsts.end());
             }
 

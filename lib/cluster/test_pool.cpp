@@ -76,6 +76,13 @@ auto TestPool::insert_initial_tcs(const std::vector<TestCase>& tcs) -> void
 
 auto TestPool::insert(const std::vector<TestCase>& tcs) -> void
 {
+    // Special case for initial_tc_from_config
+    if(all_.empty())
+    {
+        assert(!tcs.front().is_test_patch());
+        insert_to_all(tcs.front());
+    }
+
     for(const auto& tc : tcs)
     {
         // patch tests are the newly generate tcs
