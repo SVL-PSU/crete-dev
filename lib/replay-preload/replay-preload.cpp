@@ -195,8 +195,7 @@ void CreteReplayPreload::setup_concolic_files()
             bool found = false;
             for(config::Arguments::iterator arg_it = guest_config_args.begin();
                     arg_it != guest_config_args.end(); ++arg_it) {
-                if(it->path.string().find(arg_it->value) != string::npos) {
-                    assert(it->path.filename().string() == fs::path(arg_it->value).filename().string());
+                if(it->path.filename().string() == fs::path(arg_it->value).filename().string()) {
                     assert(arg_it->index < m_argc);
                     assert(!arg_it->concolic && "Symbolic file content with symbolic file path\n");
 
