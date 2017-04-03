@@ -1,6 +1,8 @@
 #include "tc-compare.hpp"
 
 #include <boost/program_options.hpp>
+#include <boost/unordered_map.hpp>
+#include <boost/lexical_cast.hpp>
 
 #include <string>
 #include <sstream>
@@ -21,6 +23,8 @@ CreteTcCompare::CreteTcCompare(int argc, char* argv[]) :
         compare_tc();
     else if (!m_patch.empty())
         generate_complete_test_from_patch();
+    else if (!m_batch_patch.empty())
+        batch_path_mode();
 }
 
 po::options_description CreteTcCompare::make_options()
@@ -32,6 +36,7 @@ po::options_description CreteTcCompare::make_options()
         ("reference,r", po::value<fs::path>(), "reference test case (folder)")
         ("target,t", po::value<fs::path>(), "target test case (folder)")
         ("patch,p", po::value<fs::path>(), "patch mode")
+        ("batch-patch,b", po::value<fs::path>(), "input directory for patching test case in batch-patch mode")
         ;
 
     return desc;
@@ -103,6 +108,15 @@ void CreteTcCompare::process_options(int argc, char* argv[])
         } else {
             assert(fs::is_regular(m_patch));
         }
+    }else if (m_var_map.count("batch-patch")) {
+        fs::path p = m_var_map["batch-patch"].as<fs::path>();
+
+        if(!fs::is_directory(p))
+        {
+            BOOST_THROW_EXCEPTION(Exception() << err::file_missing(p.string()));
+        }
+
+        m_batch_patch = p;
     } else {
         BOOST_THROW_EXCEPTION(std::runtime_error("Crete-tc-compare requires reference tc and target tc"));
     }
@@ -297,6 +311,79 @@ void CreteTcCompare::generate_complete_test_from_patch()
         std::ofstream ktest_pool_file(ss.str().c_str(), std::ios_base::out | std::ios_base::binary);
         assert(ktest_pool_file);
         write_serialized(ktest_pool_file, complete);
+    }
+}
+
+static bool hasEnding (std::string const &fullString, std::string const &ending) {
+    if (fullString.length() >= ending.length()) {
+        return (0 == fullString.compare (fullString.length() - ending.length(), ending.length(), ending));
+    } else {
+        return false;
+    }
+}
+
+void batch_path_mode_internal(const fs::path& input)
+{
+    fprintf(stderr, "input = %s\n", input.string().c_str());
+
+    const fs::path tc_dir  = input/"test-case";
+    const fs::path base_tc_dir  = input/"test-case-base-cache";
+
+    assert(fs::is_directory(tc_dir));
+    assert(fs::is_directory(base_tc_dir));
+
+    vector<TestCase> tcs = retrieve_tests_serialized(tc_dir.string());
+
+    boost::unordered_map<TestCaseHash, TestCase> base_tcs;
+    for(fs::directory_iterator it(base_tc_dir); it != fs::directory_iterator(); ++it)
+    {
+        assert(fs::is_regular(*it));
+//        fprintf(stderr, "%s\n", it->path().filename().string().c_str());
+        TestCase tc = retrieve_test_serialized(it->path().string());
+        TestCaseHash tc_hash = boost::lexical_cast<TestCaseHash>(it->path().filename().string());
+        assert(tc.hash() == tc_hash);
+        base_tcs[tc_hash] = tc;
+    }
+
+    const fs::path out_dir  = input/"test-case-parsed";
+    if(fs::exists(out_dir))
+    {
+        fs::remove_all(out_dir);
+    }
+    fs::create_directories(out_dir);
+
+    for(uint64_t i = 0; i < tcs.size(); ++i)
+    {
+        TestCase out_tc;
+        if(tcs[i].is_test_patch())
+        {
+            boost::unordered_map<TestCaseHash, TestCase>::const_iterator base_tc =
+                    base_tcs.find(tcs[i].get_base_tc_hash());
+            assert(base_tc != base_tcs.end());
+            out_tc = generate_complete_tc_from_patch(tcs[i], base_tc->second);
+        } else {
+            out_tc = tcs[i];
+        }
+
+        std::stringstream ss;
+        ss << out_dir.string() << "/" << (i+1) << ".bin";
+        std::ofstream ktest_pool_file(ss.str().c_str(), std::ios_base::out | std::ios_base::binary);
+        assert(ktest_pool_file);
+        out_tc.write(ktest_pool_file);
+    }
+}
+
+void CreteTcCompare::batch_path_mode()
+{
+    for(fs::directory_iterator it(m_batch_patch);
+            it != fs::directory_iterator(); ++it) {
+        if(!fs::is_directory(*it))
+            continue;
+
+        if(!hasEnding(it->path().filename().string(), ".xml"))
+            continue;
+
+        batch_path_mode_internal(*it);
     }
 }
 
