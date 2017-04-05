@@ -46,14 +46,17 @@ class TestPool
 {
 public:
     using TestQueue = std::priority_queue<TestCase, vector<TestCase>, TestPriority>;
-    using BaseTestCache_ty = boost::unordered_map<TestCaseHash, TestCase>;
+    using BaseTestCache_ty = boost::unordered_map<TestCaseHashComplete, TestCase>;
 
 private:
     fs::path root_;
 
-    boost::unordered_set<TestCaseHash> all_;
+    boost::unordered_set<TestCaseHashComplete> all_;
     TestQueue next_;
     BaseTestCache_ty base_tc_cache_;
+
+    // debug
+    uint64_t m_duplicated_tc_count;
 
 public:
     TestPool(const fs::path& root);
@@ -68,6 +71,8 @@ public:
     auto clear() -> void;
     auto count_all() const -> size_t;
     auto count_next() const -> size_t;
+
+    auto write_log(std::ostream& os) -> void;
 
 private:
     auto insert_to_all(const TestCase& tc) -> bool;

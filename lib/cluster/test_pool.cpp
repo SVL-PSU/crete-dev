@@ -38,7 +38,8 @@ bool TestPriority::operator() (const TestCase& lhs, const TestCase& rhs) const
 
 TestPool::TestPool(const fs::path& root)
     : root_{root}
-    ,next_(TestPriority(BFS)) {}
+    ,next_(TestPriority(BFS))
+    ,m_duplicated_tc_count(0) {}
 
 auto TestPool::next() -> boost::optional<TestCase>
 {
@@ -91,10 +92,19 @@ auto TestPool::insert(const std::vector<TestCase>& tcs) -> void
             tc.assert_tc_patch();
             insert_internal(tc);
         } else {
-            TestCaseHash tc_hash = tc.hash();
-            std::pair<BaseTestCache_ty::const_iterator, bool> it = base_tc_cache_.insert(std::make_pair(tc_hash, tc));
-            assert(it.second);
-            write_test_case(tc, root_ / "test-case-base-cache" / std::to_string(tc_hash));
+            std::pair<BaseTestCache_ty::const_iterator, bool> it =
+                    base_tc_cache_.insert(std::make_pair(tc.complete_hash(), tc));
+            if(!it.second){
+                fprintf(stderr, "TestPool::insert() error: duplicate tc in base_tc_cache_ (complete hash = %s),\n",
+                        it.first->first.c_str());
+
+                write_test_case(it.first->second, root_ / "test-case-base-error" / "existing_based_tc.bin" );
+                write_test_case(tc, root_ / "test-case-base-error" / "duplicate_base_tc.bin" );
+
+                assert(0);
+            }
+
+            write_test_case(tc, root_ / "test-case-base-cache" / std::to_string(base_tc_cache_.size()));
         }
     }
 }
@@ -116,12 +126,19 @@ auto TestPool::count_next() const -> size_t
     return next_.size();
 }
 
+auto TestPool::write_log(std::ostream& os) -> void
+{
+    os << "duplicated tc count from all_: " << m_duplicated_tc_count << endl;
+}
+
 auto TestPool::insert_to_all(const TestCase& tc) -> bool
 {
-    if(all_.insert(tc.hash()).second)
+    if(all_.insert(tc.complete_hash()).second)
     {
         write_test_case(tc, root_ / "test-case" / std::to_string(all_.size()));
         return true;
+    } else {
+        ++m_duplicated_tc_count;
     }
 
     return false;
@@ -145,21 +162,20 @@ auto TestPool::get_complete_tc(const TestCase& patch_tc) -> boost::optional<Test
         return boost::optional<TestCase>{patch_tc};
     }
 
-    TestCaseHash top_tc_base_hash = patch_tc.get_base_tc_hash();
+    TestCaseHashComplete top_tc_base_hash = patch_tc.get_base_tc_hash();
+    // xxx for now, all the tests in next_ are patches, whose base_hash should always be non-empty
+    assert(!top_tc_base_hash.empty());
 
-    // xxx for now, all the tests in next_ are patches, whose base_hash should always be non-zeros
-    assert(top_tc_base_hash != 0);
-    boost::unordered_map<TestCaseHash, TestCase>::const_iterator base_tc =
-            base_tc_cache_.find(top_tc_base_hash);
+    BaseTestCache_ty::const_iterator base_tc = base_tc_cache_.find(top_tc_base_hash);
     assert(base_tc != base_tc_cache_.end());
 
     TestCase complete_tc = generate_complete_tc_from_patch(patch_tc, base_tc->second);
 
-    if(base_tc_cache_.find(complete_tc.hash()) == base_tc_cache_.end())
+    // check whether the new complete_tc duplicates with cached complete tc
+    if(base_tc_cache_.find(complete_tc.complete_hash()) == base_tc_cache_.end())
     {
         return boost::optional<TestCase>{complete_tc};
     } else {
-        // if the new complete_tc duplicates with cached complete tc
 #if 0
         fs::path out_temp("/tmp/debug_tp_next_" + std::to_string(patch_tc.hash()));
         fprintf(stderr, "duplicate test cases:\n"
