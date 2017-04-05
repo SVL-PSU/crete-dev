@@ -43,6 +43,11 @@ namespace crete
         return os;
     }
 
+    TestCaseHashCompact tc_compact_hash(const TestCaseHashComplete& tc_hash_complete)
+    {
+        return boost::hash_value(tc_hash_complete);
+    }
+
     void write(ostream& os, const TestCaseElement& elem)
     {
         os.write(reinterpret_cast<const char*>(&elem.name_size), sizeof(uint32_t));
@@ -78,7 +83,7 @@ namespace crete
             return patch;
 
         // Sanity check
-        assert(patch.m_base_tc_hash == base.hash());
+        assert(patch.m_base_tc_hash == base.complete_hash());
 
         assert(patch.m_patch);
         assert(patch.m_tcp_tt.first || patch.m_tcp_tt.second);
@@ -151,16 +156,31 @@ namespace crete
         return ret;
     }
 
+    void TestCaseElement::print() const
+    {
+        for(uint64_t i = 0; i < name.size(); ++i)
+        {
+            fprintf(stderr, "%c", name[i]);
+        }
+        fprintf(stderr, ": %u bytes [", data_size);
+        for(uint64_t i = 0; i < data.size(); ++i)
+        {
+            fprintf(stderr, "%u(%lu) ", (uint32_t)data[i], boost::hash_value(data[i]));
+        }
+
+        fprintf(stderr, "] (hash = %lu)\n", boost::hash_value(data));
+    }
+
     TestCase::TestCase() :
         priority_(0),
         m_patch(false),
-        m_base_tc_hash(0)
+        m_base_tc_hash(string())
     {
     }
 
     TestCase::TestCase(const crete::TestCasePatchTraceTag_ty& tcp_tt,
             const std::vector<crete::TestCasePatchElement_ty>& tcp_elems,
-            const TestCaseHash& base_tc_hash)
+            const TestCaseHashComplete& base_tc_hash)
     :priority_(0),
      m_patch(true),
      m_base_tc_hash(base_tc_hash),
@@ -195,25 +215,37 @@ namespace crete
         m_new_nodes = new_nodes;
     }
 
-    TestCaseHash TestCase::hash() const
+    static void hash_tcp_elem(std::stringstream& ss, const TestCasePatchElement_ty& tcp_ele)
     {
-        return hash_value(*this);
+        for(TestCasePatchElement_ty::const_iterator it = tcp_ele.begin();
+                it != tcp_ele.end(); ++it) {
+            ss << std::hex << it->first << it->second;
+        }
     }
 
-    TestCaseHash TestCase::complete_hash() const
+    static void hash_tc_elem(std::stringstream& ss, const TestCaseElements& tc_ele)
     {
-        std::size_t seed = 0;
-        boost::hash_combine(seed, priority_);
-        boost::hash_combine(seed, m_patch);
-        boost::hash_combine(seed, m_base_tc_hash);
-        boost::hash_combine(seed, m_tcp_tt);
-        boost::hash_combine(seed, m_tcp_elems);
-        boost::hash_combine(seed, elems_);
-        boost::hash_combine(seed, m_explored_nodes);
-        boost::hash_combine(seed, m_semi_explored_node);
-        boost::hash_combine(seed, m_new_nodes);
+        for(TestCaseElements::const_iterator it = tc_ele.begin();
+                it != tc_ele.end(); ++it) {
+            ss << std::hex << string(it->name.begin(), it->name.end())
+                    << string(it->data.begin(), it->data.end());
+        }
+    }
 
-        return seed;
+    // A unique test case can be identified by "m_tcp_tt + m_tcp_elems + elems_"
+    TestCaseHashComplete TestCase::complete_hash() const
+    {
+        std::stringstream seed;
+
+        seed << std::hex << m_tcp_tt.first << m_tcp_tt.second;
+        for(vector<TestCasePatchElement_ty>::const_iterator it = m_tcp_elems.begin();
+                it != m_tcp_elems.end(); ++it) {
+            hash_tcp_elem(seed, *it);
+        }
+
+        hash_tc_elem(seed, elems_);
+
+        return seed.str();
     }
 
     uint32_t TestCase::get_tt_last_node_index() const
@@ -230,7 +262,7 @@ namespace crete
         }
     }
 
-    TestCaseHash TestCase::get_base_tc_hash() const
+    TestCaseHashComplete TestCase::get_base_tc_hash() const
     {
         return m_base_tc_hash;
     }
@@ -242,7 +274,7 @@ namespace crete
 
     void TestCase::assert_tc_patch() const
     {
-        bool valid_base_tc_hash = (m_base_tc_hash != 0);
+        bool valid_base_tc_hash = (!m_base_tc_hash.empty());
         bool valid_tcp_elems = (!m_tcp_elems.empty());
         bool valid_elems = elems_.empty();
         bool valid_m_explored_nodes = m_explored_nodes.empty();
@@ -253,12 +285,6 @@ namespace crete
                 valid_elems && valid_m_explored_nodes &&
                 valid_m_semi_explored_node && valid_m_new_nodes))
         {
-            namespace fs = boost::filesystem;
-
-            fs::ofstream tmp_of(fs::path("/tmp/debug_tc_" + boost::to_string(this->hash())),
-                    std::ios_base::out | std::ios_base::binary);
-            write_serialized(tmp_of, *this);
-
             fprintf(stderr, "m_patch = %d, valid_base_tc_hash = %d, valid_tcp_elems = %d\n"
                     "valid_elems = %d, valid_m_explored_nodes = %d, valid_m_semi_explored_node = %d\n"
                     "valid_m_new_nodes = %d\n" ,
@@ -266,6 +292,27 @@ namespace crete
                     (int)valid_elems, (int)valid_m_explored_nodes, (int)valid_m_semi_explored_node,
                     (int)valid_m_new_nodes);
             assert(0);
+        }
+    }
+
+    void TestCase::print() const
+    {
+        if(m_patch)
+        {
+            fprintf(stderr, "patch test case patch\n");
+        } else {
+            fprintf(stderr, "complete test case (complete_hash = %s)\n", this->complete_hash().c_str());
+
+            fprintf(stderr, "m_base_tc_hash = %s\n"
+                    "m_tcp_tt(%u, %u), m_tcp_elems.size() = %lu, elems_.size() = %lu\n",
+                    m_base_tc_hash.c_str(),
+                    m_tcp_tt.first, m_tcp_tt.second, m_tcp_elems.size(), elems_.size());
+
+            for(uint64_t i = 0; i <  elems_.size(); ++i)
+            {
+                fprintf(stderr, "elems_[%lu]: ", i);
+                elems_[i].print();
+            }
         }
     }
 

@@ -40,20 +40,13 @@ namespace crete
         }
 #endif
 
-        friend std::size_t hash_value(TestCaseElement const& i)
-        {
-            std::size_t seed = 0;
-            boost::hash_combine(seed, i.name_size);
-            boost::hash_combine(seed, i.name);
-            boost::hash_combine(seed, i.data_size);
-            boost::hash_combine(seed, i.data);
-
-            return seed;
-        }
+        void print() const;
     };
 
     typedef std::vector<TestCaseElement> TestCaseElements;
-    typedef size_t TestCaseHash;
+    typedef size_t TestCaseHashCompact;
+    typedef std::string TestCaseHashComplete;
+
     // <index of trace-tag node to negate, index of branch within a tt node to negate>
     typedef std::pair<uint32_t, uint32_t> TestCasePatchTraceTag_ty;
     // <index within an tc element, value>
@@ -68,7 +61,7 @@ namespace crete
         TestCase();
         TestCase(const crete::TestCasePatchTraceTag_ty& tcp_tt,
                  const std::vector<crete::TestCasePatchElement_ty>& tcp_elems,
-                 const TestCaseHash& base_tc_hash);
+                 const TestCaseHashComplete& base_tc_hash);
         TestCase(const TestCase& tc);
 
         void add_element(const TestCaseElement& e) { elems_.push_back(e); }
@@ -84,12 +77,13 @@ namespace crete
         creteTraceTag_ty get_traceTag_semi_explored_node() const { return m_semi_explored_node; }
         creteTraceTag_ty get_traceTag_new_nodes() const { return m_new_nodes; }
 
-        TestCaseHash hash() const; // Hash for test case elements
-        TestCaseHash complete_hash() const;
+        TestCaseHashComplete complete_hash() const;
         uint32_t get_tt_last_node_index() const;
-        TestCaseHash get_base_tc_hash() const;
+        TestCaseHashComplete get_base_tc_hash() const;
         bool is_test_patch() const;
         void assert_tc_patch() const;
+
+        void print() const;
 
         friend TestCase generate_complete_tc_from_patch(const TestCase& patch, const TestCase& base);
         friend std::ostream& operator<<(std::ostream& os, const TestCase& tc);
@@ -118,24 +112,13 @@ namespace crete
             return  elems_ == other.elems_;
         }
 
-        friend std::size_t hash_value(TestCase const& i)
-        {
-            std::size_t seed = 0;
-
-            boost::hash_combine(seed, i.m_tcp_tt);
-            boost::hash_combine(seed, i.m_tcp_elems);
-            boost::hash_combine(seed, i.elems_);
-
-            return seed;
-        }
-
     protected:
     private:
         Priority priority_; // TODO: meaningless now. In the future, can be used to sort tests.
 
         // true: is tc_p (test case patch); false: is a tc_c (complete tc)
         bool m_patch;
-        TestCaseHash m_base_tc_hash;
+        TestCaseHashComplete m_base_tc_hash;
 
         TestCasePatchTraceTag_ty m_tcp_tt;
         vector<TestCasePatchElement_ty> m_tcp_elems;
@@ -148,6 +131,8 @@ namespace crete
 
     std::ostream& operator<<(std::ostream& os, const TestCaseElement& elem);
     std::ostream& operator<<(std::ostream& os, const TestCase& tc);
+
+    TestCaseHashCompact tc_compact_hash(const TestCaseHashComplete& tc_hash_complete);
 
     void write(std::ostream& os, const std::vector<TestCase>& tcs);
     void write(std::ostream& os, const std::vector<TestCaseElement>& elems);

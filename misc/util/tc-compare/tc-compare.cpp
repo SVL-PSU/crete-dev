@@ -279,10 +279,18 @@ void CreteTcCompare::compare_tc()
     {
         fprintf(stderr, "\n=================================================\n"
                 "compare tc[%lu]\n", i);
-        compare_tc_internal(ref_tcs[i], tgt_tcs[i]);
+        if(!compare_tc_internal(ref_tcs[i], tgt_tcs[i]))
+        {
+            fprintf(stderr, "-----------------------\n"
+                    "ref_tcs: \n");
+            ref_tcs[i].print();
+
+            fprintf(stderr, "\n-----------------------\n"
+                    "tgt_tcs: \n");
+            tgt_tcs[i].print();
+        }
         fprintf(stderr, "=================================================\n");
     }
-
 }
 
 void CreteTcCompare::generate_complete_test_from_patch()
@@ -334,14 +342,13 @@ void batch_path_mode_internal(const fs::path& input)
 
     vector<TestCase> tcs = retrieve_tests_serialized(tc_dir.string());
 
-    boost::unordered_map<TestCaseHash, TestCase> base_tcs;
+    boost::unordered_map<TestCaseHashComplete, TestCase> base_tcs;
     for(fs::directory_iterator it(base_tc_dir); it != fs::directory_iterator(); ++it)
     {
         assert(fs::is_regular(*it));
 //        fprintf(stderr, "%s\n", it->path().filename().string().c_str());
         TestCase tc = retrieve_test_serialized(it->path().string());
-        TestCaseHash tc_hash = boost::lexical_cast<TestCaseHash>(it->path().filename().string());
-        assert(tc.hash() == tc_hash);
+        TestCaseHashComplete tc_hash = tc.complete_hash();
         base_tcs[tc_hash] = tc;
     }
 
@@ -357,7 +364,7 @@ void batch_path_mode_internal(const fs::path& input)
         TestCase out_tc;
         if(tcs[i].is_test_patch())
         {
-            boost::unordered_map<TestCaseHash, TestCase>::const_iterator base_tc =
+            boost::unordered_map<TestCaseHashComplete, TestCase>::const_iterator base_tc =
                     base_tcs.find(tcs[i].get_base_tc_hash());
             assert(base_tc != base_tcs.end());
             out_tc = generate_complete_tc_from_patch(tcs[i], base_tc->second);

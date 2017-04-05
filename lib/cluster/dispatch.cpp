@@ -1162,7 +1162,7 @@ public:
     auto next_test() -> boost::optional<TestCase>;
     auto node_registrar() -> AtomicGuard<NodeRegistrar>&;
     auto display_status(std::ostream& os) -> void;
-    auto write_tc_tree(std::ostream& os) -> void;
+    auto write_test_pool_log(std::ostream& os) -> void;
     auto write_statistics() -> void;
     auto test_pool() -> TestPool&;
     auto trace_pool() -> TracePool&;
@@ -1793,7 +1793,7 @@ struct DispatchFSM_::finish
             BOOST_THROW_EXCEPTION(Exception{} << err::file_open_failed{test_case_tree_log.string()});
         }
 
-        fsm.write_tc_tree(tc_tree_ofs);
+        fsm.write_test_pool_log(tc_tree_ofs);
     }
 };
 
@@ -2178,9 +2178,9 @@ auto DispatchFSM_::display_status(std::ostream& os) -> void
     os << endl;
 }
 
-auto DispatchFSM_::write_tc_tree(std::ostream& os) -> void
+auto DispatchFSM_::write_test_pool_log(std::ostream& os) -> void
 {
-
+    test_pool_.write_log(os);
 }
 
 auto DispatchFSM_::write_statistics() -> void
