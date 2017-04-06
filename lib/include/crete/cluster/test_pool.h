@@ -46,13 +46,17 @@ class TestPool
 {
 public:
     using TestQueue = std::priority_queue<TestCase, vector<TestCase>, TestPriority>;
-    using BaseTestCache_ty = boost::unordered_map<TestCaseHashComplete, TestCase>;
+    // Needs to be a map b/c the tc issued first is not necessary going to finish symbolic replay first
+    using BaseTestCache_ty = boost::unordered_map<TestCaseIssueIndex, TestCase>;
+    using UniqueTestIdentifier = TestCaseElements;
 
 private:
     fs::path root_;
 
-    boost::unordered_set<TestCaseHashComplete> all_;
+    uint64_t tc_count_;
+
     TestQueue next_;
+    boost::unordered_set<UniqueTestIdentifier> issued_tc_hash_pool_;
     BaseTestCache_ty base_tc_cache_;
 
     // debug
@@ -75,7 +79,6 @@ public:
     auto write_log(std::ostream& os) -> void;
 
 private:
-    auto insert_to_all(const TestCase& tc) -> bool;
     auto insert_internal(const TestCase& tc) -> bool;
     auto get_complete_tc(const TestCase& patch_tc) -> boost::optional<TestCase> const;
     auto write_test_case(const TestCase& tc, const fs::path out_path) -> void;

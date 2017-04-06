@@ -103,6 +103,7 @@ int  crete_flags_is_true(struct CreteFlags *cf);
 
 #include <crete/trace_tag.h>
 #include <crete/guest_data_post_exec.hpp>
+#include <crete/test_case.h>
 
 using namespace std;
 
@@ -275,6 +276,8 @@ private:
     vector<string> m_make_concolic_order;
 
     string m_outputDirectory;
+
+    crete::TestCaseIssueIndex m_tc_issue_index;
 
     // For constructing off-line execution graph/tree
     // (contains extra one non-symbolic-tb after each symbolic-tb)
