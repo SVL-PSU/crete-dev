@@ -68,7 +68,8 @@ RuntimeEnv::RuntimeEnv()
   m_streamed_tb_count(0), m_streamed_index(0),
   m_trace_tag_nodes_count(0),
   m_qemu_default_br_skipped(false),
-  m_new_tb(false)
+  m_new_tb(false),
+  m_tc_issue_index(0)
 {
     m_cpuState_post_insterest.first = false;
     m_cpuState_post_insterest.second = new uint8_t [sizeof(CPUArchState)];
@@ -704,7 +705,9 @@ void RuntimeEnv::init_concolics()
 
     inputs.clear();
     inputs.seekg(0, ios::beg);
-    TestCase tc = read_serialized(inputs);
+    const TestCase& tc = read_serialized(inputs);
+    tc.assert_issued_tc();
+    m_tc_issue_index = tc.get_issue_index();
 
     for(vector<TestCaseElement>::const_iterator tc_iter = tc.get_elements().begin();
         tc_iter !=  tc.get_elements().end();
@@ -829,6 +832,8 @@ void RuntimeEnv::writeConcolics()
     );
     assert(m_trace_tag_semi_explored.size() <= 1);
     tc.set_traceTag(m_trace_tag_explored, m_trace_tag_semi_explored, m_trace_tag_new);
+
+    tc.set_issue_index(m_tc_issue_index);
 
     // Update "hostfile/input_arguments.bin" as there are more concolics than specified in xml
     ofstream ofs("hostfile/input_arguments.bin", ios_base::out | ios_base::binary);

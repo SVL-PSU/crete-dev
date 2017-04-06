@@ -43,11 +43,6 @@ namespace crete
         return os;
     }
 
-    TestCaseHashCompact tc_compact_hash(const TestCaseHashComplete& tc_hash_complete)
-    {
-        return boost::hash_value(tc_hash_complete);
-    }
-
     void write(ostream& os, const TestCaseElement& elem)
     {
         os.write(reinterpret_cast<const char*>(&elem.name_size), sizeof(uint32_t));
@@ -83,7 +78,7 @@ namespace crete
             return patch;
 
         // Sanity check
-        assert(patch.m_base_tc_hash == base.complete_hash());
+        assert(patch.m_base_tc_issue_index == base.m_issue_index);
 
         assert(patch.m_patch);
         assert(patch.m_tcp_tt.first || patch.m_tcp_tt.second);
@@ -98,6 +93,8 @@ namespace crete
         assert(base.m_tcp_elems.empty());
 
         TestCase ret(base);
+        ret.m_issue_index = patch.m_issue_index;
+        ret.m_base_tc_issue_index = patch.m_base_tc_issue_index;
 
         // Apply patch for elems
         assert(patch.m_tcp_elems.size() == ret.elems_.size());
@@ -165,33 +162,36 @@ namespace crete
         fprintf(stderr, ": %u bytes [", data_size);
         for(uint64_t i = 0; i < data.size(); ++i)
         {
-            fprintf(stderr, "%u(%lu) ", (uint32_t)data[i], boost::hash_value(data[i]));
+            fprintf(stderr, "%u ", (uint32_t)data[i]);
         }
 
-        fprintf(stderr, "] (hash = %lu)\n", boost::hash_value(data));
+        fprintf(stderr, "]\n");
     }
 
     TestCase::TestCase() :
         priority_(0),
         m_patch(false),
-        m_base_tc_hash(string())
+        m_issue_index(0),
+        m_base_tc_issue_index(0)
     {
     }
 
     TestCase::TestCase(const crete::TestCasePatchTraceTag_ty& tcp_tt,
             const std::vector<crete::TestCasePatchElement_ty>& tcp_elems,
-            const TestCaseHashComplete& base_tc_hash)
+            const TestCaseIssueIndex& base_tc_issue_index)
     :priority_(0),
      m_patch(true),
-     m_base_tc_hash(base_tc_hash),
      m_tcp_tt(tcp_tt),
-     m_tcp_elems(tcp_elems)
+     m_tcp_elems(tcp_elems),
+     m_issue_index(0),
+     m_base_tc_issue_index(base_tc_issue_index)
     {}
 
     TestCase::TestCase(const TestCase& tc)
     :priority_(tc.priority_),
      m_patch(tc.m_patch),
-     m_base_tc_hash(tc.m_base_tc_hash),
+     m_issue_index(tc.m_issue_index),
+     m_base_tc_issue_index(tc.m_base_tc_issue_index),
      m_tcp_tt(tc.m_tcp_tt),
      m_tcp_elems(tc.m_tcp_elems),
      elems_(tc.elems_),
@@ -215,39 +215,6 @@ namespace crete
         m_new_nodes = new_nodes;
     }
 
-    static void hash_tcp_elem(std::stringstream& ss, const TestCasePatchElement_ty& tcp_ele)
-    {
-        for(TestCasePatchElement_ty::const_iterator it = tcp_ele.begin();
-                it != tcp_ele.end(); ++it) {
-            ss << std::hex << it->first << it->second;
-        }
-    }
-
-    static void hash_tc_elem(std::stringstream& ss, const TestCaseElements& tc_ele)
-    {
-        for(TestCaseElements::const_iterator it = tc_ele.begin();
-                it != tc_ele.end(); ++it) {
-            ss << std::hex << string(it->name.begin(), it->name.end())
-                    << string(it->data.begin(), it->data.end());
-        }
-    }
-
-    // A unique test case can be identified by "m_tcp_tt + m_tcp_elems + elems_"
-    TestCaseHashComplete TestCase::complete_hash() const
-    {
-        std::stringstream seed;
-
-        seed << std::hex << m_tcp_tt.first << m_tcp_tt.second;
-        for(vector<TestCasePatchElement_ty>::const_iterator it = m_tcp_elems.begin();
-                it != m_tcp_elems.end(); ++it) {
-            hash_tcp_elem(seed, *it);
-        }
-
-        hash_tc_elem(seed, elems_);
-
-        return seed.str();
-    }
-
     uint32_t TestCase::get_tt_last_node_index() const
     {
         assert(m_semi_explored_node.empty());
@@ -262,9 +229,43 @@ namespace crete
         }
     }
 
-    TestCaseHashComplete TestCase::get_base_tc_hash() const
+    void TestCase::assert_issued_tc() const
     {
-        return m_base_tc_hash;
+        bool valid_issue_index = (m_issue_index != 0);
+
+        bool valid_tcp_elems = m_tcp_elems.empty();
+        bool valid_m_semi_explored_node = m_semi_explored_node.empty();
+        bool valid_m_new_nodes = m_new_nodes.empty();
+
+        if(!(!m_patch && valid_issue_index &&
+                valid_tcp_elems && valid_m_semi_explored_node && valid_m_new_nodes))
+        {
+            fprintf(stderr, "m_patch = %d, valid_issue_index = %d\n"
+                    "valid_tcp_elems = %d, valid_m_semi_explored_node = %d, valid_m_new_nodes = %d\n" ,
+                    (int)m_patch, (int)valid_issue_index,
+                    (int)valid_tcp_elems, (int)valid_m_semi_explored_node, (int)valid_m_new_nodes);
+            assert(0);
+        }
+    }
+
+    TestCaseIssueIndex TestCase::get_base_tc_issue_index() const
+    {
+        assert(m_base_tc_issue_index != 0);
+        return m_base_tc_issue_index;
+    }
+
+    TestCaseIssueIndex TestCase::get_issue_index() const
+    {
+        assert(m_issue_index != 0);
+        return m_issue_index;
+    }
+
+    void TestCase::set_issue_index(TestCaseIssueIndex index)
+    {
+        assert(m_issue_index == 0);
+        assert(index != 0);
+
+        m_issue_index = index;
     }
 
     bool TestCase::is_test_patch() const
@@ -274,23 +275,24 @@ namespace crete
 
     void TestCase::assert_tc_patch() const
     {
-        bool valid_base_tc_hash = (!m_base_tc_hash.empty());
+        bool valid_issue_index = (m_issue_index == 0);
+        bool valid_base_tc_issue_index= (m_base_tc_issue_index != 0);
         bool valid_tcp_elems = (!m_tcp_elems.empty());
         bool valid_elems = elems_.empty();
         bool valid_m_explored_nodes = m_explored_nodes.empty();
         bool valid_m_semi_explored_node = m_semi_explored_node.empty();
         bool valid_m_new_nodes = m_new_nodes.empty();
 
-        if(!(m_patch && valid_base_tc_hash && valid_tcp_elems &&
-                valid_elems && valid_m_explored_nodes &&
+        if(!(m_patch && valid_issue_index && valid_base_tc_issue_index &&
+                valid_tcp_elems && valid_elems && valid_m_explored_nodes &&
                 valid_m_semi_explored_node && valid_m_new_nodes))
         {
-            fprintf(stderr, "m_patch = %d, valid_base_tc_hash = %d, valid_tcp_elems = %d\n"
-                    "valid_elems = %d, valid_m_explored_nodes = %d, valid_m_semi_explored_node = %d\n"
-                    "valid_m_new_nodes = %d\n" ,
-                    (int)m_patch, (int)valid_base_tc_hash, (int)valid_tcp_elems,
-                    (int)valid_elems, (int)valid_m_explored_nodes, (int)valid_m_semi_explored_node,
-                    (int)valid_m_new_nodes);
+            fprintf(stderr, "m_patch = %d, valid_issue_index = %d, valid_base_tc_issue_index = %d\n"
+                    "valid_tcp_elems = %d, valid_elems = %d, valid_m_explored_nodes = %d\n"
+                    "valid_m_semi_explored_node = %d, valid_m_new_nodes = %d\n" ,
+                    (int)m_patch, (int)valid_issue_index, (int)valid_base_tc_issue_index,
+                    (int)valid_tcp_elems, (int)valid_elems, (int)valid_m_explored_nodes,
+                    (int)valid_m_semi_explored_node, (int)valid_m_new_nodes);
             assert(0);
         }
     }
@@ -301,11 +303,10 @@ namespace crete
         {
             fprintf(stderr, "patch test case patch\n");
         } else {
-            fprintf(stderr, "complete test case (complete_hash = %s)\n", this->complete_hash().c_str());
+            fprintf(stderr, "complete test case (m_issue_index = %lu, m_base_tc_issue_index = %lu)\n",
+                    m_issue_index, m_base_tc_issue_index);
 
-            fprintf(stderr, "m_base_tc_hash = %s\n"
-                    "m_tcp_tt(%u, %u), m_tcp_elems.size() = %lu, elems_.size() = %lu\n",
-                    m_base_tc_hash.c_str(),
+            fprintf(stderr, "m_tcp_tt(%u, %u), m_tcp_elems.size() = %lu, elems_.size() = %lu\n",
                     m_tcp_tt.first, m_tcp_tt.second, m_tcp_elems.size(), elems_.size());
 
             for(uint64_t i = 0; i <  elems_.size(); ++i)

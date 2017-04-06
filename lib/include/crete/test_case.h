@@ -40,13 +40,17 @@ namespace crete
         }
 #endif
 
+        friend std::size_t hash_value(TestCaseElement const& i)
+        {
+            return boost::hash_value(string(i.name.begin(), i.name.end())  +
+                                     string(i.data.begin(), i.data.end()));
+        }
+
         void print() const;
     };
 
     typedef std::vector<TestCaseElement> TestCaseElements;
-    typedef size_t TestCaseHashCompact;
-    typedef std::string TestCaseHashComplete;
-
+    typedef uint64_t TestCaseIssueIndex;
     // <index of trace-tag node to negate, index of branch within a tt node to negate>
     typedef std::pair<uint32_t, uint32_t> TestCasePatchTraceTag_ty;
     // <index within an tc element, value>
@@ -59,10 +63,10 @@ namespace crete
 
     public:
         TestCase();
+        TestCase(const TestCase& tc);
         TestCase(const crete::TestCasePatchTraceTag_ty& tcp_tt,
                  const std::vector<crete::TestCasePatchElement_ty>& tcp_elems,
-                 const TestCaseHashComplete& base_tc_hash);
-        TestCase(const TestCase& tc);
+                 const TestCaseIssueIndex& base_tc_issue_index);
 
         void add_element(const TestCaseElement& e) { elems_.push_back(e); }
 
@@ -77,11 +81,14 @@ namespace crete
         creteTraceTag_ty get_traceTag_semi_explored_node() const { return m_semi_explored_node; }
         creteTraceTag_ty get_traceTag_new_nodes() const { return m_new_nodes; }
 
-        TestCaseHashComplete complete_hash() const;
         uint32_t get_tt_last_node_index() const;
-        TestCaseHashComplete get_base_tc_hash() const;
         bool is_test_patch() const;
         void assert_tc_patch() const;
+
+        void assert_issued_tc() const;
+        TestCaseIssueIndex get_base_tc_issue_index() const;
+        TestCaseIssueIndex get_issue_index() const;
+        void set_issue_index(TestCaseIssueIndex index);
 
         void print() const;
 
@@ -96,7 +103,8 @@ namespace crete
             ar & priority_;
 
             ar & m_patch;
-            ar & m_base_tc_hash;
+            ar & m_issue_index;
+            ar & m_base_tc_issue_index;
             ar & m_tcp_tt;
             ar & m_tcp_elems;
 
@@ -118,7 +126,9 @@ namespace crete
 
         // true: is tc_p (test case patch); false: is a tc_c (complete tc)
         bool m_patch;
-        TestCaseHashComplete m_base_tc_hash;
+
+        TestCaseIssueIndex m_issue_index; // The index of the current tc being issued by testPool
+        TestCaseIssueIndex m_base_tc_issue_index;  // The issue_index of the base tc
 
         TestCasePatchTraceTag_ty m_tcp_tt;
         vector<TestCasePatchElement_ty> m_tcp_elems;
@@ -131,8 +141,6 @@ namespace crete
 
     std::ostream& operator<<(std::ostream& os, const TestCaseElement& elem);
     std::ostream& operator<<(std::ostream& os, const TestCase& tc);
-
-    TestCaseHashCompact tc_compact_hash(const TestCaseHashComplete& tc_hash_complete);
 
     void write(std::ostream& os, const std::vector<TestCase>& tcs);
     void write(std::ostream& os, const std::vector<TestCaseElement>& elems);
