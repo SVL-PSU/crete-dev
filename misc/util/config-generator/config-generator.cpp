@@ -31,6 +31,11 @@ const static map<string, string> target_exe_host_path = {
         {"ffpmpeg", "/home/chenbo/crete/ffmpeg-test/coverage/ffmpeg-3.1.2"}
 };
 
+const static vector<string> ffmpeg_file_prefix = {
+        {"tests/"},
+        {"fate-suite/"}
+};
+
 const static string seed_dir_name = "seeds";
 
 const static set<string> coreutil_crete_old = {
@@ -106,23 +111,69 @@ bool TestCaseCompare::operator()(const crete::TestCase &rhs, const crete::TestCa
 }
 
 ///////////////////////////////////////////
+static bool match_ffmpeg_file_prefix(const string& input)
+{
+    for(uint64_t i = 0; i < ffmpeg_file_prefix.size(); ++ i)
+    {
+        if(input.find(ffmpeg_file_prefix[i]) == 0)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static void split_seed_into_args_and_files(const string& seed_string,
+        vector<string>& args, vector<string>& files)
+{
+    istringstream iss(seed_string);
+    vector<string> seed(vector<string>(istream_iterator<string>{iss},
+            istream_iterator<string>{}));
+    assert(!seed.empty());
+
+    for(uint64_t i = 0; i < seed.size(); ++ i)
+    {
+        if(match_ffmpeg_file_prefix(seed[i]))
+        {
+            files.push_back(seed[i]);
+        } else {
+            args.push_back(seed[i]);
+        }
+    }
+}
+
 void CreteTest::add_seed(const string& seed)
 {
-    m_seeds.insert(seed);
+    if(m_seeds_map.find(seed) == m_seeds_map.end())
+    {
+        assert(m_seeds_map.size() == m_seeds_args.size());
+        assert(m_seeds_map.size() == m_seeds_files.size());
+
+        vector<string> args;
+        vector<string> files;
+        split_seed_into_args_and_files(seed, args, files);
+        m_seeds_args.push_back(args);
+        m_seeds_files.push_back(files);
+
+        m_seeds_map.insert(make_pair(seed, m_seeds_map.size()));
+    }
 }
 
 uint64_t CreteTest::get_seed_size() const
 {
-    return m_seeds.size();
+    return m_seeds_map.size();
 }
 
 void CreteTest::print_all_seeds() const
 {
-    uint64_t count = 0;
-    for(set<string>::const_iterator it = m_seeds.begin();
-            it != m_seeds.end(); ++it) {
-        fprintf(stderr, "[%lu] %s\n",
-                count++, it->c_str());
+    assert(m_seeds_map.size() == m_seeds_args.size());
+    assert(m_seeds_map.size() == m_seeds_files.size());
+
+    for(map<string, uint32_t>::const_iterator it = m_seeds_map.begin();
+            it != m_seeds_map.end(); ++it)
+    {
+        fprintf(stderr, "[%u] %s\n", it->second, it->first.c_str());
     }
 }
 
@@ -130,6 +181,7 @@ void CreteTest::gen_crete_test(bool inject_one_concolic)
 {
     gen_config();
     consistency_check();
+//    print_all_seeds();
 
     if(inject_one_concolic) {
         crete::config::Arguments args = m_crete_config.get_arguments();
@@ -186,44 +238,122 @@ void CreteTest::set_outputDir(string outputDirectory)
     m_outputDirectory = outputDirectory;
 }
 
+uint64_t CreteTest::get_max_seed_arg_size(uint64_t index) const
+{
+    uint64_t ret = 0;
+    for(uint64_t i = 0; i < m_seeds_args.size(); ++i)
+    {
+        assert(index < m_seeds_args[i].size());
+        if(ret < m_seeds_args[i][index].size())
+        {
+            ret = m_seeds_args[i][index].size();
+        }
+    }
+
+    return ret;
+}
+
+uint64_t CreteTest::get_max_seed_file_size(uint64_t index) const
+{
+    uint64_t ret = 0;
+    for(uint64_t i = 0; i < m_seeds_files.size(); ++i)
+    {
+        assert(index < m_seeds_files[i].size());
+        string file_path = m_seeds_files[i][index];
+        assert(match_ffmpeg_file_prefix(file_path));
+
+        assert(target_exe_host_path.find(m_target_exec) != target_exe_host_path.end());
+
+        fs::path full_path;
+        if(file_path.find("/") == 0)
+        {
+            full_path = file_path;
+        } else {
+            full_path = fs::path(target_exe_host_path.find(m_target_exec)->second) / file_path;
+        }
+
+        if(fs::is_regular(full_path))
+        {
+            uint64_t size = fs::file_size(full_path);
+            if(ret < size)
+            {
+                ret = size;
+            }
+        } else {
+            cerr << "get_max_seed_file_size(): file does not exist " << file_path << endl;
+        }
+    }
+
+    return ret;
+}
+
 void CreteTest::gen_config()
 {
-    assert(!m_seeds.empty());
+    assert(!m_seeds_map.empty());
+    assert(m_seeds_map.size() == m_seeds_args.size());
+    assert(m_seeds_map.size() == m_seeds_files.size());
 
-    istringstream iss(*(m_seeds.begin()));
-    vector<string> test(vector<string>(istream_iterator<string>{iss},
-            istream_iterator<string>{}));
+    const vector<string>& args = m_seeds_args.front();
+    const vector<string>& files = m_seeds_files.front();
 
-//    cerr << "init_config(): \n";
-//    for(vector<string>::const_iterator it = test.begin();
-//            it != test.end(); ++it) {
+//    cerr << "gen_config(): \n";
+//    for(vector<string>::const_iterator it = args.begin();
+//            it != args.end(); ++it) {
+//        cerr << *it << ' ';
+//    }
+//    for(vector<string>::const_iterator it = files.begin();
+//            it != files.end(); ++it) {
 //        cerr << *it << ' ';
 //    }
 //    cerr << endl;
 
-    assert(!test.empty());
 
     // 1. set executable path "./executable"
-    string exec_name = test[0];
+    string exec_name = args[0];
     m_target_exec = exec_name;
     assert(target_exe_guest_path.find(exec_name) != target_exe_guest_path.end());
     const string target_path = target_exe_guest_path.find(exec_name)->second;
     m_crete_config.set_executable(target_path);
 
     // 2. add arguments: skip the executable itself
-    for(uint64_t j = 1; j < test.size(); ++j){
+    for(uint64_t j = 1; j < args.size(); ++j){
+        assert(!match_ffmpeg_file_prefix(args[j]));
+
         config::Argument arg;
         arg.index = j;
+        arg.size = args[j].size();
+        arg.value = args[j];
+        assert(arg.value.size() == arg.size);
+        arg.concolic = false;
 
-        arg.size = test[j].size();
-
-        arg.value = test[j];
-        arg.value.resize(arg.size);
+        // Make the argument size be the maximum size of seeds
+        assert(arg.size <= get_max_seed_arg_size(j));
+        arg.size = get_max_seed_arg_size(j);
+        arg.value.resize(arg.size, 0);
 
         m_crete_config.add_argument(arg);
     }
 
-    // 3. Impose concrete stdin
+    // 3. add files
+    for(uint64_t j = 0; j < files.size(); ++j){
+        assert(match_ffmpeg_file_prefix(files[j]));
+
+        config::File config_file;
+        config_file.path = files[j];
+        config_file.concolic = false;
+        config_file.size = get_max_seed_file_size(j);
+
+        //XXX: impose minimum concolic file size 8 bytes
+        if(config_file.size < 8)
+        {
+            config_file.size = 8;
+        }
+        config_file.data.clear();
+
+        m_crete_config.add_file(config_file);
+    }
+
+    // 4. Impose concrete stdin
     config::STDStream config_stdin;
     config_stdin.concolic = false;
     config_stdin.size = 1;
@@ -232,18 +362,17 @@ void CreteTest::gen_config()
 }
 
 // Check the consistency between m_crete_config and m_seeds
-// Also adjust m_crete_config.args size
-void CreteTest::consistency_check()
+void CreteTest::consistency_check() const
 {
-    boost::filesystem::path exec_path = m_crete_config.get_executable();
-    crete::config::Arguments config_args = m_crete_config.get_arguments();
-
+    // check executable
+    const boost::filesystem::path& exec_path = m_crete_config.get_executable();
     assert(m_target_exec == exec_path.filename().string());
-    for(set<string>::const_iterator it = m_seeds.begin();
-            it != m_seeds.end(); ++it) {
-        istringstream iss(*it);
-        vector<string> test(vector<string>(istream_iterator<string>{iss},
-                istream_iterator<string>{}));
+
+    // Check args
+    const crete::config::Arguments& config_args = m_crete_config.get_arguments();
+    for(vector<vector<string> >::const_iterator it = m_seeds_args.begin();
+            it != m_seeds_args.end(); ++it) {
+        const vector<string>& test = *it;
         assert(!test.empty());
 
         // target executable should match
@@ -262,6 +391,7 @@ void CreteTest::consistency_check()
             assert(config_args[i].index < test.size());
 
             string config_arg_value = config_args[i].value;
+            assert(config_args[i].size == config_arg_value.size());
             string seed_arg_value = test[config_args[i].index];
 
             if(config_arg_value.find('-') == 0){
@@ -270,19 +400,23 @@ void CreteTest::consistency_check()
                 assert(config_arg_value == seed_arg_value);
             } else {
                 assert(seed_arg_value.find('-') != 0);
-            }
-
-            assert(config_args[i].size == config_arg_value.size());
-            // the size of each arg in config should be the the largest length of
-            // the arg in all seeds
-            if(config_args[i].size < seed_arg_value.size()) {
-                config_args[i].size = seed_arg_value.size();
-                config_args[i].value.resize(config_args[i].size, 0);
-                m_crete_config.set_argument(config_args[i]);
-//                cerr << "arg size is changed\n";
+                assert(config_arg_value.size() >= seed_arg_value.size());
             }
         }
     }
+
+    // check files
+//    const crete::config::Arguments& config_files = m_crete_config.get_files();
+//    for(vector<vector<string> > it = m_seeds_files.begin();
+//            it != m_seeds_files.end(); ++it) {
+//        vector<string> test = *it;
+//        assert(config_files.size() == test.size());
+
+//        for(uint64_t i = 0; i < config_files.size(); ++i)
+//        {
+//            ;
+//        }
+//    }
 
 //    cerr << "consistency_check() done\n";
 }
@@ -431,6 +565,8 @@ void CreteTest::gen_crete_test_internal()
     ss << "auto." << m_target_exec << "." << config_count++;
     fs::path outDir = addConfigOutputDir(ss.str());
 
+//    cerr << ss.str() << endl;
+
     // Generate xml
     ss << ".xml";
     fs::path out_config_file = outDir / ss.str();
@@ -449,12 +585,13 @@ void CreteTest::gen_crete_test_internal()
     gen_crete_test_seeds(outDir / seed_dir_name);
 }
 
-// FIXME: xxx Only generate test with concolic arguments
-//          (not work with with concolic file and concolic stdin)
-void CreteTest::gen_crete_test_seeds(fs::path seeds_folder)
+// Naming convention on concolic buffer should stay consistent with run_preload.cpp
+void CreteTest::gen_crete_test_seeds(fs::path seeds_folder) const
 {
-    crete::config::Arguments config_args = m_crete_config.get_arguments();
+    assert(m_seeds_map.size() == m_seeds_args.size());
+    assert(m_seeds_map.size() == m_seeds_files.size());
 
+    crete::config::Arguments config_args = m_crete_config.get_arguments();
     // Get index within Arguments for concolic args
     vector<uint64_t> set_conoclic_arg_index;
     for(uint64_t i = 0; i < config_args.size(); ++i) {
@@ -464,21 +601,28 @@ void CreteTest::gen_crete_test_seeds(fs::path seeds_folder)
         set_conoclic_arg_index.push_back(i);
     }
 
+    // Get index within Files for concolic files
+    crete::config::Files config_files= m_crete_config.get_files();
+    vector<uint64_t> set_conoclic_file_index;
+    for(uint64_t i = 0; i < config_files.size(); ++i) {
+        if(!config_files[i].concolic)
+            continue;
+
+        set_conoclic_file_index.push_back(i);
+    }
+
     // Generate a seed test case based on each m_seeds
     set<crete::TestCase, TestCaseCompare> seed_set;
-    for(set<string>::const_iterator it = m_seeds.begin();
-            it != m_seeds.end(); ++it) {
-        istringstream iss(*it);
-        vector<string> test(vector<string>(istream_iterator<string>{iss},
-                istream_iterator<string>{}));
-        assert(!test.empty());
-
+    for(uint64_t seed_index = 0; seed_index < m_seeds_map.size(); ++seed_index)
+    {
         crete::TestCase tc;
 
+        // Concolic Args
+        const vector<string>& args  = m_seeds_args[seed_index];
         for(uint64_t i = 0; i < set_conoclic_arg_index.size(); ++i) {
-            crete::config::Argument concolic_arg =
+            const crete::config::Argument& concolic_arg =
                     config_args[set_conoclic_arg_index[i]];
-            string seed_arg_value = test[concolic_arg.index];
+            const string& seed_arg_value = args[concolic_arg.index];
 
             crete::TestCaseElement elem;
 
@@ -493,7 +637,55 @@ void CreteTest::gen_crete_test_seeds(fs::path seeds_folder)
             if(elem.data.size() < concolic_arg.size) {
                 elem.data.resize(concolic_arg.size, 0);
             }
+            elem.data_size = elem.data.size();
 
+            tc.add_element(elem);
+        }
+
+        // Symbolic file
+        const vector<string>& files = m_seeds_files[seed_index];
+        for(uint64_t i = 0; i < set_conoclic_file_index.size(); ++i) {
+            crete::config::File concolic_file =
+                    config_files[set_conoclic_file_index[i]];
+            assert(files[i] == concolic_file.path.string());
+
+            crete::TestCaseElement elem;
+
+            string filename = concolic_file.path.filename().string();
+            elem.name = std::vector<uint8_t>(filename.begin(), filename.end());
+            elem.name_size = filename.size();
+
+            string file_path = files[i];
+            assert(match_ffmpeg_file_prefix(file_path));
+            fs::path full_path;
+            if(file_path.find("/") == 0)
+            {
+                full_path = file_path;
+            } else {
+                assert(target_exe_host_path.find(m_target_exec) != target_exe_host_path.end());
+                full_path = fs::path(target_exe_host_path.find(m_target_exec)->second) / file_path;
+            }
+            if(fs::is_regular(full_path))
+            {
+                uint64_t fileSize = fs::file_size(full_path);
+                assert(concolic_file.size >= fileSize );
+
+                std::ifstream concrete_file(full_path.string(), std::ios::binary);
+                elem.data.clear();
+                elem.data.reserve(fileSize);
+                elem.data.assign(std::istreambuf_iterator<char>(concrete_file),
+                                    std::istreambuf_iterator<char>());
+                concrete_file.close();
+            } else {
+                elem.data.clear();
+                elem.data.resize(concolic_file.size, 0);
+                cerr << "gen_crete_test_seeds(): file does not exist " << file_path
+                        << ", prefix = " << target_exe_host_path.find(m_target_exec)->second << endl;
+            }
+
+            if(elem.data.size() < concolic_file.size) {
+                elem.data.resize(concolic_file.size, 0);
+            }
             elem.data_size = elem.data.size();
 
             tc.add_element(elem);
@@ -501,6 +693,9 @@ void CreteTest::gen_crete_test_seeds(fs::path seeds_folder)
 
         seed_set.insert(tc);
     }
+
+    fprintf(stderr, "gen_crete_test_seeds(): m_seeds_map.size() = %lu, seed_set.size() = %lu\n",
+            m_seeds_map.size(), seed_set.size());
 
     uint64_t seed_count = 1;
     for(set<crete::TestCase>::iterator it = seed_set.begin();
