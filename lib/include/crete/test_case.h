@@ -71,6 +71,7 @@ namespace crete
         void add_element(const TestCaseElement& e) { elems_.push_back(e); }
 
         const TestCaseElements& get_elements() const { return elems_; }
+        void set_elements(const TestCaseElements &elems) {elems_ = elems;}
         void write(std::ostream& os) const;
         Priority get_priority() const { return priority_; }
         void set_priority(const Priority& p) { priority_ = p; }
