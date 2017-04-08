@@ -19,8 +19,8 @@
 namespace fs = boost::filesystem;
 
 const static map<string, string> target_exe_guest_path = {
-        {"ffprobe", "/home/test/tests/ffmpeg-3.1.2/coverage/ffprobe"},
-        {"ffmpeg", "/home/test/tests/ffmpeg-3.1.2/coverage/ffmpeg"}
+        {"ffprobe", "/home/test/tests/ffmpeg-3.1.2/ffprobe"},
+        {"ffmpeg", "/home/test/tests/ffmpeg-3.1.2/ffmpeg"}
 };
 
 // Potential usage:
@@ -339,8 +339,15 @@ void CreteTest::gen_config()
         assert(match_ffmpeg_file_prefix(files[j]));
 
         config::File config_file;
+
+#if defined(CONCOLIC_FILE) || 1
+        config_file.path = CRETE_RAMDISK_PATH / fs::path(files[j]).filename();
+        config_file.concolic = true;
+#else
         config_file.path = files[j];
         config_file.concolic = false;
+#endif
+
         config_file.size = get_max_seed_file_size(j);
 
         //XXX: impose minimum concolic file size 8 bytes
@@ -647,7 +654,7 @@ void CreteTest::gen_crete_test_seeds(fs::path seeds_folder) const
         for(uint64_t i = 0; i < set_conoclic_file_index.size(); ++i) {
             crete::config::File concolic_file =
                     config_files[set_conoclic_file_index[i]];
-            assert(files[i] == concolic_file.path.string());
+//            assert(files[i] == concolic_file.path.string());
 
             crete::TestCaseElement elem;
 
@@ -1151,7 +1158,7 @@ void CreteConfig::process_options()
             }
 
             CreteTests crete_tests(input_path.string().c_str());
-            crete_tests.gen_crete_tests(true);
+            crete_tests.gen_crete_tests(false);
         } else {
             assert(0);
         }
