@@ -302,12 +302,29 @@ namespace crete
         if(m_patch)
         {
             fprintf(stderr, "patch test case patch\n");
+            fprintf(stderr, "m_issue_index = %lu, m_base_tc_issue_index = %lu\n"
+                    "m_tcp_tt=(%u, %u), m_tcp_elems.size() = %lu:\n",
+                    m_issue_index, m_base_tc_issue_index,
+                    m_tcp_tt.first, m_tcp_tt.second, m_tcp_elems.size());
+
+            for(uint64_t i = 0; i < m_tcp_elems.size(); ++i) {
+                fprintf(stderr, "elm[%lu]: ", i);
+                for(uint64_t j = 0; j < m_tcp_elems[i].size(); ++j)
+                {
+                    fprintf(stderr, "(%u, 0x%x) ", m_tcp_elems[i][j].first, (uint32_t)m_tcp_elems[i][j].second);
+                }
+                fprintf(stderr, "\n");
+            }
         } else {
             fprintf(stderr, "complete test case (m_issue_index = %lu, m_base_tc_issue_index = %lu)\n",
                     m_issue_index, m_base_tc_issue_index);
 
-            fprintf(stderr, "m_tcp_tt(%u, %u), m_tcp_elems.size() = %lu, elems_.size() = %lu\n",
-                    m_tcp_tt.first, m_tcp_tt.second, m_tcp_elems.size(), elems_.size());
+            fprintf(stderr, "m_tcp_tt(%u, %u), m_tcp_elems.size() = %lu\n"
+                    "m_explored_nodes.size() = %lu, m_semi_explored_node.size()=%lu, m_new_nodes.size() = %lu\n"
+                    "elems_.size() = %lu\n",
+                    m_tcp_tt.first, m_tcp_tt.second, m_tcp_elems.size(),
+                    m_explored_nodes.size(), m_semi_explored_node.size(), m_new_nodes.size(),
+                    elems_.size());
 
             for(uint64_t i = 0; i <  elems_.size(); ++i)
             {

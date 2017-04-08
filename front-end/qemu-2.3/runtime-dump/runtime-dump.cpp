@@ -68,8 +68,7 @@ RuntimeEnv::RuntimeEnv()
   m_streamed_tb_count(0), m_streamed_index(0),
   m_trace_tag_nodes_count(0),
   m_qemu_default_br_skipped(false),
-  m_new_tb(false),
-  m_tc_issue_index(0)
+  m_new_tb(false)
 {
     m_cpuState_post_insterest.first = false;
     m_cpuState_post_insterest.second = new uint8_t [sizeof(CPUArchState)];
@@ -707,7 +706,8 @@ void RuntimeEnv::init_concolics()
     inputs.seekg(0, ios::beg);
     const TestCase& tc = read_serialized(inputs);
     tc.assert_issued_tc();
-    m_tc_issue_index = tc.get_issue_index();
+
+    m_input_tc = tc;
 
     for(vector<TestCaseElement>::const_iterator tc_iter = tc.get_elements().begin();
         tc_iter !=  tc.get_elements().end();
@@ -792,8 +792,7 @@ void RuntimeEnv::writeConcolics()
     ofstream o_fs(getOutputFilename("dump_mo_symbolics.txt").c_str());
     assert(o_fs.good());
 
-    crete::TestCase tc;
-
+    crete::TestCaseElements tc_elems;
     for(vector<string>::iterator c_it = m_make_concolic_order.begin();
         c_it != m_make_concolic_order.end(); ++c_it)
     {
@@ -822,7 +821,8 @@ void RuntimeEnv::writeConcolics()
         tce.name_size = crete_memo.m_name.size();
         tce.data = crete_memo.m_data;
         tce.data_size = crete_memo.m_size;
-        tc.add_element(tce);
+
+        tc_elems.push_back(tce);
     }
 
     // trace-tag
@@ -831,14 +831,13 @@ void RuntimeEnv::writeConcolics()
     print_trace_tag();
     );
     assert(m_trace_tag_semi_explored.size() <= 1);
-    tc.set_traceTag(m_trace_tag_explored, m_trace_tag_semi_explored, m_trace_tag_new);
-
-    tc.set_issue_index(m_tc_issue_index);
+    m_input_tc.set_traceTag(m_trace_tag_explored, m_trace_tag_semi_explored, m_trace_tag_new);
+    m_input_tc.set_elements(tc_elems);
 
     // Update "hostfile/input_arguments.bin" as there are more concolics than specified in xml
     ofstream ofs("hostfile/input_arguments.bin", ios_base::out | ios_base::binary);
     assert(ofs);
-    crete::write_serialized(ofs, tc);
+    crete::write_serialized(ofs, m_input_tc);
 }
 
 void RuntimeEnv::setCPUStatePostInterest(const void *src)

@@ -277,7 +277,7 @@ private:
 
     string m_outputDirectory;
 
-    crete::TestCaseIssueIndex m_tc_issue_index;
+    crete::TestCase m_input_tc;
 
     // For constructing off-line execution graph/tree
     // (contains extra one non-symbolic-tb after each symbolic-tb)
