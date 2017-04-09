@@ -89,12 +89,6 @@ const static set<string> dase_expr = {
         "egrep", "fgrep", "grep"
 };
 
-const static set<string> baseTools = {
-        "BootSectImage", "EfiRom", "GenFfs", "GenFw", "GenSec", "GnuGenBootSector",
-        "Split", "VfrCompile", "EfiLdrImage", "GenCrc32", "GenFv", "GenPage", "GenVtf",
-        "LzmaCompress", "TianoCompress", "VolInfo"
-        };
-
 
 struct TestCaseCompare
 {
@@ -917,6 +911,123 @@ const map<string, const ExprSetup> coreutil_klee_osdi_special {
         {"printf", KLEE_SETUP_PRINTF}
 };
 
+// ========== basetool setup ===============
+const static set<string> baseTools = {
+        "BootSectImage", "EfiRom", "GenFfs", "GenFw", "GenSec", "GnuGenBootSector",
+        "Split", "VfrCompile", "EfiLdrImage", "GenCrc32", "GenFv", "GenPage", "GenVtf",
+        "LzmaCompress", "TianoCompress", "VolInfo"
+        };
+
+// BootSectImage: --sym-args 0 2 2 -sym-files 1 10k
+const ExprSetup BASEtOOL_SETUP_BootSectImage(
+        SymArgsConfig(0, 2, 2),
+        vector<uint64_t>(1, 10240),
+        8);
+// (BootSectImage: --sym-args 0 1 10 --sym-args 0 2 2 -sym-files 2 10k)
+// EfiLdrImage: --sym-args 0 3 2 -sym-files 2 10k
+const ExprSetup BASEtOOL_SETUP_EfiLdrImage(
+        SymArgsConfig(0, 3, 2),
+        vector<uint64_t>(2, 10240),
+        8);
+// (EfiLdrImage: --sym-args 0 1 10 --sym-args 0 2 2 -sym-files 2 10k)
+
+// EfiRom: --sym-args 0 4 8 -sym-files 1 10k
+const ExprSetup BASEtOOL_SETUP_EfiRom(
+        SymArgsConfig(0, 4, 8),
+        vector<uint64_t>(1, 10240),
+        8);
+//( EfiRom: --sym-args 1 1 2 --sym-args 1 1 8 --sym-args 1 1 2 --sym-args 1 1 8 \
+//         --sym-args 2 2 2 -sym-files 1 10k)
+
+// GenCrc32:  --sym-args 0 3 2 -sym-files 1 10k
+const ExprSetup BASEtOOL_SETUP_GenCrc32(
+        SymArgsConfig(0, 3, 2),
+        vector<uint64_t>(1, 10240),
+        8);
+
+// GenFfs:  --sym-args 0 10 2 -sym-files 1 10k
+const ExprSetup BASEtOOL_SETUP_GenFfs(
+        SymArgsConfig(0, 10, 2),
+        vector<uint64_t>(1, 10240),
+        8);
+// GenFv:  --sym-args 0 10 2 -sym-files 1 10k
+const ExprSetup BASEtOOL_SETUP_GenFv(
+        SymArgsConfig(0, 10, 2),
+        vector<uint64_t>(1, 10240),
+        8);
+// GenFw:  --sym-args 0 10 2 -sym-files 1 10k
+const ExprSetup BASEtOOL_SETUP_GenFw(
+        SymArgsConfig(0, 10, 2),
+        vector<uint64_t>(1, 10240),
+        8);
+// GenPage:  --sym-args 0 10 2 -sym-files 1 10k
+const ExprSetup BASEtOOL_SETUP_GenPage(
+        SymArgsConfig(0, 10, 2),
+        vector<uint64_t>(1, 10240),
+        8);
+// GenSec:  --sym-args 0 10 2 -sym-files 1 10k
+const ExprSetup BASEtOOL_SETUP_GenSec(
+        SymArgsConfig(0, 10, 2),
+        vector<uint64_t>(1, 10240),
+        8);
+// GenVtf:  --sym-args 0 10 2 -sym-files 1 10k
+const ExprSetup BASEtOOL_SETUP_GenVtf(
+        SymArgsConfig(0, 10, 2),
+        vector<uint64_t>(1, 10240),
+        8);
+// GnuGenBootSector: --sym-args 0 10 2 -sym-files 1 10k
+const ExprSetup BASEtOOL_SETUP_GnuGenBootSector(
+        SymArgsConfig(0, 10, 2),
+        vector<uint64_t>(1, 10240),
+        8);
+// LzmaCompress: --sym-args 0 6 2 -sym-files 1 10k
+const ExprSetup BASEtOOL_SETUP_LzmaCompress(
+        SymArgsConfig(0, 6, 2),
+        vector<uint64_t>(1, 10240),
+        8);
+// Split: --sym-args 0 6 2 -sym-files 1 10k
+const ExprSetup BASEtOOL_SETUP_Split(
+        SymArgsConfig(0, 6, 2),
+        vector<uint64_t>(1, 10240),
+        8);
+// TianoCompress: --sym-args 0 6 2 -sym-files 1 10k
+const ExprSetup BASEtOOL_SETUP_TianoCompress(
+        SymArgsConfig(0, 6, 2),
+        vector<uint64_t>(1, 10240),
+        8);
+// VfrCompile: --sym-args 0 6 2 -sym-files 1 10k
+const ExprSetup BASEtOOL_SETUP_VfrCompile(
+        SymArgsConfig(0, 6, 2),
+        vector<uint64_t>(1, 10240),
+        8);
+// VolInfo: --sym-args 0 1 10 --sym-args 0 2 2 -sym-files 1 10k
+const ExprSetup BASEtOOL_SETUP_VolInfo(
+        SymArgsConfig(0, 6, 2),
+        vector<uint64_t>(1, 10240),
+        8);
+
+
+const map<string, const ExprSetup> baseTool_setups {
+    {"BootSectImage",    BASEtOOL_SETUP_BootSectImage},
+    {"EfiRom",           BASEtOOL_SETUP_EfiRom},
+    {"GenFfs",           BASEtOOL_SETUP_GenFfs},
+    {"GenFw",            BASEtOOL_SETUP_GenFw},
+    {"GenSec",           BASEtOOL_SETUP_GenSec},
+    {"GnuGenBootSector", BASEtOOL_SETUP_GnuGenBootSector},
+    {"Split",            BASEtOOL_SETUP_Split},
+    {"VfrCompile",       BASEtOOL_SETUP_VfrCompile},
+    {"EfiLdrImage",      BASEtOOL_SETUP_EfiLdrImage},
+    {"GenCrc32",         BASEtOOL_SETUP_GenCrc32},
+    {"GenFv",            BASEtOOL_SETUP_GenFv},
+    {"GenPage",          BASEtOOL_SETUP_GenPage},
+    {"GenVtf",           BASEtOOL_SETUP_GenVtf},
+    {"LzmaCompress",     BASEtOOL_SETUP_LzmaCompress},
+    {"TianoCompress",    BASEtOOL_SETUP_TianoCompress},
+    {"VolInfo",          BASEtOOL_SETUP_VolInfo}
+};
+
+// =================
+
 const uint64_t DASE_GREP_DIFF_SYM_FILE_SIZE  = 100;
 
 static void printf_parsed_config(const vector<ParsedSymArgs>& configs)
@@ -1038,15 +1149,27 @@ void CreteTests::gen_crete_tests_coreutils_grep_diff(string suite_name)
 //        eval = dase_expr;
         assert(0);
     } else if (suite_name == "basetools") {
-//        parsed_configs = parse_symArgsConfig(KLEE_SYM_ARGS_CONFIG_1, KLEE_SYM_ARGS_CONFIG_2,
-//                DASE_GREP_DIFF_SYM_FILE_SIZE, KLEE_SYM_STDIN_SIZE);
+        for(set<string>::const_iterator it = baseTools.begin();
+                it != baseTools.end(); ++ it) {
+            map<string, const ExprSetup>::const_iterator special_setup_it =  baseTool_setups.find(*it);
+            if( special_setup_it != coreutil_klee_osdi_special.end())
+            {
+                parsed_configs = special_setup_it->second.get_ParsedSymArgs();
+            } else {
+                fprintf(stderr, "[CRETE ERROR] Missing setup for: %s\n", it->c_str());
+                continue;
+            }
 
-//        eval = baseTools;
-        assert(0);
+            printf_parsed_config(parsed_configs);
+
+            for(uint64_t i = 0; i < parsed_configs.size(); ++i)
+            {
+                generate_crete_config(parsed_configs[i], (guest_executable_folder + *it));
+            }
+        }
     } else {
         assert(0);
     }
-
 
     // Generate all configs for each gnu coreutil progs
 
