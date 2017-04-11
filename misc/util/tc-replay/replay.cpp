@@ -406,7 +406,7 @@ void CreteReplay::setup_launch()
     }
     m_launch_ctx.environment.insert(bp::environment::value_type("LD_PRELOAD", "libcrete_replay_preload.so"));
     m_launch_ctx.environment.erase("PWD");
-    m_launch_ctx.environment.insert(bp::environment::value_type("PWD", fs::canonical(m_launch_ctx.work_directory).string()));
+    m_launch_ctx.environment.insert(bp::environment::value_type("PWD", m_launch_ctx.work_directory));
 
     if(!m_input_sandbox.empty())
     {
