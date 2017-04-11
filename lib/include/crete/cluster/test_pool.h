@@ -72,7 +72,6 @@ public:
 
     auto insert(const std::vector<TestCase>& tcs) -> void;
 
-    auto clear() -> void;
     auto count_all() const -> size_t;
     auto count_next() const -> size_t;
 
@@ -80,6 +79,9 @@ public:
 
 private:
     auto insert_internal(const TestCase& tc) -> bool;
+
+    auto insert_base_tc(const TestCase& tc) -> BaseTestCache_ty::const_iterator;
+    auto get_base_tc(const TestCase& tc) -> BaseTestCache_ty::const_iterator;
     auto get_complete_tc(const TestCase& patch_tc) -> boost::optional<TestCase> const;
     auto write_test_case(const TestCase& tc, const fs::path out_path) -> void;
 };
