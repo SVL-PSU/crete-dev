@@ -500,6 +500,19 @@ CXX=clang++-3.4 cmake ../crete
 make # use -j to speedup
 ```
 
+### 7.3 Misc Setup
+
+As documented on the STP and KLEE website, it is essential to setup the limit
+on open files and stack size. In most cases, the hard limit will have to be
+increased first, so it is best to directly edit the /etc/security/limits.conf
+file. For example, add the following lines to limits.config.
+```bash
+* soft stack unlimited
+* hard stack unlimited
+* soft nofile 65000
+* hard nofile 65000
+```
+
 If you like, you can add the executables and libraries to your .bashrc file:
 ```bash
 echo '# Added by CRETE' >> ~/.bashrc
