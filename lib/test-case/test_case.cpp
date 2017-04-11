@@ -81,7 +81,6 @@ namespace crete
         assert(patch.m_base_tc_issue_index == base.m_issue_index);
 
         assert(patch.m_patch);
-        assert(patch.m_tcp_tt.first || patch.m_tcp_tt.second);
         assert(!patch.m_tcp_elems.empty());
         assert(patch.elems_.empty());
         assert(patch.m_explored_nodes.empty());
