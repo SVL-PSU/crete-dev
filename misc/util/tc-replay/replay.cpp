@@ -1,6 +1,8 @@
 #include "replay.h"
 #include <crete/common.h>
 
+#include <external/alphanum.hpp>
+
 #include <boost/filesystem/fstream.hpp>
 #include <boost/program_options.hpp>
 
@@ -543,12 +545,31 @@ static inline void process_exit_status(fs::ofstream& log, int exit_status)
     log << "ABNORMAL EXIT STATUS: " << exit_status << endl;
 }
 
+static vector<string> get_files_ordered(const fs::path& input)
+{
+    CRETE_EXCEPTION_ASSERT(fs::exists(input),
+            err::file_missing(input.string()));
+    assert(fs::is_directory(input));
+
+    // Sort the files alphabetically
+    vector<string> file_list;
+    for ( fs::directory_iterator itr( input );
+          itr != fs::directory_iterator();
+          ++itr ){
+        file_list.push_back(itr->path().string());
+    }
+
+    sort(file_list.begin(), file_list.end(), doj::alphanum_less<string>());
+
+    return file_list;
+}
+
 void CreteReplay::replay()
 {
     init_timeout_handler();
 
     // Read all test cases to replay
-    vector<TestCase> tcs = retrieve_tests(m_tc_dir.string());
+    vector<string> test_list = get_files_ordered(m_tc_dir);
 
     fs::ofstream ofs_replay_log;
 
@@ -565,13 +586,14 @@ void CreteReplay::replay()
             << "Guest config path: " << m_config.string() << endl
             << "Working directory: " << m_cwd.string() << endl
             << "Launch direcotory: " << m_launch_directory.string() << endl
-            << "Number of test cases: " << tcs.size() << endl
+            << "Number of test cases: " << test_list.size() << endl
             << endl;
 
     uint64_t replayed_tc_count = 1;
-    for(vector<TestCase>::const_iterator it = tcs.begin();
-            it != tcs.end(); ++it) {
-        if(m_seed_mode && (it != tcs.begin()))
+    for (vector<string>::const_iterator it(test_list.begin()), it_end(test_list.end());
+            it != it_end; ++it)
+    {
+        if(m_seed_mode && (replayed_tc_count != 1))
         {
             break;
         }
@@ -589,13 +611,7 @@ void CreteReplay::replay()
 
             // write replay_current_tc, for replay-preload to use
             fs::remove(m_current_tc);
-            std::ofstream ofs(m_current_tc.string().c_str());
-            if(!ofs.good())
-            {
-                BOOST_THROW_EXCEPTION(Exception() << err::file_open_failed(m_current_tc.string()));
-            }
-            it->write(ofs);
-            ofs.close();
+            fs::copy(*it, m_current_tc);
 
             // copy guest-config, for replay-preload to use
             try
