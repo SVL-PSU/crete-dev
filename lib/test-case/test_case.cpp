@@ -343,11 +343,6 @@ namespace crete
 
         uint32_t ssize = static_cast<uint32_t>(tsize);
 
-        if(ssize > 1000000)
-        {
-            BOOST_THROW_EXCEPTION(Exception() << err::msg("Sanity check: test case file size is unexpectedly large (size > 1000000)."));
-        }
-
         is.read(reinterpret_cast<char*>(&elem.name_size), sizeof(uint32_t));
         assert(elem.name_size < ssize);
 
@@ -363,11 +358,6 @@ namespace crete
         is.read(reinterpret_cast<char*>(&elem.data_size), sizeof(uint32_t));
         assert(elem.data_size < ssize);
 
-        if(elem.data_size > 1000000)
-        {
-             BOOST_THROW_EXCEPTION(Exception() << err::msg("Sanity check: test case element name size is unexpectedly large (size > 1000000)."));
-        }
-
         elem.data.resize(elem.data_size); // TODO: inefficient. Resize initializes all values.
         is.read(reinterpret_cast<char*>(elem.data.data()), elem.data_size);
 
@@ -378,22 +368,10 @@ namespace crete
     {
         TestCase tc;
 
-        istream::pos_type tsize = util::stream_size(is);
-
-        CRETE_EXCEPTION_ASSERT(tsize >= 0, err::signed_to_unsigned_conversion(tsize));
-
-        uint32_t ssize = static_cast<uint32_t>(tsize);
-
-        if(ssize > 1000000)
-        {
-            BOOST_THROW_EXCEPTION(Exception() << err::msg("Sanity check: test case file size is unexpectedly large (size > 1000000)."));
-        }
-
         uint32_t elem_count;
         is.read(reinterpret_cast<char*>(&elem_count), sizeof(uint32_t));
 
-        assert(elem_count != 0 &&
-               elem_count < (ssize / elem_count));
+        assert(elem_count != 0);
 
         for(uint32_t i = 0; i < elem_count; ++i)
         {
