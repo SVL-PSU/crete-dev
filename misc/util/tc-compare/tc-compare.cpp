@@ -330,6 +330,50 @@ static bool hasEnding (std::string const &fullString, std::string const &ending)
     }
 }
 
+const uint64_t BASE_TEST_CACHE_SIZE = 200;
+
+boost::unordered_map<TestCaseIssueIndex, TestCase>::const_iterator
+get_base_tc(const fs::path& input, const TestCase& tc)
+{
+    static boost::unordered_map<TestCaseIssueIndex, TestCase> base_tc_cache;
+
+    assert(tc.is_test_patch());
+
+    TestCaseIssueIndex tc_issue_index = tc.get_base_tc_issue_index();
+    boost::unordered_map<TestCaseIssueIndex, TestCase>::const_iterator base_tc_it = base_tc_cache.find(tc_issue_index);
+
+    if(base_tc_it == base_tc_cache.end())
+    {
+        fs::path base_tc_path = (input / "test-case-base-cache" / boost::lexical_cast<std::string>(tc_issue_index));
+        assert(fs::is_regular(base_tc_path));
+
+        TestCase base_tc = retrieve_test_serialized(base_tc_path.string());
+        assert(base_tc.get_issue_index() == tc_issue_index);
+
+        if(base_tc_cache.size() >= BASE_TEST_CACHE_SIZE)
+        {
+            base_tc_cache.clear();
+        }
+
+        std::pair<boost::unordered_map<TestCaseIssueIndex, TestCase>::const_iterator, bool> it =
+                base_tc_cache.insert(std::make_pair(base_tc.get_issue_index(), base_tc));
+
+        if(!it.second)
+        {
+            fprintf(stderr, "[tc-compare]get_base_tc() error: duplicate issue_index in base_tc_cache_ (issue index = %lu),\n",
+                    it.first->first);
+
+            assert(0);
+        }
+
+        base_tc_it = it.first;
+    }
+
+    assert(base_tc_it != base_tc_cache.end());
+
+    return base_tc_it;
+}
+
 void batch_path_mode_internal(const fs::path& input)
 {
     fprintf(stderr, "input = %s\n", input.string().c_str());
@@ -341,16 +385,6 @@ void batch_path_mode_internal(const fs::path& input)
     assert(fs::is_directory(base_tc_dir));
 
     vector<TestCase> tcs = retrieve_tests_serialized(tc_dir.string());
-
-    boost::unordered_map<TestCaseIssueIndex, TestCase> base_tcs;
-    for(fs::directory_iterator it(base_tc_dir); it != fs::directory_iterator(); ++it)
-    {
-        assert(fs::is_regular(*it));
-//        fprintf(stderr, "%s\n", it->path().filename().string().c_str());
-        TestCase tc = retrieve_test_serialized(it->path().string());
-        TestCaseIssueIndex issue_index = tc.get_issue_index();
-        base_tcs[issue_index] = tc;
-    }
 
     const fs::path out_dir  = input/"test-case-parsed";
     if(fs::exists(out_dir))
@@ -365,8 +399,7 @@ void batch_path_mode_internal(const fs::path& input)
         if(tcs[i].is_test_patch())
         {
             boost::unordered_map<TestCaseIssueIndex, TestCase>::const_iterator base_tc =
-                    base_tcs.find(tcs[i].get_base_tc_issue_index());
-            assert(base_tc != base_tcs.end());
+                    get_base_tc(input, tcs[i]);
             out_tc = generate_complete_tc_from_patch(tcs[i], base_tc->second);
         } else {
             out_tc = tcs[i];
