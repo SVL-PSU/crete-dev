@@ -737,6 +737,30 @@ struct QemuFSM_::start_test
     template <class EVT,class FSM,class SourceState,class TargetState>
     auto operator()(EVT const& ev, FSM& fsm, SourceState&, TargetState&) -> void
     {
+
+        auto trace_dir = fsm.vm_dir_ / trace_dir_name;
+        if(fs::is_directory(trace_dir))
+        {
+            for(fs::directory_iterator begin{trace_dir}, end{}; begin != end; ++begin)
+            {
+                if(boost::starts_with(begin->path().filename().string(), "runtime-dump"))
+                {
+                    fs::remove_all(begin->path());
+
+                    std::stringstream ss;
+                    ss << "------------------------------------------\n"
+                       << "[Warning] Node: VM\n"
+                       << "old trace is being found and removed beofre start_test: "
+                       << begin->path().string() << endl
+                       << "Target: " << fsm.target_ << "\n"
+                       << "VM dir: " << fsm.vm_dir_ << "\n"
+                       << "------------------------------------------\n";
+                    cerr << ss.str();
+//                    fsm.error_log_.log = ss.str();
+                }
+            }
+        }
+
         auto hostfile = fsm.vm_dir_ / hostfile_dir_name;
 
         if(!fs::exists(hostfile))
