@@ -331,12 +331,11 @@ static bool hasEnding (std::string const &fullString, std::string const &ending)
 }
 
 const uint64_t BASE_TEST_CACHE_SIZE = 200;
+static boost::unordered_map<TestCaseIssueIndex, TestCase> base_tc_cache;
 
 boost::unordered_map<TestCaseIssueIndex, TestCase>::const_iterator
 get_base_tc(const fs::path& input, const TestCase& tc)
 {
-    static boost::unordered_map<TestCaseIssueIndex, TestCase> base_tc_cache;
-
     assert(tc.is_test_patch());
 
     TestCaseIssueIndex tc_issue_index = tc.get_base_tc_issue_index();
@@ -385,6 +384,7 @@ void batch_path_mode_internal(const fs::path& input)
     assert(fs::is_directory(base_tc_dir));
 
     vector<TestCase> tcs = retrieve_tests_serialized(tc_dir.string());
+    base_tc_cache.clear();
 
     const fs::path out_dir  = input/"test-case-parsed";
     if(fs::exists(out_dir))
