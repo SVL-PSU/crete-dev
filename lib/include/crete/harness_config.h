@@ -29,12 +29,14 @@ struct File
     uint64_t size;
     bool concolic;
     std::vector<uint8_t> data;
+    uint8_t argv_index;
 
     File() :
         path(boost::filesystem::path()),
         size(0),
         concolic(false),
-        data(std::vector<uint8_t>())
+        data(std::vector<uint8_t>()),
+        argv_index(0)
     {
     }
 
@@ -48,6 +50,7 @@ struct File
         ar & BOOST_SERIALIZATION_NVP(size);
         ar & BOOST_SERIALIZATION_NVP(concolic);
         ar & BOOST_SERIALIZATION_NVP(data);
+        ar & BOOST_SERIALIZATION_NVP(argv_index);
     }
 
     template <class Archive>
@@ -60,6 +63,7 @@ struct File
         ar & BOOST_SERIALIZATION_NVP(size);
         ar & BOOST_SERIALIZATION_NVP(concolic);
         ar & BOOST_SERIALIZATION_NVP(data);
+        ar & BOOST_SERIALIZATION_NVP(argv_index);
 
         this->path = boost::filesystem::path(path);
     }
@@ -167,6 +171,7 @@ public:
     void remove_last_argument();
     void set_argument(const Argument& arg);
     void add_file(const File& file);
+    void set_files(const Files& files);
     void set_stdin(const STDStream& stdin);
 
     // guest-preload.cpp
@@ -409,6 +414,7 @@ void HarnessConfiguration::write(boost::property_tree::ptree& config) const
                 file_node.put("<xmlattr>.path", file.path.string());
                 file_node.put("<xmlattr>.size", file.size);
                 file_node.put("<xmlattr>.concolic", file.concolic);
+                file_node.put("<xmlattr>.argv_index", file.argv_index);
             }
     }
 
@@ -459,6 +465,12 @@ inline
 void HarnessConfiguration::add_file(const File& file)
 {
     files_.push_back(file);
+}
+
+inline
+void HarnessConfiguration::set_files(const Files& files)
+{
+    files_ = files;
 }
 
 inline
@@ -573,7 +585,8 @@ void HarnessConfiguration::load_file(const boost::property_tree::ptree& config_t
         file.path = executable_ / file.path;
     }
 
-    file.concolic= config_tree.get<bool>("<xmlattr>.concolic", false);
+    file.concolic = config_tree.get<bool>("<xmlattr>.concolic", false);
+    file.argv_index = config_tree.get<uint8_t>("<xmlattr>.argv_index", 0);
 
     try {
         // Exsits and is regular file
@@ -597,20 +610,44 @@ void HarnessConfiguration::load_file(const boost::property_tree::ptree& config_t
 
     files_.push_back(file);
 
-    // Append full path of the file to the argument list
-    Argument arg;
-
-    arg.index = arguments_.size() + 1;
-    if(file.concolic)
+    // Adjust argv for file
+    // 1. when file.argv_index is 0, add a new argv pointing to the file
+    // 2. when file.arg_index is given, set the corresponding argv
+    if(file.argv_index == 0)
     {
-        arg.value = fs::path(CRETE_RAMDISK_PATH / file.path.filename()).string();
-    } else {
-        arg.value = file.path.string();
-    }
-    arg.size = arg.value.size();
-    arg.concolic = false;
+        Argument arg;
 
-    arguments_.push_back(arg);
+        arg.index = arguments_.size() + 1;
+        if(file.concolic)
+        {
+            // xxx: convention on the path to concolic file should stay consistent with
+            //      run_preload.cpp::crete_make_cocolic_file()
+            arg.value = fs::path(CRETE_RAMDISK_PATH / file.path.filename()).string();
+        } else {
+            arg.value = file.path.string();
+        }
+        arg.size = arg.value.size();
+        arg.concolic = false;
+
+        arguments_.push_back(arg);
+    } else {
+        assert(file.argv_index <= arguments_.size());
+
+        Argument& arg = arguments_[file.argv_index - 1];
+        assert(arg.index == file.argv_index);
+
+        if(file.concolic)
+        {
+            // xxx: convention on the path to concolic file should stay consistent with
+            //      run_preload.cpp::crete_make_cocolic_file()
+            arg.value = fs::path(CRETE_RAMDISK_PATH / file.path.filename()).string();
+        } else {
+            arg.value = file.path.string();
+        }
+
+        arg.size = arg.value.size();
+        arg.concolic = false;
+    }
 }
 
 inline
