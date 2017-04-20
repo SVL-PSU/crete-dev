@@ -221,6 +221,7 @@ bool CreteTest::gen_crete_test(bool inject_one_concolic)
     } else {
         crete::config::Arguments args = m_crete_config.get_arguments();
 
+        /*
         for(crete::config::Arguments::iterator it = args.begin();
                 it != args.end(); ++it) {
             // make all arguments as concolic, except:
@@ -243,6 +244,7 @@ bool CreteTest::gen_crete_test(bool inject_one_concolic)
 
             contains_concolic_element = true;
         }
+        */
 
         const crete::config::Files& files = m_crete_config.get_files();
         crete::config::Files concolic_files;
@@ -507,7 +509,8 @@ void CreteTests::parse_cmdline_tests(const char *input_file)
             if(tokenized[i][j].find('-') == 0 || tokenized[i][j].find('/') != string::npos) {
                 pattern << tokenized[i][j] << ' ';
             } else {
-                pattern << "xxx" << ' ';
+//                pattern << "xxx" << ' ';
+                pattern << tokenized[i][j] << ' ';
             }
 
             all_str << tokenized[i][j] << ' ';
@@ -516,6 +519,8 @@ void CreteTests::parse_cmdline_tests(const char *input_file)
         if(m_crete_tests.find(pattern.str()) == m_crete_tests.end()) {
             assert(!m_outputDirectory.empty());
             m_crete_tests[pattern.str()] = CreteTest();
+        } else {
+            fprintf(stderr, "duplicated pattern: %s\n", pattern.str().c_str());
         }
 
         m_crete_tests[pattern.str()].add_seed(all_str.str());
