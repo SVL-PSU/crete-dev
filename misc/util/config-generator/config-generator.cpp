@@ -20,7 +20,13 @@ namespace fs = boost::filesystem;
 
 const static map<string, string> target_exe_guest_path = {
         {"ffprobe", "/home/test/tests/ffmpeg-3.1.2/ffprobe"},
-        {"ffmpeg", "/home/test/tests/ffmpeg-3.1.2/ffmpeg"}
+        {"ffmpeg", "/home/test/tests/ffmpeg-3.1.2/ffmpeg"},
+        {"GenFfs", "/home/test/tests/build/bin/GenFfs"},
+        {"GenFv","/home/test/tests/build/bin/GenFv"},
+        {"GenFw", "/home/test/tests/build/bin/GenFw"},
+        {"GenSec", "/home/test/tests/build/bin/GenSec"},
+        {"LzmaCompress", "/home/test/tests/build/bin/LzmaCompress"},
+        {"VfrCompile", "/home/test/tests/build/bin/VfrCompile"}
 };
 
 // Potential usage:
@@ -28,12 +34,19 @@ const static map<string, string> target_exe_guest_path = {
 //      2. fetch concrete value of symbolic file to make seed test case
 const static map<string, string> target_exe_host_path = {
         {"ffprobe", "/home/chenbo/crete/ffmpeg-test/coverage/ffmpeg-3.1.2"},
-        {"ffpmpeg", "/home/chenbo/crete/ffmpeg-test/coverage/ffmpeg-3.1.2"}
+        {"ffpmpeg", "/home/chenbo/crete/ffmpeg-test/coverage/ffmpeg-3.1.2"},
+        {"GenFfs", "/home/chenbo/crete/replay-evals/edk2/BaseTools/Source/C/bin/GenFfs"},
+        {"GenFv", "/home/chenbo/crete/replay-evals/edk2/BaseTools/Source/C/bin/GenFv"},
+        {"GenFw", "/home/chenbo/crete/replay-evals/edk2/BaseTools/Source/C/bin/GenFw"},
+        {"GenSec", "/home/chenbo/crete/replay-evals/edk2/BaseTools/Source/C/bin/GenSec"},
+        {"LzmaCompress", "/home/chenbo/crete/replay-evals/edk2/BaseTools/Source/C/bin/LzmaCompress"},
+        {"VfrCompile", "/home/chenbo/crete/replay-evals/edk2/BaseTools/Source/C/bin/VfrCompile"}
 };
 
 const static vector<string> ffmpeg_file_prefix = {
         {"tests/"},
-        {"fate-suite/"}
+        {"fate-suite/"},
+        {"/home/chenbo/crete/replay-evals/edk2/Build/"}
 };
 
 const static string seed_dir_name = "seeds";
@@ -131,9 +144,9 @@ static void split_seed_into_args_and_files(const string& seed_string,
         if(match_ffmpeg_file_prefix(seed[i]))
         {
             files.push_back(seed[i]);
-        } else {
-            args.push_back(seed[i]);
         }
+
+        args.push_back(seed[i]);
     }
 }
 
@@ -171,8 +184,10 @@ void CreteTest::print_all_seeds() const
     }
 }
 
-void CreteTest::gen_crete_test(bool inject_one_concolic)
+bool CreteTest::gen_crete_test(bool inject_one_concolic)
 {
+    bool contains_concolic_element = false;
+
     gen_config();
     consistency_check();
 //    print_all_seeds();
@@ -200,13 +215,18 @@ void CreteTest::gen_crete_test(bool inject_one_concolic)
 
             // Reset to the original arg
             m_crete_config.set_argument(*it);
+
+            contains_concolic_element = true;
         }
     } else {
         crete::config::Arguments args = m_crete_config.get_arguments();
 
         for(crete::config::Arguments::iterator it = args.begin();
                 it != args.end(); ++it) {
-            if(it->value.find('-') == 0)
+            // make all arguments as concolic, except:
+            // 1. start with "-" (functionality specifier)
+            // 2. start with or contain "/" (path)
+            if(it->value.find('-') == 0 || it->value.find('/') != string::npos)
                 continue;
 
             crete::config::Argument current_arg = *it;
@@ -220,10 +240,40 @@ void CreteTest::gen_crete_test(bool inject_one_concolic)
 
             current_arg.concolic = true;
             m_crete_config.set_argument(current_arg);
+
+            contains_concolic_element = true;
         }
 
-        gen_crete_test_internal();
+        const crete::config::Files& files = m_crete_config.get_files();
+        crete::config::Files concolic_files;
+
+        // Make all files as concolic and adjust args for concolic files
+        for(uint64_t i = 0; i < files.size(); ++i)
+        {
+            crete::config::File concolic_file = files[i];
+            concolic_file.concolic = true;
+            concolic_file.path = CRETE_RAMDISK_PATH / files[i].path.filename();
+            concolic_files.push_back(concolic_file);
+
+            crete::config::Argument arg;
+            assert(concolic_file.argv_index <= m_crete_config.get_arguments().size());
+            assert(concolic_file.argv_index != 0);
+
+            arg.concolic = false;
+            arg.index = concolic_file.argv_index;
+            arg.value = concolic_file.path.string();
+            arg.size = arg.value.size();
+            m_crete_config.set_argument(arg);
+
+            contains_concolic_element = true;
+        }
+        m_crete_config.set_files(concolic_files);
+
+        if(contains_concolic_element)
+            gen_crete_test_internal();
     }
+
+    return contains_concolic_element;
 }
 
 void CreteTest::set_outputDir(string outputDirectory)
@@ -309,10 +359,8 @@ void CreteTest::gen_config()
     const string target_path = target_exe_guest_path.find(exec_name)->second;
     m_crete_config.set_executable(target_path);
 
-    // 2. add arguments: skip the executable itself
-    for(uint64_t j = 1; j < args.size(); ++j){
-        assert(!match_ffmpeg_file_prefix(args[j]));
-
+    // 2. add arguments and file: skip the executable itself
+    for(uint64_t j = 1, file_index = 0; j < args.size(); ++j){
         config::Argument arg;
         arg.index = j;
         arg.size = args[j].size();
@@ -326,35 +374,35 @@ void CreteTest::gen_config()
         arg.value.resize(arg.size, 0);
 
         m_crete_config.add_argument(arg);
-    }
 
-    // 3. add files
-    for(uint64_t j = 0; j < files.size(); ++j){
-        assert(match_ffmpeg_file_prefix(files[j]));
-
-        config::File config_file;
-
-#if defined(CONCOLIC_FILE) || 1
-        config_file.path = CRETE_RAMDISK_PATH / fs::path(files[j]).filename();
-        config_file.concolic = true;
-#else
-        config_file.path = files[j];
-        config_file.concolic = false;
-#endif
-
-        config_file.size = get_max_seed_file_size(j);
-
-        //XXX: impose minimum concolic file size 8 bytes
-        if(config_file.size < 8)
+        if(match_ffmpeg_file_prefix(args[j]))
         {
-            config_file.size = 8;
-        }
-        config_file.data.clear();
+            assert(file_index < files.size());
+            assert(arg.value.find(files[file_index]) != string::npos);
 
-        m_crete_config.add_file(config_file);
+            config::File config_file;
+
+            config_file.path = files[file_index];
+            config_file.concolic = false;
+
+            config_file.size = get_max_seed_file_size(file_index);
+
+            //XXX: impose minimum concolic file size 8 bytes
+            if(config_file.size < 8)
+            {
+                config_file.size = 8;
+            }
+            config_file.data.clear();
+
+            config_file.argv_index = arg.index;
+
+            m_crete_config.add_file(config_file);
+
+            ++file_index;
+        }
     }
 
-    // 4. Impose concrete stdin
+    // 3. Impose concrete stdin
     config::STDStream config_stdin;
     config_stdin.concolic = false;
     config_stdin.size = 1;
@@ -456,7 +504,7 @@ void CreteTests::parse_cmdline_tests(const char *input_file)
         pattern << exe_name << ' ';
         all_str << exe_name << ' ';
         for(uint64_t j = 1; j < tokenized[i].size(); ++j) {
-            if(tokenized[i][j].find('-') == 0) {
+            if(tokenized[i][j].find('-') == 0 || tokenized[i][j].find('/') != string::npos) {
                 pattern << tokenized[i][j] << ' ';
             } else {
                 pattern << "xxx" << ' ';
@@ -695,8 +743,8 @@ void CreteTest::gen_crete_test_seeds(fs::path seeds_folder) const
         seed_set.insert(tc);
     }
 
-    fprintf(stderr, "gen_crete_test_seeds(): m_seeds_map.size() = %lu, seed_set.size() = %lu\n",
-            m_seeds_map.size(), seed_set.size());
+//    fprintf(stderr, "gen_crete_test_seeds(): m_seeds_map.size() = %lu, seed_set.size() = %lu\n",
+//            m_seeds_map.size(), seed_set.size());
 
     uint64_t seed_count = 1;
     for(set<crete::TestCase>::iterator it = seed_set.begin();
@@ -712,7 +760,13 @@ void CreteTests::gen_crete_tests(bool inject_one_concolic)
 {
     for(map<string, CreteTest>::iterator it = m_crete_tests.begin();
             it != m_crete_tests.end(); ++it) {
-        it->second.gen_crete_test(inject_one_concolic);
+        bool ret = it->second.gen_crete_test(inject_one_concolic);
+
+        if(!ret)
+        {
+            fprintf(stderr, "Not generate crete-config for current pattern: no concolic elements!\n"
+                    "pattern: %s\n", it->first.c_str());
+        }
     }
 }
 
@@ -1152,7 +1206,7 @@ void CreteTests::gen_crete_tests_coreutils_grep_diff(string suite_name)
         for(set<string>::const_iterator it = baseTools.begin();
                 it != baseTools.end(); ++ it) {
             map<string, const ExprSetup>::const_iterator special_setup_it =  baseTool_setups.find(*it);
-            if( special_setup_it != coreutil_klee_osdi_special.end())
+            if( special_setup_it != baseTool_setups.end())
             {
                 parsed_configs = special_setup_it->second.get_ParsedSymArgs();
             } else {
@@ -1220,8 +1274,8 @@ po::options_description CreteConfig::make_options()
 
     desc.add_options()
             ("help,h", "displays help message")
-            ("suite,s", po::value<string>(), "generate configurations for suite: klee, dase, ffmpeg")
-            ("path,p", po::value<fs::path>(), "input file with sample commandline invocation for generating configs, required for ffmpeg")
+            ("suite,s", po::value<string>(), "generate configurations for suite: klee, dase, basetools, parse-cmd")
+            ("path,p", po::value<fs::path>(), "input file with sample commandline invocation for generating configs, required for parse-cmd")
         ;
 
     return desc;
@@ -1271,7 +1325,7 @@ void CreteConfig::process_options()
         {
             CreteTests crete_tests(NULL);
             crete_tests.gen_crete_tests_coreutils_grep_diff("basetools");
-        } else if (m_suite_name == "ffmpeg")
+        } else if (m_suite_name == "parse-cmd")
         {
             assert(m_var_map.count("path"));
             fs::path input_path =  m_var_map["path"].as<fs::path>();
