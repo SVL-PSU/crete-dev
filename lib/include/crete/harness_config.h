@@ -582,7 +582,7 @@ void HarnessConfiguration::load_file(const boost::property_tree::ptree& config_t
     file.path = config_tree.get<fs::path>("<xmlattr>.path");
     // Make relative path absolute
     if(file.path.string().find('/') != 0) {
-        file.path = executable_ / file.path;
+        file.path = executable_.parent_path() / file.path;
     }
 
     file.concolic = config_tree.get<bool>("<xmlattr>.concolic", false);
