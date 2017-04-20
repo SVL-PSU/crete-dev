@@ -24,7 +24,7 @@ public:
     uint64_t get_seed_size() const;
     void print_all_seeds() const;
 
-    void gen_crete_test(bool inject_one_concolic);
+    bool gen_crete_test(bool inject_one_concolic);
     void set_outputDir(string outputDirectory);
 
 private:
