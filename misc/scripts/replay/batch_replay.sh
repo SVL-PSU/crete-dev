@@ -124,7 +124,7 @@ main()
             printf "[W/O sandbox] executing $target_prog with tc from \'$test_case_dir\'...\n"
             $CRETE_BIN_DIR/crete-tc-replay -e $PROG_DIR/$target_prog \
                                            -c $config_file_path \
-                                           -t $test_case_dir >> crete-coverage-progress.log
+                                           -t $test_case_dir -l >> crete-coverage-progress.log
         else
             if [ ! -d  $SANDBOX ]; then
                 printf "$SANDBOX does not exists\n"
@@ -164,6 +164,7 @@ main()
     printf "4. generating coverage report... \n"
     lcov --directory $LCOV_DIR --capture --output-file lcov.info --rc lcov_branch_coverage=1 >> lcov.log
     genhtml lcov.info -o html --function-coverage --rc lcov_branch_coverage=1 >> lcov.log
+    genhtml lcov.info -o html --function-coverage --rc lcov_branch_coverage=1 --ignore-errors source >> lcov.log
 
     $PARSEGCOVCMD $PROG_DIR &> result_gcov.org
 
