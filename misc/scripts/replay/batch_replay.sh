@@ -69,7 +69,8 @@ main()
     cd $foldername
 
     printf "1. Cleanup old coverage info...\n"
-    lcov --directory $LCOV_DIR --zerocounters
+    real_lcov_dir=$(readlink -m $LCOV_DIR)
+    lcov --directory $real_lcov_dir --zerocounters
 
     printf "2. execute all test cases in folder $DISPATCH_OUT_DIR ...\n"
     init_sandbox=true
@@ -162,8 +163,8 @@ main()
     grep -c -w "Replay Timeout"  crete.replay.log
 
     printf "4. generating coverage report... \n"
-    lcov --directory $LCOV_DIR --capture --output-file lcov.info --rc lcov_branch_coverage=1 >> lcov.log
-    genhtml lcov.info -o html --function-coverage --rc lcov_branch_coverage=1 >> lcov.log
+
+    lcov --directory $real_lcov_dir --no-external --capture --output-file lcov.info --rc lcov_branch_coverage=1 >> lcov.log
     genhtml lcov.info -o html --function-coverage --rc lcov_branch_coverage=1 --ignore-errors source >> lcov.log
 
     $PARSEGCOVCMD $PROG_DIR &> result_gcov.org
