@@ -453,7 +453,7 @@ void RunnerFSM_::load_defaults(const poll&)
 }
 
 static unsigned monitored_pid = 0;
-static unsigned monitored_timeout = 60;
+static unsigned monitored_timeout = 300;
 
 static void timeout_handler(int signum)
 {
