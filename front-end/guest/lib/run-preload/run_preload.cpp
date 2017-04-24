@@ -288,6 +288,14 @@ static inline void init_crete_signal_handlers(void)
     __INIT_CRETE_SIGNAL_HANDLER(SIGUSR1);
 }
 
+// ********************************************************* //
+// special hooks
+#include <string.h>
+int strcasecmp (__const char *__s1, __const char *__s2)
+{
+    return strcmp(__s1, __s2);
+}
+
 extern "C" {
     // The type of __libc_start_main
     typedef int (*__libc_start_main_t)(
