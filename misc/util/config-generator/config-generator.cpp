@@ -972,96 +972,115 @@ const map<string, const ExprSetup> coreutil_klee_osdi_special {
 
 // ========== basetool setup ===============
 const static set<string> baseTools = {
-        "BootSectImage", "EfiRom", "GenFfs", "GenFw", "GenSec", "GnuGenBootSector",
+//        "BootSectImage",
+        "EfiRom", "GenFfs", "GenFw", "GenSec", "GnuGenBootSector",
         "Split", "VfrCompile", "EfiLdrImage", "GenCrc32", "GenFv", "GenPage", "GenVtf",
-        "LzmaCompress", "TianoCompress", "VolInfo"
+//        "LzmaCompress",
+        "TianoCompress",
+        "VolInfo"
         };
 
-// BootSectImage: --sym-args 0 2 2 -sym-files 1 10k
+// ************ Special setup **************
+// BootSectImage: --sym-args 0 1 16 --sym-args 0 4 2 -sym-files 2 10k
 const ExprSetup BASEtOOL_SETUP_BootSectImage(
-        SymArgsConfig(0, 2, 2),
-        vector<uint64_t>(1, 10240),
-        8);
-// (BootSectImage: --sym-args 0 1 10 --sym-args 0 2 2 -sym-files 2 10k)
-// EfiLdrImage: --sym-args 0 3 2 -sym-files 2 10k
-const ExprSetup BASEtOOL_SETUP_EfiLdrImage(
-        SymArgsConfig(0, 3, 2),
+        SymArgsConfig(0, 1, 16),
+        SymArgsConfig(0, 4, 2),
         vector<uint64_t>(2, 10240),
         8);
-// (EfiLdrImage: --sym-args 0 1 10 --sym-args 0 2 2 -sym-files 2 10k)
 
-// EfiRom: --sym-args 0 4 8 -sym-files 1 10k
+// EfiLdrImage: --sym-args 0 1 16 --sym-args 0 4 2 -sym-files 2 10k
+const ExprSetup BASEtOOL_SETUP_EfiLdrImage(
+        SymArgsConfig(0, 1, 16),
+        SymArgsConfig(0, 4, 2),
+        vector<uint64_t>(2, 10240),
+        8);
+
+// ************ normal setup **************
+// --sym-args 0 1 16 --sym-args 0 4 2 -sym-files 1 10k
+// EfiRom: --sym-args 0 1 16 --sym-args 0 4 2 -sym-files 1 10k
 const ExprSetup BASEtOOL_SETUP_EfiRom(
-        SymArgsConfig(0, 4, 8),
+        SymArgsConfig(0, 1, 16),
+        SymArgsConfig(0, 4, 2),
         vector<uint64_t>(1, 10240),
         8);
-//( EfiRom: --sym-args 1 1 2 --sym-args 1 1 8 --sym-args 1 1 2 --sym-args 1 1 8 \
-//         --sym-args 2 2 2 -sym-files 1 10k)
 
-// GenCrc32:  --sym-args 0 3 2 -sym-files 1 10k
+// GenCrc32: --sym-args 0 1 16  --sym-args 0 4 2 -sym-files 1 10k
 const ExprSetup BASEtOOL_SETUP_GenCrc32(
-        SymArgsConfig(0, 3, 2),
+        SymArgsConfig(0, 1, 16),
+        SymArgsConfig(0, 4, 2),
         vector<uint64_t>(1, 10240),
         8);
 
-// GenFfs:  --sym-args 0 10 2 -sym-files 1 10k
+// GenFfs:  --sym-args 0 1 16  --sym-args 0 4 2 -sym-files 1 10k
 const ExprSetup BASEtOOL_SETUP_GenFfs(
-        SymArgsConfig(0, 10, 2),
+        SymArgsConfig(0, 1, 16),
+        SymArgsConfig(0, 4, 2),
         vector<uint64_t>(1, 10240),
         8);
-// GenFv:  --sym-args 0 10 2 -sym-files 1 10k
+// GenFv: --sym-args 0 1 16 --sym-args 0 4 2 -sym-files 1 10k
 const ExprSetup BASEtOOL_SETUP_GenFv(
-        SymArgsConfig(0, 10, 2),
+        SymArgsConfig(0, 1, 16),
+        SymArgsConfig(0, 4, 2),
         vector<uint64_t>(1, 10240),
         8);
-// GenFw:  --sym-args 0 10 2 -sym-files 1 10k
+// GenFw:  --sym-args 0 1 16 --sym-args 0 4 2 -sym-files 1 10k
 const ExprSetup BASEtOOL_SETUP_GenFw(
-        SymArgsConfig(0, 10, 2),
+        SymArgsConfig(0, 1, 16),
+        SymArgsConfig(0, 4, 2),
         vector<uint64_t>(1, 10240),
         8);
-// GenPage:  --sym-args 0 10 2 -sym-files 1 10k
+// GenPage:  --sym-args 0 1 16 --sym-args 0 4 2 -sym-files 1 10k
 const ExprSetup BASEtOOL_SETUP_GenPage(
-        SymArgsConfig(0, 10, 2),
+        SymArgsConfig(0, 1, 16),
+        SymArgsConfig(0, 4, 2),
         vector<uint64_t>(1, 10240),
         8);
-// GenSec:  --sym-args 0 10 2 -sym-files 1 10k
+// GenSec: --sym-args 0 1 16 --sym-args 0 4 2 -sym-files 1 10k
 const ExprSetup BASEtOOL_SETUP_GenSec(
-        SymArgsConfig(0, 10, 2),
+        SymArgsConfig(0, 1, 16),
+        SymArgsConfig(0, 4, 2),
         vector<uint64_t>(1, 10240),
         8);
-// GenVtf:  --sym-args 0 10 2 -sym-files 1 10k
+// GenVtf: --sym-args 0 1 16 --sym-args 0 4 2 -sym-files 1 10k
 const ExprSetup BASEtOOL_SETUP_GenVtf(
-        SymArgsConfig(0, 10, 2),
+        SymArgsConfig(0, 1, 16),
+        SymArgsConfig(0, 4, 2),
         vector<uint64_t>(1, 10240),
         8);
-// GnuGenBootSector: --sym-args 0 10 2 -sym-files 1 10k
+// GnuGenBootSector: --sym-args 0 1 16 --sym-args 0 4 2 -sym-files 1 10k
 const ExprSetup BASEtOOL_SETUP_GnuGenBootSector(
-        SymArgsConfig(0, 10, 2),
+        SymArgsConfig(0, 1, 16),
+        SymArgsConfig(0, 4, 2),
         vector<uint64_t>(1, 10240),
         8);
-// LzmaCompress: --sym-args 0 6 2 -sym-files 1 10k
+// LzmaCompress: --sym-args 0 1 16 --sym-args 0 4 2 -sym-files 1 10k
 const ExprSetup BASEtOOL_SETUP_LzmaCompress(
-        SymArgsConfig(0, 6, 2),
+        SymArgsConfig(0, 1, 16),
+        SymArgsConfig(0, 4, 2),
         vector<uint64_t>(1, 10240),
         8);
-// Split: --sym-args 0 6 2 -sym-files 1 10k
+// Split: --sym-args 0 1 16 --sym-args 0 4 2 -sym-files 1 10k
 const ExprSetup BASEtOOL_SETUP_Split(
-        SymArgsConfig(0, 6, 2),
+        SymArgsConfig(0, 1, 16),
+        SymArgsConfig(0, 4, 2),
         vector<uint64_t>(1, 10240),
         8);
-// TianoCompress: --sym-args 0 6 2 -sym-files 1 10k
+// TianoCompress: --sym-args 0 1 16 --sym-args 0 4 2 -sym-files 1 10k
 const ExprSetup BASEtOOL_SETUP_TianoCompress(
-        SymArgsConfig(0, 6, 2),
+        SymArgsConfig(0, 1, 16),
+        SymArgsConfig(0, 4, 2),
         vector<uint64_t>(1, 10240),
         8);
-// VfrCompile: --sym-args 0 6 2 -sym-files 1 10k
+// VfrCompile: --sym-args 0 1 16 --sym-args 0 4 2 -sym-files 1 10k
 const ExprSetup BASEtOOL_SETUP_VfrCompile(
-        SymArgsConfig(0, 6, 2),
+        SymArgsConfig(0, 1, 16),
+        SymArgsConfig(0, 4, 2),
         vector<uint64_t>(1, 10240),
         8);
-// VolInfo: --sym-args 0 1 10 --sym-args 0 2 2 -sym-files 1 10k
+// VolInfo: --sym-args 0 1 16 --sym-args 0 4 2 -sym-files 1 10k
 const ExprSetup BASEtOOL_SETUP_VolInfo(
-        SymArgsConfig(0, 6, 2),
+        SymArgsConfig(0, 1, 16),
+        SymArgsConfig(0, 4, 2),
         vector<uint64_t>(1, 10240),
         8);
 
