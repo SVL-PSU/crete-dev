@@ -97,6 +97,9 @@ main()
             continue
         fi
 
+        # execute the program without argument
+        eval $PROG_DIR/$target_prog
+
         # execute all the test cases from the current subfolder with target_prog
         if [ -d  $f/test-case-parsed ]; then
             # replay under the folder structure of dispatch
