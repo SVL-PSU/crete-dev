@@ -1,4 +1,5 @@
-#CRETE User Guide
+# CRETE User Guide
+
 
 [![Build Status](https://travis-ci.org/SVL-PSU/crete-dev.svg?branch=master)](https://travis-ci.org/SVL-PSU/crete-dev)
 
@@ -32,44 +33,84 @@ for the host OS. While various guest OS should work, only
 and [Debian-7.11.0-i386](http://cdimage.debian.org/cdimage/archive/7.11.0/i386/iso-cd/debian-7.11.0-i386-netinst.iso)
 have been tested.
 
-## 2. Installing CRETE from Debian Package
+## 2. Building CRETE
 
-Install the following dependencies at first:
-```bash
-$ sudo add-apt-repository ppa:ubuntu-toolchain-r/test
-$ sudo apt-get update
-$ sudo apt-get install build-essential libaio1 librbd1 libsdl1.2debian
-$ sudo apt-get install --only-upgrade libstdc++6
-```
-Install CRETE from debian packages:
-```bash
-$ sudo dpkg -i crete-0.1.1-amd64.deb crete-native-qemu-0.1.1-amd64.deb
-```
-Pakcage __crete-0.1.1-amd64.deb__ provides executables and libraries of
-CRETE. Package __crete-native-qemu-0.1.1-amd64.deb__ contains a native qemu that
-provides execution dependency and creates tests for CRETE.
+### 2.1 Dependencies
 
-On some architectures, you might also need to set the following environment
-variables (best to put them in a config file like .bashrc):
+The following apt-get packages are required:
 ```bash
-$ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
+sudo apt-get update
+sudo apt-get install build-essential libcap-dev flex bison cmake libelf-dev git libtool libpixman-1-dev minisat zlib1g-dev libglib2.0-dev
 ```
 
-CRETE can be removed by:
+LLVM 3.4 is also required to build CRETE, and the LLVM packages provided by LLVM
+itself is recommended. Please check [LLVM Package
+Repository](http://apt.llvm.org/) for details. For the recent Ubuntu (≥ 12.04
+and ≤ 15.10, e.g. 14.04 LTS) or Debian, please use the following instructions to
+install LLVM 3.4:
 ```bash
-$ sudo apt-get remove crete crete-native-qemu
+echo "deb http://llvm.org/apt/trusty/ llvm-toolchain-trusty-3.4 main" | sudo tee -a /etc/apt/sources.list
+echo "deb-src http://llvm.org/apt/trusty/ llvm-toolchain-trusty-3.4 main" | sudo tee -a /etc/apt/sources.list
+wget -O - http://llvm.org/apt/llvm-snapshot.gpg.key|sudo apt-key add -
+sudo apt-get update
+sudo apt-get install clang-3.4 llvm-3.4 llvm-3.4-dev llvm-3.4-tools
 ```
+
+### 2.2 Building
+>#### Warning
+>
+> CRETE uses Boost 1.59.0. If any other version of Boost is installed on the system, there may be conflicts. It is recommended that you remove any conflicting Boost versions.
+>
+>#### Note
+> CRETE requires a C++11 compatible compiler.
+> We recommend clang++-3.4 or g++-4.9 or higher versions of these compilers.
+
+Grab a copy of the source tree:
+```bash
+git clone --recursive https://github.com/SVL-PSU/crete-dev.git crete
+```
+
+From outside of CRETE's top-level directory:
+```bash
+mkdir crete-build
+cd crete-build
+CXX=clang++-3.4 cmake ../crete
+make # use -j to speedup
+```
+
+### 2.3 Misc Setup
+
+As documented on the STP and KLEE website, it is essential to setup the limit
+on open files and stack size. In most cases, the hard limit will have to be
+increased first, so it is best to directly edit the /etc/security/limits.conf
+file. For example, add the following lines to limits.config.
+```bash
+* soft stack unlimited
+* hard stack unlimited
+* soft nofile 65000
+* hard nofile 65000
+```
+
+If you like, you can add the executables and libraries to your .bashrc file:
+```bash
+echo '# Added by CRETE' >> ~/.bashrc
+echo export PATH='$PATH':`readlink -f ./bin` >> ~/.bashrc
+echo export LD_LIBRARY_PATH='$LD_LIBRARY_PATH':`readlink -f ./bin` >> ~/.bashrc
+echo export LD_LIBRARY_PATH='$LD_LIBRARY_PATH':`readlink -f ./bin/boost` >> ~/.bashrc
+source ~/.bashrc
+```
+
+At this point, you're all set!
 
 ## 3. Preparing the Guest Operating System
 >#### Note
-
 > You may skip this section by using a prepared VM image
   [crete-demo.img](http://svl13.cs.pdx.edu/crete-demo.img). This image has
   Ubuntu-14.04.5-server-amd64 installed as the Guest OS along with all CRETE
   guest utilities.
-
+>
 > Root username: __test__
-
+>
 > Password: __crete__
 
 The front-end of CRETE is an instrumented VM (crete-qemu). You need
@@ -113,7 +154,7 @@ $ crete-native-qemu-system-x86_64 -hda <img-name>.img -m <memory> -k en-us -enab
 Where &lt;memory&gt; is the amount of RAM (megabytes), &lt;img-name&gt; is the name of the image.
 
 >#### Note
-
+>
 >If Booting Ubuntu 12.04 hangs, first boot to recovery mode, then resume to
  normal boot. This is likely caused by driver display problems in Ubuntu.
 
@@ -161,50 +202,50 @@ echo 'export LD_BIND_NOW=1'  | sudo tee --append /etc/sysctl.conf
 Now, the guest OS is all set for using CRETE.
 
 >### Tips for Using QEMU
-When QEMU is running, it provides a monitor console for interacting with
+>When QEMU is running, it provides a monitor console for interacting with
 QEMU. The monitor can be accessed from within QEMU by using the hotkey
 combinations _ctrl+alt+2_, while _ctrl+alt+1_ allows you to switch back to the
 Guest OS. One of the most useful functionality of the monitor is saving and
 loading shopshots.
-
->####Save Snapshot
+>
+>#### Save Snapshot
 >Swith to monitor by pressing _ctrl+alt+2_ and use command:
-```bash
-$ savevm <snapshot-name>
-```
+>```bash
+>$ savevm <snapshot-name>
+>```
 >Where &lt;snapshot-name&gt; is the name you want to identify the snapshot by.
-
->####Load Snapshot
+>
+>#### Load Snapshot
 >To load a snapshot while launching QEMU from the host OS:
-```bash
-$ crete-native-qemu-system-x86_64 -hda <img-name>.img -m <memory> -k en-us -loadvm <snapshot-name>
-```
+>```bash
+>$ crete-native-qemu-system-x86_64 -hda <img-name>.img -m <memory> -k en-us -loadvm <snapshot-name>
+>```
 >Note that the boot command of QEMU that loads a snopshot has to stay consistant with
 the boot command of QEMU while saving snopshot, such as using the same <memory>
 on the same image. Also, saving and loading snapshots cannot be done across
 non-kvm and kvm modes.
-
+>
 >#### File Transfer Between the Guest and Host OS
-
+>
 >The simplest way to transfer files to and from the guest OS is with the _scp_ command.
-
+>
 >The host OS has a special address in the guest OS: **10.0.2.2**
-
+>
 >Here's an example that copies a file from the host to the guest:
-```bash
-scp <host-user-name>@10.0.2.2:<path-to-source-file> <path-to-destination-file>
-```
+>```bash
+>scp <host-user-name>@10.0.2.2:<path-to-source-file> <path-to-destination-file>
+>```
 >#### Gracefully Closing the VM
 >When working with snapshots, it's often easiest to save a snapshot and close
  the VM from the monitor console rather than resorting to killing it or shutting
  it down. To gracefully close the VM:
-```
-ctrl+alt+2
-q
-<enter>
-```
+>```
+>ctrl+alt+2
+>q
+><enter>
+>```
 >Where &lt;enter&gt; means depress the _Enter_ key on your keyboard.
-
+>
 >#### Warning
 >Try to aviod running more than one VM instance on a given image at a time, as
 it may cause image corruption.
@@ -216,7 +257,7 @@ prepared for CRETE. Also, I will use __echo__ from _GNU CoreUtils_ as the target
 binary under test.
 
 ### 4.1 Setting-up the Test on the Guest OS
-####Provide a configuration file for the target binary
+#### Provide a configuration file for the target binary
 Boot the VM image using native qemu without kvm-enabled first by:
 ```bash
 $ crete-native-qemu-system-x86_64 -hda crete-demo.img -m 256 -k en-us
@@ -274,7 +315,7 @@ CRETE back-end has three parts: _crete-vm-node_, for managing VM instances,
 _crete-svm-node_, for managing symbolic VM instances, and _crete-dispatch_, for
 coordinating the whole process.
 
-####Start crete-dispatch on the Host OS:
+#### Start crete-dispatch on the Host OS:
 A sample configuration file, _crete.dispatch.xml_, for _crete-dispatch_ is:
 ```xml
 <crete>
@@ -312,7 +353,7 @@ Start _crete-dispatch_ with the sample configuration file:
 ```bash
 $ crete-dispatch -c crete.dispatch.xml
 ```
-####Start crete-vm-node on the Host OS:
+#### Start crete-vm-node on the Host OS:
 A sample configuration file, _crete.vm-node.xml_, for _crete-vm-node_ is:
 ```xml
 <crete>
@@ -330,7 +371,7 @@ be started from the same folder where the _crete-qemu_ was started):
 ```bash
 $ crete-vm-node -c crete.vm-node.xml
 ```
-####Start crete-svm-node on the Host OS:
+#### Start crete-svm-node on the Host OS:
 A sample configuration file, _crete.svm-node.xml_, for _crete-svm-node_ is:
 ```xml
 <crete>
@@ -453,73 +494,3 @@ To resolve this, use the following command from the guest OS:
 ```bash
 $ sudo rm -rf /var/lib/apt/lists/*
 ```
-
-## 7. Building CRETE
-
-### 7.1 Dependencies
-
-The following apt-get packages are required:
-```bash
-sudo apt-get update
-sudo apt-get install build-essential libcap-dev flex bison cmake libelf-dev git libtool libpixman-1-dev minisat zlib1g-dev libglib2.0-dev
-```
-
-LLVM 3.4 is also required to build CRETE, and the LLVM packages provided by LLVM
-itself is recommended. Please check [LLVM Package
-Repository](http://apt.llvm.org/) for details. For the recent Ubuntu (≥ 12.04
-and ≤ 15.10, e.g. 14.04 LTS) or Debian, please use the following instructions to
-install LLVM 3.4:
-```bash
-echo "deb http://llvm.org/apt/trusty/ llvm-toolchain-trusty-3.4 main" | sudo tee -a /etc/apt/sources.list
-echo "deb-src http://llvm.org/apt/trusty/ llvm-toolchain-trusty-3.4 main" | sudo tee -a /etc/apt/sources.list
-wget -O - http://llvm.org/apt/llvm-snapshot.gpg.key|sudo apt-key add -
-sudo apt-get update
-sudo apt-get install clang-3.4 llvm-3.4 llvm-3.4-dev llvm-3.4-tools
-```
-
-### 7.2 Building
->#### Warning
-
-> CRETE uses Boost 1.59.0. If any other version of Boost is installed on the system, there may be conflicts. It is recommended that you remove any conflicting Boost versions.
-
->#### Note
-
-> CRETE requires a C++11 compatible compiler.
-> We recommend clang++-3.4 or g++-4.9 or higher versions of these compilers.
-
-Grab a copy of the source tree:
-```bash
-git clone --recursive https://github.com/SVL-PSU/crete-dev.git crete
-```
-
-From outside of CRETE's top-level directory:
-```bash
-mkdir crete-build
-cd crete-build
-CXX=clang++-3.4 cmake ../crete
-make # use -j to speedup
-```
-
-### 7.3 Misc Setup
-
-As documented on the STP and KLEE website, it is essential to setup the limit
-on open files and stack size. In most cases, the hard limit will have to be
-increased first, so it is best to directly edit the /etc/security/limits.conf
-file. For example, add the following lines to limits.config.
-```bash
-* soft stack unlimited
-* hard stack unlimited
-* soft nofile 65000
-* hard nofile 65000
-```
-
-If you like, you can add the executables and libraries to your .bashrc file:
-```bash
-echo '# Added by CRETE' >> ~/.bashrc
-echo export PATH='$PATH':`readlink -f ./bin` >> ~/.bashrc
-echo export LD_LIBRARY_PATH='$LD_LIBRARY_PATH':`readlink -f ./bin` >> ~/.bashrc
-echo export LD_LIBRARY_PATH='$LD_LIBRARY_PATH':`readlink -f ./bin/boost` >> ~/.bashrc
-source ~/.bashrc
-```
-
-At this point, you're all set!
