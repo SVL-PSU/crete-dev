@@ -280,6 +280,10 @@ private:
     crete::log::Logger exception_log_;
     log::NodeError error_log_;
 
+    std::chrono::time_point<std::chrono::system_clock> test_start_time_;
+    uint64_t test_timeout_duration_{600}; //Note: xxx this timeout should be longer than the timeout set in crete-run
+    bool is_test_timeout_{false};
+
     std::shared_ptr<GuestDataPostExec> guest_data_post_exec_{std::make_shared<GuestDataPostExec>()};
 
     // Testing
@@ -328,10 +332,13 @@ void QemuFSM_::exception_caught(Event const&,FSM& fsm,std::exception& e)
     // Cont: I could ad hoc it by keeping a history_ variable that I append to for each state, and condense to the last N.
     // Cont: history_ could be stored using boost::circular_buffer, or std::vector with a mod operator, to keep it's size down to N.
 
-    if(dispatch_options_.mode.distributed)
+    if(dispatch_options_.mode.distributed
+            && !fsm.is_test_timeout_) // FIXME: xxx "child_->acquire()->get_stdout().rdbuf()" will cause deadlock when child is not killed
     {
         ss << child_->acquire()->get_stdout().rdbuf();
     }
+
+    fsm.is_test_timeout_ = false;
 
     error_log_.log = ss.str();
 
@@ -788,6 +795,7 @@ struct QemuFSM_::start_test
         {
             fsm.server_->write(0,
                                packet_type::cluster_next_test);
+            fsm.test_start_time_ = std::chrono::system_clock::now();
         }
         catch(std::exception& e)
         {
@@ -1038,6 +1046,11 @@ struct QemuFSM_::is_vm_terminated
     }
 };
 
+static inline uint64_t eplapsed_time_in_second(const std::chrono::time_point<std::chrono::system_clock> &start_time)
+{
+    return std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - start_time).count();;
+}
+
 struct QemuFSM_::is_finished
 {
     template <class EVT,class FSM,class SourceState,class TargetState>
@@ -1048,6 +1061,10 @@ struct QemuFSM_::is_finished
         if(!process::is_running(pid)) // TODO: this covers the case where the VM died, but what about crete-run?
         {
             BOOST_THROW_EXCEPTION(VMException{} << err::process_exited{"pid_"});
+        } else if (eplapsed_time_in_second(fsm.test_start_time_) > fsm.test_timeout_duration_) {
+            fsm.is_test_timeout_ = true;
+            BOOST_THROW_EXCEPTION(VMException{} <<
+                    err::msg{"timeout in vm-node-fsm for a test, likely to be crete-run crash"});
         }
 
         auto trace_ready_sig = fsm.vm_dir_ / hostfile_dir_name / trace_ready_name;
