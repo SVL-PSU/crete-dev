@@ -98,7 +98,7 @@ main()
         fi
 
         # execute the program without argument
-        eval $PROG_DIR/$target_prog
+        timeout 5  $PROG_DIR/$target_prog
 
         # execute all the test cases from the current subfolder with target_prog
         if [ -d  $f/test-case-parsed ]; then
@@ -142,7 +142,7 @@ main()
                                                -t $test_case_dir         \
                                                -j $SANDBOX               \
                                                -v /home/chenbo/crete/crete-dev/front-end/guest/sandbox/env/klee-test.env \
-                                               >> crete-coverage-progress.log
+                                               -l >> crete-coverage-progress.log
             else
                 printf "[W/ sandbox and W/O init_sandbox] executing $target_prog with tc from \'$test_case_dir\'...\n"
                 $CRETE_BIN_DIR/crete-tc-replay -e $PROG_DIR/$target_prog \
@@ -150,7 +150,7 @@ main()
                                                -t $test_case_dir         \
                                                -j $SANDBOX               \
                                                -v /home/chenbo/crete/crete-dev/front-end/guest/sandbox/env/klee-test.env \
-                                               -n >> crete-coverage-progress.log
+                                               -n -l >> crete-coverage-progress.log
             fi
         fi
     done
