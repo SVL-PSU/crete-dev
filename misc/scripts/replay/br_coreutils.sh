@@ -7,7 +7,8 @@ HOST_PROG_DIR="/home/chenbo/crete/replay-evals/coreutils-6.10/coverage/src"
 CRETE_BIN_DIR=$HOST_CRETE_BIN_DIR
 PARSEGCOVCMD=$CRETE_BIN_DIR/../../crete-dev/misc/scripts/replay/parse_gcov_coreutils.py
 PROG_DIR=$HOST_PROG_DIR
-LCOV_DIR=$HOST_PROG_DIR/
+LCOV_DIR="$HOST_PROG_DIR/
+$HOST_PROG_DIR/../../src"
 SANDBOX="/home/chenbo/crete/replay-evals/sandbox"
 
 
