@@ -60,7 +60,8 @@ private:
     void collect_gcov_result();
     void replay();
 
-    void check_exploitable() const;
+    void check_exploitable(const fs::path& tc_path,
+            const string& replay_log) const;
 };
 
 }
