@@ -126,8 +126,6 @@ void CreteReplayPreload::init_current_tc()
 // Replace the value of conoclic argument with the values from test case
 void CreteReplayPreload::setup_concolic_args()
 {
-    cerr << "setup_concolic_args()\n";
-
     const config::Arguments& guest_config_args = m_guest_config.get_arguments();
 
     // Replace the value of conoclic argument with the values from test case
@@ -282,13 +280,10 @@ void CreteReplayPreload::write_ck_exp()
     m_ck_exp.m_stdin_file = replay_stdin_filename;
 
     try {
-        fprintf(stderr, "write_ck_exp(): start to write file\n");
-
         ofstream ofs(CRETE_TC_REPLAY_CK_EXP_INFO, ios_base::binary);
         boost::archive::binary_oarchive oa(ofs);
         oa << m_ck_exp;
         ofs.close();
-        fprintf(stderr, "write_ck_exp(): finish write file\n");
     }
     catch(std::exception &e) {
         cerr << e.what() << endl;
