@@ -2,8 +2,10 @@
 #include <crete/exception.h>
 #include <crete/test_case.h>
 #include <crete/harness_config.h>
+#include <crete/tc-replay.h>
 
 #include <boost/filesystem.hpp>
+#include <boost/archive/binary_oarchive.hpp>
 
 #include <signal.h>
 #include <dlfcn.h>
@@ -49,6 +51,8 @@ private:
     config::HarnessConfiguration m_guest_config;
     map<string, TestCaseElement> m_current_tc;
 
+    CheckExploitable m_ck_exp;
+
 public:
     CreteReplayPreload(int argc, char **argv);
     ~CreteReplayPreload() {};
@@ -56,6 +60,8 @@ public:
     void setup_concolic_args();
     void setup_concolic_files();
     void setup_concolic_stdin();
+
+    void write_ck_exp();
 
 private:
     void init_guest_config();
@@ -211,10 +217,14 @@ void CreteReplayPreload::setup_concolic_files()
             }
 
             assert(found);
+
+            m_ck_exp.m_files.push_back(output_filename);
         } else {
             // sanity check
             assert(fs::exists(it->path) && fs::is_regular_file(it->path));
             assert(fs::file_size(it->path) == it->size);
+
+            m_ck_exp.m_files.push_back(it->path.string());
         }
     }
 }
@@ -257,6 +267,33 @@ void CreteReplayPreload::setup_concolic_stdin()
             fprintf(stderr, "Error: Redirect stdin to %s by freopen() failed.\n",
                     replay_stdin_filename.c_str());
         }
+    }
+}
+
+void CreteReplayPreload::write_ck_exp()
+{
+    m_ck_exp.m_p_launch = fs::current_path().string();
+    m_ck_exp.m_p_exec = fs::canonical(m_argv[0]).string();
+    for(uint64_t i = 0; i < m_argc; ++i)
+    {
+        m_ck_exp.m_args.push_back(string(m_argv[i]));
+    }
+
+    m_ck_exp.m_stdin_file = replay_stdin_filename;
+
+    try {
+        fprintf(stderr, "write_ck_exp(): start to write file\n");
+
+        ofstream ofs(CRETE_TC_REPLAY_CK_EXP_INFO, ios_base::binary);
+        boost::archive::binary_oarchive oa(ofs);
+        oa << m_ck_exp;
+        ofs.close();
+        fprintf(stderr, "write_ck_exp(): finish write file\n");
+    }
+    catch(std::exception &e) {
+        cerr << e.what() << endl;
+        BOOST_THROW_EXCEPTION(crete::Exception()
+        << err::msg("[crete-replay-preload] serialization error for writing ck_exp"));
     }
 }
 
@@ -342,6 +379,7 @@ int __libc_start_main(
         crete_replay_preload.setup_concolic_args();
         crete_replay_preload.setup_concolic_files();
         crete_replay_preload.setup_concolic_stdin();
+        crete_replay_preload.write_ck_exp();
     }
     catch(...)
     {

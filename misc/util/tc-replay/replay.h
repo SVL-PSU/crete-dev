@@ -42,6 +42,9 @@ private:
     fs::path m_guest_config_serialized;
     fs::path m_current_tc;
 
+    fs::path m_exploitable_out;
+    fs::path m_exploitable_script;
+
 public:
     CreteReplay(int argc, char* argv[]);
 
@@ -56,6 +59,8 @@ private:
 
     void collect_gcov_result();
     void replay();
+
+    void check_exploitable() const;
 };
 
 }
