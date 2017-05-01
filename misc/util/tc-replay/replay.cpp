@@ -710,6 +710,8 @@ void CreteReplay::replay()
 static vector<string> run_gdb_script(const CheckExploitable& ck_exp,
         const string& script)
 {
+    cerr << "run_gdb_script() entered\n";
+
     bp::context ctx;
     ctx.stdout_behavior = bp::capture_stream();
     ctx.stderr_behavior = bp::redirect_stream_to_stdout();
@@ -728,6 +730,10 @@ static vector<string> run_gdb_script(const CheckExploitable& ck_exp,
 
     bp::child c = bp::launch(exec, args, ctx);
 
+    monitored_pid = c.get_id();
+    assert(monitored_timeout != 0);
+    alarm(monitored_timeout);
+
     bp::pistream &is = c.get_stdout();
     std::string line;
 
@@ -737,6 +743,9 @@ static vector<string> run_gdb_script(const CheckExploitable& ck_exp,
         gdb_out.push_back(line);
     }
 
+    alarm(0);
+
+    cerr << "run_gdb_script() finished\n";
     return gdb_out;
 }
 
