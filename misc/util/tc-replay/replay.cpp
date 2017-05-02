@@ -732,7 +732,7 @@ static vector<string> run_gdb_script(const CheckExploitable& ck_exp,
 
     monitored_pid = c.get_id();
     assert(monitored_timeout != 0);
-    alarm(monitored_timeout);
+    alarm(monitored_timeout*3);
 
     bp::pistream &is = c.get_stdout();
     std::string line;
