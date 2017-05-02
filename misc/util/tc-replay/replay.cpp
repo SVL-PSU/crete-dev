@@ -692,7 +692,16 @@ void CreteReplay::replay()
 
             bp::status status = proc.wait();
             alarm(0);
-            bool signal_caught = process_exit_status(ofs_replay_log, status.exit_status());
+
+            bool signal_caught;
+            if(status.exited())
+            {
+                signal_caught = process_exit_status(ofs_replay_log, status.exit_status());
+            } else {
+                // When the child process is not terminated from exit()/_exit(),
+                // assuming there is a signal caught.
+                signal_caught = true;
+            }
 
             if(signal_caught)
             {
