@@ -79,6 +79,30 @@ struct CheckExploitable
         }
     }
 
+    static inline string adjust_argv_for_cmd(string cmd)
+    {
+        string ret;
+
+        // 1. add '' to surround the whole string
+        ret += '\'';
+
+        for(unsigned long i = 0; i < cmd.size(); ++i)
+        {
+            //2. add escape to '
+            if(cmd[i] == '\'')
+
+            {
+                ret += '\\';
+            }
+
+            ret += cmd[i];
+        }
+
+        ret += '\'';
+
+        return ret;
+    }
+
     void gen_gdb_script(const string& output_file)
     {
         sanity_check();
@@ -89,18 +113,18 @@ struct CheckExploitable
             << "# `gdb -x " << CRETE_TC_REPLAY_GDB_SCRIPT << "`\n"
             << "#---------------------------------\n";
 
+        // Add potential libc debug symbolic location
+        ofs << "set debug-file-directory /usr/lib/debug"<< endl;
         ofs << "source " << m_p_exploitable_script << endl;
         ofs << "file " << m_p_exec << endl;
 
         ofs << "run";
         for(uint64_t i = 1; i < m_args.size(); ++i)
         {
-            ofs << " " << m_args[i];
+            ofs << ' ' << adjust_argv_for_cmd(m_args[i]);
         }
         ofs << " < " << m_stdin_file << endl;
 
-        ofs << "bt\n";
-        ofs << "list\n";
         ofs << "exploitable\n";
         ofs << "quit\n";
         ofs.close();

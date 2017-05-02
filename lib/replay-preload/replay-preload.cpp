@@ -385,7 +385,13 @@ int __libc_start_main(
 
     for(int i = 0; i < argc; ++i)
     {
-        cout << "argv[" << i << "]: " << ubp_av[i] << endl;
+        string str_cmd(ubp_av[i]);
+        fprintf(stderr, "argv[%d]: \'%s\' [", i, str_cmd.c_str());
+        for(int j = 0; j < str_cmd.size(); ++j)
+        {
+            fprintf(stderr, "0x%x ", (unsigned int)str_cmd[j]);
+        }
+        fprintf(stderr, "] (%lu byte)\n", str_cmd.size());
     }
 
     (*orig_libc_start_main)(main, argc, ubp_av, init, fini, rtld_fini, stack_end);
