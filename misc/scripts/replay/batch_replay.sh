@@ -104,7 +104,7 @@ main()
         fi
 
         # execute the program without argument
-        timeout 5  $PROG_DIR/$target_prog
+        timeout 5  $PROG_DIR/$target_prog &> /dev/null
 
         # execute all the test cases from the current subfolder with target_prog
         if [ -d  $f/test-case-parsed ]; then
@@ -133,18 +133,13 @@ main()
         # prepare command-line for crete-tc-replay with different situations
         REPLAY_CMD="-e $PROG_DIR/$target_prog -c $config_file_path -t $test_case_dir"
 
-        if [ -z  $SANDBOX ]; then
-            printf "[W/O sandbox] executing $target_prog with tc from \'$test_case_dir\'...\n"
-            if [ ! -z $CHECK_EXPLOITABLE_SCRIPT ]; then
-                REPLAY_CMD="$REPLAY_CMD -x $DISPATCH_OUT_DIR/parsed-exploitable -r $CHECK_EXPLOITABLE_SCRIPT"
-            fi
-        else
+        if [ ! -z  $SANDBOX ]; then
             if [ ! -d  $SANDBOX ]; then
                 printf "$SANDBOX does not exists\n"
                 exit
             fi
 
-            REPLAY_CMD="$REPLAY_CMD -j $SANDBOX -v /home/chenbo/crete/crete-dev/front-end/guest/sandbox/env/klee-test.env"
+            REPLAY_CMD="$REPLAY_CMD -j $SANDBOX"
 
             if [ "$init_sandbox" = true ] ; then
                 printf "[W/ sandbox and init_sandbox] executing $target_prog with tc from \'$test_case_dir\'...\n"
@@ -153,6 +148,28 @@ main()
                 printf "[W/ sandbox and W/O init_sandbox] executing $target_prog with tc from \'$test_case_dir\'...\n"
                 REPLAY_CMD="$REPLAY_CMD -n"
             fi
+        else
+            printf "[W/O sandbox] executing $target_prog with tc from \'$test_case_dir\'...\n"
+            if [ ! -z $CHECK_EXPLOITABLE_SCRIPT ]; then
+                REPLAY_CMD="$REPLAY_CMD -x $DISPATCH_OUT_DIR/parsed-exploitable -r $CHECK_EXPLOITABLE_SCRIPT"
+            fi
+
+            if [ ! -z  $LAUNCH_DIR ]; then
+                if [ ! -d  $LAUNCH_DIR ]; then
+                    printf "$LAUNCH_DIR does not exists\n"
+                    exit
+                fi
+                REPLAY_CMD="$REPLAY_CMD --input-launch-directory $LAUNCH_DIR"
+            fi
+        fi
+
+        if [ ! -z $UNIFIED_ENV ]; then
+            if [ ! -f $UNIFIED_ENV ]; then
+                printf "$UNIFIED_ENV does not exists\n"
+                exit
+            fi
+
+            REPLAY_CMD="$REPLAY_CMD -v $UNIFIED_ENV" # use unified environment variable
         fi
 
         REPLAY_CMD="$REPLAY_CMD -l" # enable logging while replay

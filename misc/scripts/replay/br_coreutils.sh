@@ -9,6 +9,10 @@ PARSEGCOVCMD=$CRETE_BIN_DIR/../../crete-dev/misc/scripts/replay/parse_gcov_coreu
 PROG_DIR=$HOST_PROG_DIR
 LCOV_DIR="$HOST_PROG_DIR/
 $HOST_PROG_DIR/../../src"
+UNIFIED_ENV="/home/chenbo/crete/crete-dev/front-end/guest/sandbox/env/klee-test.env"
+
+# CHECK_EXPLOITABLE_SCRIPT="/home/chenbo/crete/crete-dev/misc/util/tc-replay/check-exploitable/exploitable/exploitable.py"
+# LAUNCH_DIR="/home/chenbo/crete/replay-evals/sandbox"
 SANDBOX="/home/chenbo/crete/replay-evals/sandbox"
 
 
