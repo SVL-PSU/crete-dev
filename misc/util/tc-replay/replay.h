@@ -36,6 +36,8 @@ private:
     bp::posix_context m_launch_ctx;
 
     fs::path m_input_sandbox;
+    fs::path m_input_launch;
+
     fs::path m_environment;
     bool m_init_sandbox;
     bool m_enable_log;
@@ -56,6 +58,8 @@ private:
     void init_sandbox();
     void reset_sandbox();
     void reset_sandbox_folder_permission();
+
+    void reset_launch_dir();
 
     void collect_gcov_result();
     void replay();

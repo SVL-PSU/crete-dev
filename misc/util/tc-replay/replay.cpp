@@ -15,6 +15,7 @@
 using namespace std;
 
 static const string replay_log_file = "crete.replay.log";
+static const string replay_launch_directory = "/tmp/crete-tc-replay-launch/";
 
 namespace crete
 {
@@ -41,8 +42,12 @@ po::options_description CreteReplay::make_options()
         ("tc-dir,t", po::value<fs::path>(), "test case directory")
         ("seed-only,s", "Only replay seed test case (\"1\") from each test case "
                 "directory")
+
         ("input-sandbox,j", po::value<fs::path>(), "input sandbox/jail directory")
         ("no-ini-sandbox,n", po::bool_switch(), "do not initialize sandbox to accumulate coverage info")
+
+        ("input-launch-directory", po::value<fs::path>(), "input launch directory")
+
         ("environment,v", po::value<fs::path>(), "environment variables")
         ("log,l", po::bool_switch(), "enable log the output of replayed programs")
         ("exploitable-check,x", po::value<fs::path>(), "path to the output of exploitable-check")
@@ -107,6 +112,23 @@ void CreteReplay::process_options(int argc, char* argv[])
         fprintf(stderr, "[crete-replay] input_sandbox_dir = %s, m_init_sandbox = %d\n",
                 m_input_sandbox.string().c_str(), m_init_sandbox);
 
+    }
+
+    if(m_var_map.count("input-launch-directory"))
+    {
+        fs::path p = m_var_map["input-launch-directory"].as<fs::path>();
+
+        if(!fs::exists(p) && !fs::is_directory(p))
+        {
+            BOOST_THROW_EXCEPTION(Exception() << err::file_missing(p.string()));
+        }
+
+        m_input_launch = fs::canonical(p);
+    }
+
+    if(!m_input_sandbox.empty() && !m_input_launch.empty())
+    {
+        BOOST_THROW_EXCEPTION(Exception() << err::msg("Only one of \'input-sandbox\' and \'input-launch-directory\' is allowed\n"));;
     }
 
     if(m_var_map.count("environment"))
@@ -362,6 +384,39 @@ void CreteReplay::reset_sandbox()
     bp::status s = c.wait();
 }
 
+void CreteReplay::reset_launch_dir()
+{
+    assert(m_launch_directory == fs::path(replay_launch_directory) / fs::canonical(m_input_launch).filename());
+    if(fs::exists(m_launch_directory))
+    {
+        fs::remove_all(m_launch_directory);
+    }
+
+    fs::path launch_parent_dir = m_launch_directory.parent_path();
+    if(!fs::exists(launch_parent_dir))
+    {
+        fs::create_directories(launch_parent_dir);
+    }
+
+    bp::context ctx;
+    ctx.stdout_behavior = bp::capture_stream();
+    ctx.environment = bp::self::get_environment();
+
+    std::string exec = bp::find_executable_in_path("cp");
+    std::vector<std::string> args;
+    args.push_back(exec);
+    args.push_back("-r");
+    args.push_back(m_input_launch.string());
+    args.push_back(launch_parent_dir.string());
+
+    bp::child c = bp::launch(exec, args, ctx);
+
+    bp::pistream &is = c.get_stdout();
+
+    // TODO: xxx should check the return status to make sure the "cp" completed successfully
+    bp::status s = c.wait();
+}
+
 void CreteReplay::setup_launch()
 {
     // 0. Process m_config
@@ -385,9 +440,13 @@ void CreteReplay::setup_launch()
     };
 
     // 1. Setup m_launch_directory
-    if(m_input_sandbox.empty())
+    if(!m_input_sandbox.empty())
     {
-        // when no sandbox, m_exec_launch_dir is set to the parent folder of the executable,
+        m_launch_directory = fs::path("/tmp") / fs::canonical(m_input_sandbox).filename();
+    } else if (!m_input_launch.empty()) {
+        m_launch_directory = fs::path(replay_launch_directory) / fs::canonical(m_input_launch).filename();
+    } else {
+        // By default, m_exec_launch_dir is set to the parent folder of the executable,
         // unless that folder is not writable (then it will be the working
         // directory of crete-run)
         m_launch_directory = m_exec.parent_path();
@@ -395,8 +454,6 @@ void CreteReplay::setup_launch()
         {
             m_launch_directory = fs::current_path();
         }
-    } else {
-        m_launch_directory = fs::path("/tmp") / fs::canonical(m_input_sandbox).filename();
     }
 
     // 2. Set up m_launch_args
@@ -642,6 +699,10 @@ void CreteReplay::replay()
                 reset_sandbox();
             }
 
+            if(!m_input_launch.empty())
+            {
+                reset_launch_dir();
+            }
 
             // write replay_current_tc, for replay-preload to use
             fs::remove(m_current_tc);
