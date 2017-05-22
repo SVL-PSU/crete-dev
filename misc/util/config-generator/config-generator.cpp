@@ -1104,6 +1104,26 @@ const map<string, const ExprSetup> baseTool_setups {
     {"VolInfo",          BASEtOOL_SETUP_VolInfo}
 };
 
+
+// ========== ffmpeg setup ===============
+const static map<string, string> ffmpegs = {
+        {"ffmpeg", "/home/test/tests/ffmpeg-3.3.1/"},
+        {"ffplay", "/home/test/tests/ffmpeg-3.3.1/"},
+        {"ffprobe", "/home/test/tests/ffmpeg-3.3.1/"},
+        {"ffserver", "/home/test/tests/ffmpeg-3.3.1/"}
+};
+
+// FFmpeg setup general: --sym-args 0 4 16 --sym-args 0 4 2 -sym-files 1 1024
+const ExprSetup FFMPEG_SETUP_GENERAL(
+        SymArgsConfig(0, 4, 16),
+        SymArgsConfig(0, 4, 2),
+        vector<uint64_t>(1, 1024),
+        8);
+
+// ************ Special setup **************
+
+const map<string, const ExprSetup> ffmpeg_setups = {};
+
 // =================
 
 const uint64_t DASE_GREP_DIFF_SYM_FILE_SIZE  = 100;
@@ -1245,6 +1265,26 @@ void CreteTests::gen_crete_tests_coreutils_grep_diff(string suite_name)
                 generate_crete_config(parsed_configs[i], (guest_executable_folder + *it));
             }
         }
+    } else if (suite_name == "ffmpeg") {
+        vector<ParsedSymArgs> normal_configs = FFMPEG_SETUP_GENERAL.get_ParsedSymArgs();
+
+        for(map<string,string>::const_iterator it = ffmpegs.begin();
+                it != ffmpegs.end(); ++ it) {
+            map<string, const ExprSetup>::const_iterator special_setup_it =  ffmpeg_setups.find(it->first);
+            if( special_setup_it != ffmpeg_setups.end())
+            {
+                parsed_configs = special_setup_it->second.get_ParsedSymArgs();
+            } else {
+                parsed_configs = normal_configs;
+            }
+
+            printf_parsed_config(parsed_configs);
+
+            for(uint64_t i = 0; i < parsed_configs.size(); ++i)
+            {
+                generate_crete_config(parsed_configs[i], (fs::path(it->second) / it->first).string());
+            }
+        }
     } else {
         assert(0);
     }
@@ -1349,6 +1389,10 @@ void CreteConfig::process_options()
         {
             CreteTests crete_tests(NULL);
             crete_tests.gen_crete_tests_coreutils_grep_diff("basetools");
+        } else if (m_suite_name == "ffmpeg")
+        {
+            CreteTests crete_tests(NULL);
+            crete_tests.gen_crete_tests_coreutils_grep_diff("ffmpeg");
         } else if (m_suite_name == "parse-cmd")
         {
             assert(m_var_map.count("path"));
