@@ -142,7 +142,7 @@ void RuntimeEnv::dump_tloCtx(void *cpuState, TranslationBlock *tb, uint64_t cret
 
     tb->index_captured_llvm_tb = nb_captured_llvm_tb++;
 
-    //for debug purpsoe, qemu ir
+    //for debug purpose, qemu ir
     dump_IR(s, tb);
 }
 
@@ -661,7 +661,8 @@ void RuntimeEnv::check_dbgCPUStatePostInterest(const void *src)
         return;
     }
 
-    cerr << "[CRETE ERROR] CPUState is changed after an interested tb being dumped and before the next tb starts to execute\n";
+    cerr << "[CRETE ERROR] CPUState is changed after a tb being executed and before the next tb starts to execute while"
+            "f_crete_enable is on.\n";
     uint8_t* post_interest_cpuState = (uint8_t*)m_dbg_cpuState_post_interest;
     uint8_t* current_cpuState = (uint8_t*)src;
 
@@ -2002,13 +2003,13 @@ int crete_post_cpu_tb_exec(void *qemuCpuState, TranslationBlock *input_tb, uint6
 #if defined(CRETE_DEBUG_GENERAL)
     if(!dbg_input_static_flag_interested_tb)
     {
-        fprintf(stderr, "0 - [POST] uninterested-pre tb-%lu (pc-%p): pre uninterested. ",
-                rt_dump_tb_count - 1, (void *)(uint64_t)rt_dump_tb->pc);
+        fprintf(stderr, "0 - [POST] uninterested-pre tb[%lu] (pc-%p): pre uninterested. ",
+                rt_dump_tb_count, (void *)(uint64_t)rt_dump_tb->pc);
         cerr << "(env->eip:" << (void *)(uint64_t)((CPUArchState *)qemuCpuState)->eip << ")" << endl;
     } else {
         if(is_post_interested_tb) {
             fprintf(stderr, "1 - [POST] interested tb-%lu (pc-%p), crete_interrupted_pc = %p",
-                    rt_dump_tb_count - 1, (void *)(uint64_t)rt_dump_tb->pc, (void *)crete_interrupted_pc);
+                    rt_dump_tb_count, (void *)(uint64_t)rt_dump_tb->pc, (void *)crete_interrupted_pc);
             cerr << "(env->eip:" << (void *)(uint64_t)((CPUArchState *)qemuCpuState)->eip << ")" << endl;
 
             if(is_in_list_crete_dbg_tb_pc(input_tb->pc))
@@ -2038,19 +2039,19 @@ int crete_post_cpu_tb_exec(void *qemuCpuState, TranslationBlock *input_tb, uint6
 
             if(!dbg_is_current_tb_executed)
             {
-                fprintf(stderr, "0 - [POST] reversing tb-%lu (pc-%p): TB not executed.",
+                fprintf(stderr, "0 - [POST] reversed tb[%lu] (pc-%p): TB not executed.",
                                             rt_dump_tb_count, (void *)(uint64_t)rt_dump_tb->pc);
                 cerr << "(env->eip:" << (void *)(uint64_t)((CPUArchState *)qemuCpuState)->eip << ")" << endl;
             }
             else if (!dbg_is_current_tb_symbolic)
             {
-                fprintf(stderr, "0 - [POST] reversing tb-%lu (pc-%p): TB not symbolic.",
+                fprintf(stderr, "0 - [POST] reversed tb[%lu] (pc-%p): TB not symbolic.",
                                             rt_dump_tb_count, (void *)(uint64_t)rt_dump_tb->pc);
                 cerr << "(env->eip:" << (void *)(uint64_t)((CPUArchState *)qemuCpuState)->eip << ")" << endl;
             }
             else if (input_tb->pc == crete_interrupted_pc)
             {
-                fprintf(stderr, "0 - [POST] reversing tb-%lu (pc-%p): TB being interrupted at the first instruction.",
+                fprintf(stderr, "0 - [POST] reversed tb[%lu] (pc-%p): TB being interrupted at the first instruction.",
                                             rt_dump_tb_count, (void *)(uint64_t)rt_dump_tb->pc);
                 cerr << "(env->eip:" << (void *)(uint64_t)((CPUArchState *)qemuCpuState)->eip << ")" << endl;
             }
