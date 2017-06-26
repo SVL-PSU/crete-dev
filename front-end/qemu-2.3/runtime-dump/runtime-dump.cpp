@@ -70,6 +70,8 @@ RuntimeEnv::RuntimeEnv()
   m_qemu_default_br_skipped(false),
   m_new_tb(false)
 {
+    m_tlo_ctx_cpuState = new uint8_t [sizeof(CPUArchState)];
+
     m_cpuState_post_insterest.first = false;
     m_cpuState_post_insterest.second = new uint8_t [sizeof(CPUArchState)];
 
@@ -84,6 +86,9 @@ RuntimeEnv::RuntimeEnv()
 
 RuntimeEnv::~RuntimeEnv()
 {
+    assert(m_tlo_ctx_cpuState);
+    delete [] (uint8_t *)m_tlo_ctx_cpuState;
+
     assert(m_cpuState_post_insterest.second);
     delete [] (uint8_t *)m_cpuState_post_insterest.second;
 
@@ -110,7 +115,6 @@ void RuntimeEnv::dump_tloCtx(void *cpuState, TranslationBlock *tb, uint64_t cret
     }
 
     // Dump the tcg_ctx for the current tb
-    CPUArchState *env = (CPUArchState*) cpuState;
     TCGContext *s = &tcg_ctx;
     assert(s);
 
@@ -118,9 +122,19 @@ void RuntimeEnv::dump_tloCtx(void *cpuState, TranslationBlock *tb, uint64_t cret
     if(nb_captured_llvm_tb == 0)
         dump_tloHelpers(*s);
 
+    // save a copy of original input cpuState
+    memcpy(m_tlo_ctx_cpuState, cpuState, sizeof(CPUArchState));
+
+    // Use pre_interest tb for translation
+    // Note: must use input cpuState pointer required by ENV_GET_CPU()
+    assert(m_cpuState_pre_interest.first);
+    memcpy(cpuState, m_cpuState_pre_interest.second, sizeof(CPUArchState));
+
     tcg_func_start(s);
-	gen_intermediate_code_crete(env, tb, crete_interrupted_pc);
-//	gen_intermediate_code_pc(env,tb);
+	gen_intermediate_code_crete((CPUArchState *)cpuState, tb, crete_interrupted_pc);
+
+	// Restore cpuState
+    memcpy(cpuState, m_tlo_ctx_cpuState, sizeof(CPUArchState));
 
     // the number of instructions within this tb
     uint64_t tb_inst_count = tcg_tb_inst_count(s);

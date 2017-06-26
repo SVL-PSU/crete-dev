@@ -218,6 +218,7 @@ class RuntimeEnv
 private:
 	// Instruction sequence and its translation context
     TCGLLVMOfflineContext m_tcg_llvm_offline_ctx;
+    void *m_tlo_ctx_cpuState;
 
     // Initial CPU state
     vector<uint8_t> m_initial_CpuState;
