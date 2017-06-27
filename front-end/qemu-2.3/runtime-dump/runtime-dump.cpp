@@ -38,6 +38,12 @@ static bool static_flag_interested_tb_prev = 0;
 // crete_pre_cpu_tb_exec() and crete_post_cpu_tb_exec()
 static bool crete_pre_post_flag = false;
 
+static bool crete_pre_entered = false;
+static bool crete_pre_finished = false;
+static bool crete_post_entered = true;
+static bool crete_post_finished = true;
+
+
 //======================
 
 /* TODO: xxx they are fairly messy, b/c
@@ -1765,17 +1771,29 @@ static bool manual_code_selection_post_exec();
 void crete_pre_cpu_tb_exec(void *qemuCpuState, TranslationBlock *tb)
 {
     // 0. Sanity check
+    CRETE_BDMD_DBG(
     assert(!crete_pre_post_flag);
     crete_pre_post_flag = true;
+
+    assert(crete_post_entered);
+    crete_post_entered = false;
+    assert(crete_post_finished);
+    crete_post_finished = false;
     assert(!crete_tci_is_current_block_symbolic());
 
+    crete_pre_entered = true;
+    );
 
     // 1. set globals
     g_cpuState_bct = (CPUArchState *)qemuCpuState;
     rt_dump_tb = tb;
 
     bool is_begin_capture = (g_custom_inst_emit == 1);
-    if(!is_begin_capture) return;
+    if(!is_begin_capture)
+    {
+        CRETE_BDMD_DBG(crete_pre_finished = true;);
+        return;
+    }
 
     // 2. set/reset f_crete_enabled: will only enable for the TBs:
     //      1. the interested process.
@@ -1859,6 +1877,8 @@ void crete_pre_cpu_tb_exec(void *qemuCpuState, TranslationBlock *tb)
         runtime_env->addMemoSyncTable();
     }
 #endif
+
+    CRETE_BDMD_DBG(crete_pre_finished = true;);
 }
 
 // Ret: whether the current tb is interested after post_runtime_dump
@@ -1872,12 +1892,25 @@ int crete_post_cpu_tb_exec(void *qemuCpuState, TranslationBlock *input_tb, uint6
         uint64_t crete_interrupted_pc)
 {
     // 0. Sanity check
+    CRETE_BDMD_DBG(
     assert(crete_pre_post_flag);
     crete_pre_post_flag = false;
+
+    assert(crete_pre_entered);
+    crete_pre_entered = false;
+    assert(crete_pre_finished);
+    crete_pre_finished = false;
     assert(qemuCpuState == g_cpuState_bct && "[CRETE ERROR] Global pointer to CPU State is changed.\n");
 
+    crete_post_entered = true;
+    );
+
     bool is_begin_capture = (g_custom_inst_emit == 1);
-    if(!is_begin_capture) return 0;
+    if(!is_begin_capture)
+    {
+        CRETE_BDMD_DBG(crete_post_finished = true;);
+        return 0;
+    }
 
 #if defined(CRETE_DEBUG_GENERAL)
     CRETE_DBG_INT(
@@ -2087,6 +2120,8 @@ int crete_post_cpu_tb_exec(void *qemuCpuState, TranslationBlock *input_tb, uint6
         fprintf(stderr, "[CRETE_DBG_MEM] memory usage(tb-%lu) = %.3fMB\n",
                 rt_dump_tb_count, crete_mem_usage());
 #endif
+
+    CRETE_BDMD_DBG(crete_post_finished = true;);
 
     return is_post_interested_tb;
 }
