@@ -17,6 +17,18 @@ namespace node
 namespace option
 {
 
+struct Translator
+{
+    Translator() = default;
+    Translator(const boost::property_tree::ptree& tree);
+
+    struct Path
+    {
+        std::string x86;
+        std::string x64;
+    } path;
+};
+
 struct VM
 {
     VM() = default;
@@ -37,6 +49,7 @@ struct VMNode
 
     Master master;
     VM vm;
+    Translator translator;
 };
 
 } // namespace option

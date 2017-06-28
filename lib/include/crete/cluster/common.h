@@ -34,6 +34,7 @@ const auto trace_ready_name = std::string{"trace_ready"};
 const auto vm_port_file_name = std::string{"port"};
 const auto vm_pid_file_name = std::string{"pid"};
 const auto log_dir_name = std::string{"log"};
+const auto klee_dir_name = std::string{"klee-run"};
 const auto exception_log_file_name = std::string{"exception_caught.log"};
 const auto image_max_file_size = uint64_t{8000000000}; // 10 Gigabytes in bytes
 
