@@ -16,6 +16,7 @@ namespace option
 VMNode::VMNode(const pt::ptree& tree)
     : master(tree)
     , vm(tree)
+    , translator(tree)
 {
 }
 
@@ -48,6 +49,52 @@ VM::VM(const pt::ptree& tree)
         {
             BOOST_THROW_EXCEPTION(Exception{} << err::arg_invalid_str{"crete.vm.count"});
         }
+    }
+}
+
+Translator::Translator(const pt::ptree& tree)
+{
+    auto opt_trans = tree.get_child_optional("crete.translator");
+
+    if(opt_trans)
+    {
+        auto& trans = *opt_trans;
+
+        path.x86 = trans.get<std::string>("path.x86", path.x86);
+        path.x64 = trans.get<std::string>("path.x64", path.x64);
+
+        auto proc = [](const std::string& p)
+        {
+            if(!p.empty())
+            {
+                CRETE_EXCEPTION_ASSERT(fs::exists(p), err::file_missing{p});
+
+                auto t = fs::path{p};
+
+                if(t.is_relative())
+                {
+                    // Don't use fs::read_link or fs::canonical.
+                    // They resolve to the underlying link which isn't desired, so we can find .bc in the symlink dir.
+                    // Instead, manually resolve relative path.
+                    auto s = fs::current_path();
+
+                    for(const auto& f : t)
+                    {
+                        if(f.string() == "..")
+                            s = s.parent_path();
+                        else
+                            s /= f;
+                    }
+
+                    return s.string();
+                }
+            }
+
+            return p;
+        };
+
+        path.x86 = proc(path.x86);
+        path.x64 = proc(path.x64);
     }
 }
 

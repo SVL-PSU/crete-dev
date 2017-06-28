@@ -18,18 +18,6 @@ namespace node
 namespace option
 {
 
-struct Translator
-{
-    Translator() = default;
-    Translator(const boost::property_tree::ptree& tree);
-
-    struct Path
-    {
-        std::string x86;
-        std::string x64;
-    } path;
-};
-
 struct SVM
 {
     SVM() = default;
@@ -51,7 +39,6 @@ struct SVMNode
 
     Master master;
     SVM svm;
-    Translator translator;
 };
 
 } // namespace option

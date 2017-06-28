@@ -122,6 +122,17 @@ auto VMNodeUI::process_options() -> void
     {
         node_options_.master.port = var_map_["port-master"].as<Port>();
     }
+
+    if(var_map_.count("translator"))
+    {
+        auto p = var_map_["translator"].as<std::string>();
+
+        CRETE_EXCEPTION_ASSERT(fs::exists(p), err::file_missing{p});
+
+        node_options_.translator.path.x86
+            = node_options_.translator.path.x64
+                = p;
+    }
 }
 
 } // namespace cluster

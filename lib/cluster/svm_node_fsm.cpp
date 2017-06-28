@@ -46,7 +46,6 @@ namespace node
 namespace svm
 {
 
-const auto klee_dir_name = std::string{"klee-run"};
 const auto concolic_log_name = std::string{"concolic.log"};
 const auto symbolic_log_name = std::string{"klee-run.log"};
 
@@ -474,10 +473,7 @@ struct KleeFSM_::prepare
     template <class EVT,class FSM,class SourceState,class TargetState>
     auto operator()(EVT const&, FSM& fsm, SourceState&, TargetState& ts) -> void
     {
-        ts.async_task_.reset(new AsyncTask{[](fs::path trace_dir
-                                             ,cluster::option::Dispatch dispatch_options
-                                             ,option::SVMNode node_options
-                                             ,std::shared_ptr<AtomicGuard<pid_t>> child_pid)
+        ts.async_task_.reset(new AsyncTask{[](fs::path trace_dir)
         {
             fs::path dir = trace_dir;
             fs::path kdir = dir / klee_dir_name;
@@ -485,83 +481,6 @@ struct KleeFSM_::prepare
             if(!fs::exists(dir))
             {
                 BOOST_THROW_EXCEPTION(SVMException{} << err::file_missing{dir.string()});
-            }
-
-            // 1. Translate qemu-ir to llvm
-            bp::context ctx;
-            ctx.work_directory = dir.string();
-            ctx.environment = bp::self::get_environment();
-            ctx.stdout_behavior = bp::capture_stream();
-            ctx.stderr_behavior = bp::redirect_stream_to_stdout();
-
-            {
-                auto exe = std::string{};
-
-                if(dispatch_options.vm.arch == "x86")
-                {
-                    if(!node_options.translator.path.x86.empty())
-                    {
-                        exe = node_options.translator.path.x86;
-                    }
-                    else
-                    {
-                        exe = bp::find_executable_in_path("crete-llvm-translator-qemu-2.3-i386");
-                    }
-                }
-                else if(dispatch_options.vm.arch == "x64")
-                {
-                    if(!node_options.translator.path.x64.empty())
-                    {
-                        exe = node_options.translator.path.x64;
-                    }
-                    else
-                    {
-                        exe = bp::find_executable_in_path("crete-llvm-translator-qemu-2.3-x86_64");
-                    }
-                }
-                else
-                {
-                    BOOST_THROW_EXCEPTION(Exception{} << err::arg_invalid_str{dispatch_options.vm.arch}
-                                                      << err::arg_invalid_str{"vm.arch"});
-                }
-
-                auto args = std::vector<std::string>{fs::absolute(exe).string()}; // It appears our modified QEMU requires full path in argv[0]...
-
-                auto proc = bp::launch(exe, args, ctx);
-
-                child_pid->acquire() = proc.get_id();
-
-                // TODO: xxx Work-around to resolve the deadlock happened within the child process
-                // when its output is redirected.
-                auto& pistream = proc.get_stdout();
-                std::stringstream ss;
-                std::string line;
-
-                while(std::getline(pistream, line))
-                    ss << line;
-
-                auto status = proc.wait();
-
-                // FIXME: xxx Between 'auto status = proc.wait();' and this statement,
-                //           there is a chance this pid is reclaimed by other process.
-                child_pid->acquire() = -1;
-
-                if(!process::is_exit_status_zero(status))
-                {
-                    BOOST_THROW_EXCEPTION(SVMException{} << err::process_exit_status{exe}
-                                                         << err::msg{ss.str()});
-                }
-
-                fs::rename(dir / "dump_llvm_offline.bc",
-                           dir / "run.bc");
-
-//                fs::remove(dir / "dump_tcg_llvm_offline.*.bin");
-                for( fs::directory_iterator dir_iter(dir), end_iter ; dir_iter != end_iter ; ++dir_iter)
-                {
-                    std::string filename = dir_iter->path().filename().string();
-                    if(filename.find("dump_tcg_llvm_offline") != std::string::npos)
-                        fs::remove(dir/filename);
-                }
             }
 
             // 2. copy files into kdir
@@ -587,10 +506,7 @@ struct KleeFSM_::prepare
                 fs::copy_file(dir/f, kdir/f);
             }
         }
-        , fsm.trace_dir_
-        , fsm.dispatch_options_
-        , fsm.node_options_
-        , fsm.translator_child_pid_});
+        , fsm.trace_dir_});
     }
 };
 
