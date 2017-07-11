@@ -369,6 +369,7 @@ int __libc_start_main(
             BOOST_THROW_EXCEPTION(crete::Exception() << crete::err::msg("failed to find __libc_start_main"));
         }
 
+        setpgrp();
         init_crete_signal_handlers(argc, ubp_av);
         crete::CreteReplayPreload crete_replay_preload(argc, ubp_av);
         crete_replay_preload.setup_concolic_args();

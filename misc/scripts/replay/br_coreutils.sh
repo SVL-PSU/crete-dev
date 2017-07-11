@@ -29,8 +29,6 @@ SANDBOX="/home/chenbo/crete/replay-evals/sandbox"
 # complete list
 # ======================================
 
-# kill
-
 PROGRAMS="base64
 basename
 cat
@@ -64,6 +62,7 @@ hostname
 id
 ginstall
 join
+kill
 link
 ln
 logname

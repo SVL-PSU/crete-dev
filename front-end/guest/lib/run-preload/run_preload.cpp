@@ -338,6 +338,7 @@ int __libc_start_main(
         if(orig_libc_start_main == 0)
             throw runtime_error("failed to find __libc_start_main");
 
+        setpgrp();
         init_crete_signal_handlers();
         crete_preload_initialize(argc, ubp_av);
     }
