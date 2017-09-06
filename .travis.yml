@@ -9,7 +9,7 @@ matrix:
       env: TARGET_DIST=trusty
     - os: linux
       compiler: gcc
-      sudo: false
+      sudo: true
       dist: precise
       env: TARGET_DIST=precise
 
@@ -21,7 +21,6 @@ addons:
           key_url: 'http://llvm.org/apt/llvm-snapshot.gpg.key'
         - sourceline: 'deb-src http://llvm.org/apt/trusty/ llvm-toolchain-trusty-3.4 main'
           key_url: 'http://llvm.org/apt/llvm-snapshot.gpg.key'
-        - kalakris-cmake
     packages:
     - gcc-4.8
     - g++-4.8
@@ -29,7 +28,6 @@ addons:
     - libcap-dev
     - flex
     - bison
-    - cmake
     - libelf-dev
     - git
     - libtool
@@ -48,9 +46,16 @@ before_install:
     - mkdir build
     - cd build/
     - export BUILD_DIR=`pwd`
+
+    - if [[ "$TARGET_DIST" == "precise" ]]; then
+         wget https://cmake.org/files/v3.9/cmake-3.9.1.tar.gz;
+         tar xf cmake-3.9.1.tar.gz; cd cmake-3.9.1;
+         ./bootstrap; make -j; sudo make install; cmake --version;
+      fi
+
+    - cd $BUILD_DIR
     - CXX=`which clang-3.4` cmake $CRETE_SRC;
 
 script:
     # Build CRETE
-    - make boost
-    - make -j7
+    - make -j6
