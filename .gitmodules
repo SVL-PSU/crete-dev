@@ -4,3 +4,6 @@
 [submodule "misc/util/tc-replay/check-exploitable"]
 	path = misc/util/tc-replay/check-exploitable
 	url = https://github.com/likebreath/exploitable.git
+[submodule "back-end/klee-1.4.0"]
+	path = back-end/klee-1.4.0
+	url = https://github.com/likebreath/klee.git
