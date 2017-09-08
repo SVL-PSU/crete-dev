@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<crete>
+	<exec>/home/chenbo/crete/replay-evals/coreutils-6.10/exec/src/stat</exec>
+	<args>
+		<arg index="1" size="2" value="" concolic="true"/>
+	</args>
+	<files>
+		<file path="/tmp/ramdisk/crete_sym_file_1" size="8" concolic="true" argv_index="0"/>
+	</files>
+	<stdin size="8" value="" concolic="true"/>
+</crete>
