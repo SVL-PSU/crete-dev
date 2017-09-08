@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<crete>
+	<exec>/home/chenbo/crete/replay-evals/coreutils-6.10/exec/src/id</exec>
+	<args>
+		<arg index="1" size="2" value="" concolic="true"/>
+		<arg index="2" size="2" value="" concolic="true"/>
+	</args>
+	<stdin size="8" value="" concolic="true"/>
+</crete>
