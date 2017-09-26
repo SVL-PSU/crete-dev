@@ -12,6 +12,11 @@
 
 #include <boost/thread.hpp>
 #include <boost/filesystem/fstream.hpp>
+#include <boost/move/unique_ptr.hpp>
+#include <boost/move/make_unique.hpp>
+
+#include <atomic>
+#include <thread>
 
 namespace crete
 {
@@ -33,11 +38,16 @@ public:
     auto display_status() -> void;
 
 private:
+    using AtomicFlag = std::atomic<bool>;
+    using AtomicFlagPtr = boost::movelib::unique_ptr<AtomicFlag>; // Ptr because atomic is not movable.
+
     AtomicGuard<Node>& node_;
     ID node_id_;
     IPAddress master_ip_address_;
     Port master_port_;
     bool shutdown_ = false;
+    AtomicFlagPtr transmission_pending_
+        = boost::movelib::make_unique<AtomicFlag>(false);
 };
 
 template <typename Node>
@@ -106,6 +116,11 @@ auto NodeDriver<Node>::run_node(AsyncTask& async_task) -> void
 
         try
         {
+            if(*transmission_pending_)
+            {
+                std::this_thread::yield();
+            }
+
             node_.acquire()->run();
         }
         catch(boost::exception& e)
@@ -148,13 +163,26 @@ auto NodeDriver<Node>::run_listener() -> void
                 sbuf,
                 client};
 
-        auto processed = process(node_,
-                                 request);
-
-        if(!processed)
+        try
         {
-            shutdown_ = process_default(node_,
-                                        request);
+            *transmission_pending_ = true;
+
+            auto processed = process(node_,
+                                     request);
+
+            if(!processed)
+            {
+                shutdown_ = process_default(node_,
+                                            request);
+            }
+
+            *transmission_pending_ = false;
+        }
+        catch(...)
+        {
+            *transmission_pending_ = false;
+
+            std::rethrow_exception(std::current_exception());
         }
     }
 }
