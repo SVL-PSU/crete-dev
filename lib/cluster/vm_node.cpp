@@ -100,11 +100,11 @@ auto VMNode::poll() -> void
             {
                 using boost::msm::back::HANDLED_TRUE;
 
-                auto t = pop_test();
+                auto t = next_test();
 
-                if(HANDLED_TRUE != vm->process_event(ev::next_test{t}))
+                if(HANDLED_TRUE == vm->process_event(ev::next_test{t}))
                 {
-                    push(t);
+                    pop_test();
                 }
             }
         }

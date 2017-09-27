@@ -54,6 +54,7 @@ public:
     auto push(const log::NodeError& e) -> void;
     auto pop_trace() -> boost::filesystem::path;
     auto pop_test() -> TestCase;
+    auto next_test() -> const TestCase&;
     auto pop_error() -> log::NodeError;
     auto type() -> Type;
     auto commence() -> void;
