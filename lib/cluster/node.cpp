@@ -98,6 +98,15 @@ auto Node::pop_test() -> TestCase
     return tc;
 }
 
+auto Node::next_test() -> const TestCase&
+{
+    assert(!test_cases_.empty());
+
+    const TestCase& tc = test_cases_.back();
+
+    return tc;
+}
+
 auto Node::pop_error() -> log::NodeError
 {
     assert(!errors_.empty());
