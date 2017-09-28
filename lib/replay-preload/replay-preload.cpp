@@ -355,7 +355,7 @@ int __libc_start_main(
         void (*fini) (void),
         void (*rtld_fini) (void),
         void *stack_end) {
-    fprintf(stderr, "[replay-prealod] prog: %s\n", ubp_av[0]);
+    fprintf(stderr, "[replay-preload] prog: %s\n", ubp_av[0]);
 
     __libc_start_main_t orig_libc_start_main;
 
