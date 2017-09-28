@@ -19,14 +19,6 @@ echo 'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:~/guest-build/bin'  >> ~/.bashrc
 echo 'export C_INCLUDE_PATH=$C_INCLUDE_PATH:~/guest/lib/include'  >> ~/.bashrc
 echo 'export LIBRARY_PATH=$LIBRARY_PATH:~/guest-build/bin'  >> ~/.bashrc
 
-########
-Upgrade gcc to 4.8.1
-
-sudo apt-get install python-software-properties
-sudo add-apt-repository ppa:ubuntu-toolchain-r/test
-sudo apt-get update
-sudo apt-get install gcc-4.8
-sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.8 50
 
 ##### Compile 32 bits guest on 64 bits OS ######
 ## apt-get install gcc-multilib
