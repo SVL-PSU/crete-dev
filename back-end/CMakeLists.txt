@@ -42,6 +42,8 @@ ExternalProject_Add(
         ln -sf
         ${CMAKE_CURRENT_BINARY_DIR}/klee-1.4.0-prefix/src/klee-1.4.0-build/bin/klee
         ${CMAKE_BINARY_DIR}/bin/crete-klee-1.4.0
+
+        BUILD_ALWAYS 1
 	)
 
 add_dependencies(klee-1.4.0 stp-2.1.2 crete_test_case boost)
