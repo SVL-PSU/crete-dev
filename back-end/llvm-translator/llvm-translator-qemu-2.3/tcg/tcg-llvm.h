@@ -126,6 +126,8 @@ public:
     void crete_add_tbExecSequ(vector<pair<uint64_t, uint64_t> > seq);
 
     void generate_crete_main();
+    void generate_llvm_cpuStateSyncTables(const string& input_file_name);
+    void generate_llvm_MemorySyncTables(const string& input_file_name);
 #else
 #error "ERROR"
 #endif

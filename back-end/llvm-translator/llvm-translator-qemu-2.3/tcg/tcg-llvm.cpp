@@ -73,6 +73,15 @@ extern "C" {
 #include "llvm/Support/Path.h"
 
 #include "tcg-llvm-offline/tcg-llvm-offline.h"
+
+#include <boost/archive/binary_iarchive.hpp>
+#include <boost/archive/binary_oarchive.hpp>
+#include <boost/archive/text_iarchive.hpp>
+#include <boost/archive/text_oarchive.hpp>
+#include <boost/exception/all.hpp>
+#include <exception>
+
+#include <fstream>
 #endif // #if defined(TCG_LLVM_OFFLINE)
 
 #include <iostream>
@@ -90,6 +99,34 @@ static std::map<uint64_t, uint64_t> map_label;
 static uint64_t last_idx = 0;
 
 using namespace llvm;
+
+struct CPUStateElement{
+    uint64_t m_offset;
+    uint64_t m_size;
+    string m_name;
+    vector<uint8_t> m_data;
+
+    CPUStateElement(uint64_t offset, uint64_t size, string name, vector<uint8_t> data)
+    :m_offset(offset), m_size(size), m_name(name), m_data(data) {}
+
+    // For serialization
+    CPUStateElement()
+    :m_offset(0), m_size(0), m_name(string()),
+     m_data(vector<uint8_t>()) {}
+
+    template <class Archive>
+    void serialize(Archive& ar, const unsigned int version)
+    {
+        ar & m_offset;
+        ar & m_size;
+        ar & m_name;
+        ar & m_data;
+    }
+};
+
+typedef pair<bool, vector<CPUStateElement> > cpuStateSyncTable_ty;
+
+typedef vector<pair<uint64_t, uint8_t> > memoSyncTable_ty;
 
 struct TCGLLVMContextPrivate {
     LLVMContext& m_context;
@@ -225,6 +262,14 @@ public:
     void crete_add_tbExecSequ(vector<pair<uint64_t, uint64_t> > seq);
 
     void generate_crete_main();
+    GlobalVariable* generate_crete_init_cpuState();
+    void generate_crete_tb_prologue(uint64_t tb_count, uint64_t tb_pc, GlobalVariable *crete_cpu_state);
+
+    void crete_generate_llvm_cpuStateSyncTables(const string& input_file_name);
+    void crete_generate_llvm_cpuStateSyncTable(const cpuStateSyncTable_ty& csst);
+
+    void generate_llvm_MemorySyncTables(const string& input_file_name);
+    void generate_llvm_MemorySyncTable(const memoSyncTable_ty& memost);
 
 private:
     map<uint64_t, string> m_crete_helper_names;
@@ -232,6 +277,9 @@ private:
     // Execution sequence of cpatured TB: <pc, unique-tb-number>
     vector<pair<uint64_t, uint64_t> > m_tbExecSequ;
     uint64_t m_cpuState_size;
+
+    vector<pair<uint64_t, GlobalVariable *> > m_cpuState_sync_globals;
+    vector<pair<uint64_t, GlobalVariable *> > m_memory_sync_globals;
 };
 
 TCGLLVMContextPrivate::TCGLLVMContextPrivate()
@@ -1446,36 +1494,44 @@ void TCGLLVMContextPrivate::crete_add_tbExecSequ(vector<pair<uint64_t, uint64_t>
 
 void TCGLLVMContextPrivate::generate_crete_main()
 {
-    FunctionType *FT = FunctionType::get(Type::getVoidTy(m_context),
-            std::vector<llvm::Type*>(0), false);
+    if(m_tbExecSequ.size() != m_cpuState_sync_globals.size() ||
+            m_tbExecSequ.size() != m_memory_sync_globals.size())
+    {
+        BOOST_THROW_EXCEPTION(std::runtime_error("[Crete Error] m_tbExecSequ.size() != m_cpuState_sync_globals.size()/m_memory_sync_globals.size()"));
+    }
 
-    Function *crete_main_func = Function::Create(FT,
-            Function::PrivateLinkage, "main", m_module);
+    // 0. Construct initial cpu state in llvm bc
+    GlobalVariable* crete_cpu_state = generate_crete_init_cpuState();
 
-    BasicBlock *basicBlock = BasicBlock::Create(m_context,
-            "entry", crete_main_func);
-    m_builder.SetInsertPoint(basicBlock);
+    {
+        // 1. Construct main function in llvm bc
+        FunctionType *FT = FunctionType::get(Type::getVoidTy(m_context),
+                std::vector<llvm::Type*>(0), false);
 
-    ArrayType* tcg_env_type = ArrayType::get(intType(8), m_cpuState_size);
+        Function *crete_main_func = Function::Create(FT,
+                Function::PrivateLinkage, "main", m_module);
 
+        BasicBlock *basicBlock = BasicBlock::Create(m_context,
+                "entry", crete_main_func);
+        m_builder.SetInsertPoint(basicBlock);
+    }
+
+    {
 #if defined(CRETE_CROSS_CHECK)
-    // 0. call void @crete_verify_all_cpuState_offset()
-    Function *crete_verify_all_cpuState_offset = m_module->getFunction("crete_verify_all_cpuState_offset");
-    assert(crete_verify_all_cpuState_offset);
+        // 2.0 call void @crete_verify_all_cpuState_offset()
+        Function *crete_verify_all_cpuState_offset = m_module->getFunction("crete_verify_all_cpuState_offset");
+        assert(crete_verify_all_cpuState_offset);
 
-    m_builder.CreateCall(crete_verify_all_cpuState_offset, std::vector<Value*>());
+        m_builder.CreateCall(crete_verify_all_cpuState_offset, std::vector<Value*>());
 #endif
 
-    // 1. %cpu_state = alloca [34320 x i8]
-    Value *cpu_state= m_builder.CreateAlloca(tcg_env_type, 0, "cpu_state");
-
-    // 2. call void @init_cpu_state([34320 x i8]* %cpu_state)
-    {
+        // TODO: XXX kept for debugging purpose only (used for cross check on cpuState in klee)
+        // 2. call void @init_cpu_state([34320 x i8]* %cpu_state)
         std::vector<Value*> argValues;
         std::vector<llvm::Type*> argTypes;
 
-        argValues.push_back(cpu_state);
-        argTypes.push_back(cpu_state->getType());
+        argValues.push_back(crete_cpu_state);
+        argTypes.push_back(crete_cpu_state->getType());
 
         Function *init_cpu_state = Function::Create(
                 FunctionType::get(Type::getVoidTy(m_context), argTypes, false),
@@ -1486,29 +1542,17 @@ void TCGLLVMContextPrivate::generate_crete_main()
     }
 
     // 3. %cpu_state_addr = alloca i64
-    Value *cpu_state_addr = m_builder.CreateAlloca(intType(64), 0, "cpu_state_addr");
+    Value *cpu_state_addr = m_builder.CreateAlloca(intType(64), 0, "crete_cpu_state_addr");
 
-    // 4.   %0 = ptrtoint [34320 x i8]* %cpu_state to i64
-    //      store i64 %0, i64* %cpu_state_addr
-    m_builder.CreateStore(m_builder.CreatePtrToInt(cpu_state, intType(64)),
+    // 4.   store i64 ptrtoint ([34320 x i8]* @crete_cpu_state to i64), i64* %crete_cpu_state_addr
+    m_builder.CreateStore(m_builder.CreatePtrToInt(crete_cpu_state, intType(64)),
             cpu_state_addr, false);
-
-    std::vector<llvm::Type*> tb_prologue_argTypes;
-    tb_prologue_argTypes.push_back(intType(64));
-    tb_prologue_argTypes.push_back(intType(64));
-
-    Function *crete_qemu_tb_prologue = Function::Create(
-            FunctionType::get(Type::getVoidTy(m_context), tb_prologue_argTypes, false),
-                    Function::ExternalLinkage, "crete_qemu_tb_prologue", m_module);
 
     uint64_t tb_count = 0;
     for(vector<pair<uint64_t, uint64_t> >::const_iterator it = m_tbExecSequ.begin();
-            it != m_tbExecSequ.end(); ++it) {
+            it != m_tbExecSequ.end(); ++it, ++tb_count) {
         // 5.   call void @crete_qemu_tb_prologue(i64 tb_count, i64 tb_pc)
-        std::vector<Value*> tb_prologue_argValues;
-        tb_prologue_argValues.push_back(ConstantInt::get(intType(64), tb_count++));
-        tb_prologue_argValues.push_back(ConstantInt::get(intType(64), it->first));
-        m_builder.CreateCall(crete_qemu_tb_prologue,tb_prologue_argValues);
+        generate_crete_tb_prologue(tb_count, it->first, crete_cpu_state);
 
         // 6.   %1 = call i64 @tcg-llvm-tb-0-b7db3f45(i64* %cpu_state_addr)
         std::ostringstream fName;
@@ -1531,6 +1575,272 @@ void TCGLLVMContextPrivate::generate_crete_main()
     m_builder.CreateRet(0);
 }
 
+GlobalVariable* TCGLLVMContextPrivate::generate_crete_init_cpuState()
+{
+    // 1. Get initial CPUState from file
+    ifstream i_sm("dump_initial_cpuState.bin", ios_base::binary);
+    assert(i_sm && "open file failed: dump_initial_cpuState.bin\n");;
+
+    i_sm.seekg(0, ios::end);
+    uint64_t size_cpuState = i_sm.tellg();
+    assert(size_cpuState == m_cpuState_size);
+    i_sm.seekg(0, ios::beg);
+
+    string initial_cpuState;
+    initial_cpuState.reserve(size_cpuState);
+    initial_cpuState.assign((std::istreambuf_iterator<char>(i_sm)),
+                std::istreambuf_iterator<char>());
+
+    assert(initial_cpuState.size() == m_cpuState_size);
+
+    // 2. Construct a global variable "cpu_state" with initial value read from file
+    Constant *const_initial_cpuState = ConstantDataArray::getString(m_module->getContext(), initial_cpuState, true);
+    ArrayType* ArrayTy_0 = ArrayType::get(IntegerType::get(m_module->getContext(), 8), m_cpuState_size);
+
+    GlobalVariable* gvar_array_init_cpuState = new GlobalVariable(/*Module=*/*m_module,
+    /*Type=*/ArrayTy_0,
+    /*isConstant=*/false,
+    /*Linkage=*/GlobalValue::InternalLinkage,
+    /*Initializer=*/const_initial_cpuState,
+    /*Name=*/"crete_cpu_state");
+
+    gvar_array_init_cpuState->setAlignment(16);
+
+    return gvar_array_init_cpuState;
+}
+
+void TCGLLVMContextPrivate::generate_crete_tb_prologue(uint64_t tb_count, uint64_t tb_pc, GlobalVariable *crete_cpu_state)
+{
+    // 1. call void sync_cpu_state(uint8_t *cpu_state, uint32_t cs_size,
+    //                             const struct CPUStateElement *sync_table, uint32_t st_size);
+    if(m_cpuState_sync_globals[tb_count].first != 0)
+    {
+        uint32_t st_size = m_cpuState_sync_globals[tb_count].first;
+        GlobalVariable *sync_table = m_cpuState_sync_globals[tb_count].second;
+
+        Function* func_sync_cpu_state = m_module->getFunction("sync_cpu_state");
+        if(!func_sync_cpu_state)
+        {
+            BOOST_THROW_EXCEPTION(std::runtime_error("[Crete Error] sync_cpu_state() is not defined.\n"));
+        }
+
+        // 1.1 uint8_t *cpu_state (getelementptr inbounds (crete_cpu_state, i32 0, i32 0))
+        Constant* const_ptr_cpu_state = ConstantExpr::getGetElementPtr(crete_cpu_state,
+                vector<Constant *>(2, ConstantInt::get(m_module->getContext(), APInt(32, 0))));
+        // 1.2 uint32_t cs_size
+        ConstantInt* const_int32_cpu_size = ConstantInt::get(m_module->getContext(), APInt(32, m_cpuState_size));
+        // 1.3 const struct CPUStateElement *sync_table:
+        //         (getelementptr inbounds (crete_cpu_state, i32 0, i32 0))
+        Constant* const_ptr_sync_table = ConstantExpr::getGetElementPtr(sync_table,
+                vector<Constant *>(2, ConstantInt::get(m_module->getContext(), APInt(32, 0))));
+        // 1.4 uint32_t st_size
+        ConstantInt* const_int32_st_size = ConstantInt::get(m_module->getContext(), APInt(32, st_size));
+
+        std::vector<Value*> sync_cpu_state_argValues;
+        sync_cpu_state_argValues.push_back(const_ptr_cpu_state);
+        sync_cpu_state_argValues.push_back(const_int32_cpu_size);
+        sync_cpu_state_argValues.push_back(const_ptr_sync_table);
+        sync_cpu_state_argValues.push_back(const_int32_st_size);
+        m_builder.CreateCall(func_sync_cpu_state, sync_cpu_state_argValues);
+    }
+
+    // 2. call void crete_sync_memory(const struct MemoryElement *sync_table, uint32_t st_size)
+    if(m_memory_sync_globals[tb_count].first != 0)
+    {
+        uint32_t st_size = m_memory_sync_globals[tb_count].first;
+        GlobalVariable *sync_table = m_memory_sync_globals[tb_count].second;
+
+        Function* func_crete_sync_memory = m_module->getFunction("crete_sync_memory");
+        if(!func_crete_sync_memory)
+        {
+            BOOST_THROW_EXCEPTION(std::runtime_error("[Crete Error] crete_sync_memory() is not defined.\n"));
+        }
+
+        // 2.1 const struct MemoryElement *sync_table:
+        //         (getelementptr inbounds (MemoryElement, i32 0, i32 0))
+        Constant* const_ptr_sync_table = ConstantExpr::getGetElementPtr(sync_table,
+                vector<Constant *>(2, ConstantInt::get(m_module->getContext(), APInt(32, 0))));
+        // 2.2 uint32_t st_size
+        ConstantInt* const_int32_st_size = ConstantInt::get(m_module->getContext(), APInt(32, st_size));
+
+        std::vector<Value*> crete_sync_memory_argValues;
+        crete_sync_memory_argValues.push_back(const_ptr_sync_table);
+        crete_sync_memory_argValues.push_back(const_int32_st_size);
+        m_builder.CreateCall(func_crete_sync_memory, crete_sync_memory_argValues);
+    }
+
+    {
+        // 2. call void @crete_qemu_tb_prologue(i64 tb_count, i64 tb_pc)
+        Function* crete_qemu_tb_prologue = m_module->getFunction("crete_qemu_tb_prologue");
+        if(!crete_qemu_tb_prologue)
+        {
+            std::vector<llvm::Type*> tb_prologue_argTypes;
+            tb_prologue_argTypes.push_back(intType(64));
+            tb_prologue_argTypes.push_back(intType(64));
+
+            crete_qemu_tb_prologue = Function::Create(
+                            FunctionType::get(Type::getVoidTy(m_context), tb_prologue_argTypes, false),
+                                    Function::ExternalLinkage, "crete_qemu_tb_prologue", m_module);
+        }
+
+        std::vector<Value*> tb_prologue_argValues;
+        tb_prologue_argValues.push_back(ConstantInt::get(intType(64), tb_count));
+        tb_prologue_argValues.push_back(ConstantInt::get(intType(64), tb_pc));
+        m_builder.CreateCall(crete_qemu_tb_prologue,tb_prologue_argValues);
+    }
+}
+
+void TCGLLVMContextPrivate::crete_generate_llvm_cpuStateSyncTables(const string& input_file_name)
+{
+    ifstream i_sm(input_file_name.c_str(), ios_base::binary);
+    if(!i_sm.good()) {
+        BOOST_THROW_EXCEPTION(std::runtime_error("[Crete Error] can't find file: " + input_file_name));
+    }
+
+    vector<cpuStateSyncTable_ty> cpuStateSyncTables;
+    boost::archive::binary_iarchive ia(i_sm);
+    ia >> cpuStateSyncTables;
+
+    for(vector<cpuStateSyncTable_ty>::const_iterator it = cpuStateSyncTables.begin();
+            it != cpuStateSyncTables.end(); ++it) {
+        crete_generate_llvm_cpuStateSyncTable(*it);
+    }
+}
+
+void TCGLLVMContextPrivate::crete_generate_llvm_cpuStateSyncTable(const cpuStateSyncTable_ty& csst)
+{
+    if(!csst.first)
+    {
+        m_cpuState_sync_globals.push_back(make_pair(0, (GlobalVariable*)0));
+        return;
+    }
+
+    StructType *StructTy_struct_CPUStateElement = m_module->getTypeByName("struct.CPUStateElement");
+    if(!StructTy_struct_CPUStateElement)
+    {
+        BOOST_THROW_EXCEPTION(std::runtime_error( "struct.CPUStateElement is not defined.\n"));
+    }
+
+    uint64_t syncTable_size = csst.second.size();
+    std::vector<Constant*> const_array_elems; // construct value for syncTable in llvm
+    const_array_elems.reserve(syncTable_size);
+
+    for(vector<CPUStateElement>::const_iterator it = csst.second.begin();
+            it != csst.second.end(); ++it) {
+        uint64_t offset = it->m_offset;
+        uint64_t size = it->m_size;
+//        string name  = in_it->m_name;
+        const vector<uint8_t>& data  = it->m_data;
+        assert(size == data.size());
+
+        // 1. uint32_t m_offset
+        ConstantInt* const_int32_offset = ConstantInt::get(m_module->getContext(), APInt(32, offset));
+        // 2. uint32_t m_size
+        ConstantInt* const_int32_size   = ConstantInt::get(m_module->getContext(), APInt(32, size));
+        // 3. char *m_data
+        //    3.1 un-named const string with value from "data"
+        GlobalVariable* gvar_array__str = new GlobalVariable(*m_module, /*Module=*/
+                                                             ArrayType::get(IntegerType::get(m_module->getContext(), 8), size), /*Type=*/
+                                                             true, /*isConstant=*/
+                                                             GlobalValue::PrivateLinkage, /*Linkage=*/
+                                                             ConstantDataArray::getString(m_module->getContext(),
+                                                                                          string(data.begin(), data.end()), true), /*Initializer=*/
+                                                             "cpu_element_str_");
+        //    3.2 char i8* getelementptr inbounds (gvar_array__str, i32 0, i32 0)
+        Constant* const_ptr_data = ConstantExpr::getGetElementPtr(gvar_array__str,
+                                                                  vector<Constant *>(2, ConstantInt::get(m_module->getContext(), APInt(32, 0))));
+
+        std::vector<Constant*> const_CPUStateElement_fields;
+        const_CPUStateElement_fields.push_back(const_int32_offset);
+        const_CPUStateElement_fields.push_back(const_int32_size);
+        const_CPUStateElement_fields.push_back(const_ptr_data);
+
+        Constant* const_CPUStateElement = ConstantStruct::get(StructTy_struct_CPUStateElement, const_CPUStateElement_fields);
+
+        const_array_elems.push_back(const_CPUStateElement);
+    }
+
+    assert(const_array_elems.size() == syncTable_size);
+
+    // Construct type for syncTable in llvm as "CPUStateElement[syncTable_size]"
+    ArrayType* ArrayTy_syncTable = ArrayType::get(StructTy_struct_CPUStateElement, syncTable_size);
+    // Construct instance of syncTable as global variable in llvm
+    GlobalVariable* gvar_array_cpuStateSyncTable = new GlobalVariable(*m_module, /*Module=*/
+                                                                      ArrayTy_syncTable, /*Type=*/
+                                                                      false, /*isConstant=*/
+                                                                      GlobalValue::ExternalLinkage, /*Linkage=*/
+                                                                      ConstantArray::get(ArrayTy_syncTable, const_array_elems) /*Initializer=*/);
+
+    m_cpuState_sync_globals.push_back(make_pair(syncTable_size, gvar_array_cpuStateSyncTable));
+}
+
+void TCGLLVMContextPrivate::generate_llvm_MemorySyncTables(const string& input_file_name)
+{
+    ifstream i_sm(input_file_name.c_str(), ios_base::binary);
+    if(!i_sm.good()) {
+        BOOST_THROW_EXCEPTION(std::runtime_error("[Crete Error] can't find file: " + input_file_name));
+    }
+
+    vector<memoSyncTable_ty> memorySyncTable;
+    boost::archive::binary_iarchive ia(i_sm);
+    ia >> memorySyncTable;;
+
+    for(vector<memoSyncTable_ty>::const_iterator it = memorySyncTable.begin();
+            it != memorySyncTable.end(); ++it) {
+        generate_llvm_MemorySyncTable(*it);
+    }
+}
+
+void TCGLLVMContextPrivate::generate_llvm_MemorySyncTable(const memoSyncTable_ty& memost)
+{
+    if(memost.empty())
+    {
+        m_memory_sync_globals.push_back(make_pair(0, (GlobalVariable*)0));
+        return;
+    }
+
+    StructType *StructTy_struct_MemoSyncElement = m_module->getTypeByName("struct.MemoryElement");
+    if(!StructTy_struct_MemoSyncElement)
+    {
+        BOOST_THROW_EXCEPTION(std::runtime_error( "struct.MemoSyncElement is not defined.\n"));
+    }
+
+    uint64_t syncTable_size = memost.size();
+    std::vector<Constant*> const_array_elems; // construct value for syncTable in llvm
+    const_array_elems.reserve(syncTable_size);
+
+    for(memoSyncTable_ty::const_iterator it = memost.begin();
+            it != memost.end(); ++it) {
+        uint8_t value = it->second;
+        uint64_t static_addr = it->first;
+
+        // 1. uint8_t m_value
+        ConstantInt* const_int8_value = ConstantInt::get(m_module->getContext(), APInt(8, value));
+        // 2. uint64_t m_static_addr
+        ConstantInt* const_int64_static_addr = ConstantInt::get(m_module->getContext(), APInt(64, static_addr));
+
+        std::vector<Constant*> const_memoSyncElement_fields;
+        const_memoSyncElement_fields.push_back(const_int8_value);
+        const_memoSyncElement_fields.push_back(const_int64_static_addr);
+
+        Constant* const_memoSyncElement = ConstantStruct::get(StructTy_struct_MemoSyncElement, const_memoSyncElement_fields);
+
+        const_array_elems.push_back(const_memoSyncElement);
+    }
+
+    assert(const_array_elems.size() == syncTable_size);
+
+    // Construct type for syncTable in llvm as "MemoSyncElement[syncTable_size]"
+    ArrayType* ArrayTy_syncTable = ArrayType::get(StructTy_struct_MemoSyncElement, syncTable_size);
+    // Construct instance of syncTable as global variable in llvm
+    GlobalVariable* gvar_array_cpuStateSyncTable = new GlobalVariable(*m_module, /*Module=*/
+                                                                      ArrayTy_syncTable, /*Type=*/
+                                                                      false, /*isConstant=*/
+                                                                      GlobalValue::ExternalLinkage, /*Linkage=*/
+                                                                      ConstantArray::get(ArrayTy_syncTable, const_array_elems) /*Initializer=*/);
+
+    m_memory_sync_globals.push_back(make_pair(syncTable_size, gvar_array_cpuStateSyncTable));
+}
 /***********************************/
 /* External interface for C++ code */
 
@@ -1650,7 +1960,17 @@ void TCGLLVMContext::generate_crete_main()
 {
     m_private->generate_crete_main();
 }
-#endif
+
+void TCGLLVMContext::generate_llvm_cpuStateSyncTables(const string& input_file_name)
+{
+    m_private->crete_generate_llvm_cpuStateSyncTables(input_file_name);
+}
+
+void TCGLLVMContext::generate_llvm_MemorySyncTables(const string& input_file_name)
+{
+    m_private->generate_llvm_MemorySyncTables(input_file_name);
+}
+#endif // TCG_LLVM_OFFLINE
 /*****************************/
 /* Functions for QEMU c code */
 

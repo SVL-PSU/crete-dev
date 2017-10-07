@@ -93,6 +93,7 @@
 #endif
 
 void crete_todo_op_helper(); /* dummy declaration to indicate the todo works*/
+uint64_t crete_get_dynamic_addr(uint64_t static_addr);
 
 #ifndef SOFTMMU_CODE_ACCESS
 static inline DATA_TYPE glue(io_read, SUFFIX)(CPUArchState *env,
@@ -112,11 +113,12 @@ WORD_TYPE helper_le_ld_name(CPUArchState *env, target_ulong addr, int mmu_idx,
                             uintptr_t retaddr)
 {
     DATA_TYPE res;
+    uint64_t dynamic_addr = crete_get_dynamic_addr(addr);
 
 #if DATA_SIZE == 1
-    res = glue(glue(ld, LSUFFIX), _p)((uint8_t *)(uint64_t)addr);
+    res = glue(glue(ld, LSUFFIX), _p)((uint8_t *)dynamic_addr);
 #else
-    res = glue(glue(ld, LSUFFIX), _le_p)((uint8_t *)(uint64_t)addr);
+    res = glue(glue(ld, LSUFFIX), _le_p)((uint8_t *)dynamic_addr);
 #endif
     return res;
 }
@@ -129,7 +131,10 @@ WORD_TYPE helper_be_ld_name(CPUArchState *env, target_ulong addr, int mmu_idx,
                             uintptr_t retaddr)
 {
     DATA_TYPE res;
-    res = glue(glue(ld, LSUFFIX), _be_p)((uint8_t *)(uint64_t)addr);
+    // TODO: xxx BE (should not need to reverse the address,
+    //               as long as it stay consistent wit memory monitoring)
+    uint64_t dynamic_addr = crete_get_dynamic_addr(addr);
+    res = glue(glue(ld, LSUFFIX), _be_p)((uint8_t *)dynamic_addr);
     return res;
 }
 #endif /* DATA_SIZE > 1 */
@@ -173,10 +178,11 @@ static inline void glue(io_write, SUFFIX)(CPUArchState *env,
 void helper_le_st_name(CPUArchState *env, target_ulong addr, DATA_TYPE val,
                        int mmu_idx, uintptr_t retaddr)
 {
+    uint64_t dynamic_addr = crete_get_dynamic_addr(addr);
 #if DATA_SIZE == 1
-    glue(glue(st, SUFFIX), _p)((uint8_t *)(uint64_t)addr, val);
+    glue(glue(st, SUFFIX), _p)((uint8_t *)dynamic_addr, val);
 #else
-    glue(glue(st, SUFFIX), _le_p)((uint8_t *)(uint64_t)addr, val);
+    glue(glue(st, SUFFIX), _le_p)((uint8_t *)dynamic_addr, val);
 #endif
 }
 
@@ -184,7 +190,10 @@ void helper_le_st_name(CPUArchState *env, target_ulong addr, DATA_TYPE val,
 void helper_be_st_name(CPUArchState *env, target_ulong addr, DATA_TYPE val,
                        int mmu_idx, uintptr_t retaddr)
 {
-    glue(glue(st, SUFFIX), _be_p)((uint8_t *)(uint64_t)addr, val);
+    // TODO: xxx BE (should not need to reverse the address,
+    //               as long as it stay consistent wit memory monitoring)
+    uint64_t dynamic_addr = crete_get_dynamic_addr(addr);
+    glue(glue(st, SUFFIX), _be_p)((uint8_t *)dynamic_addr, val);
 }
 
 #endif /* DATA_SIZE > 1 */
