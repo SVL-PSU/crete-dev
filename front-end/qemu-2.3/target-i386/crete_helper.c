@@ -12,7 +12,7 @@ enum CreteDebugFlag
     CRETE_DEBUG_FLAG_DISABLE
 };
 
-void helper_crete_make_symbolic(void)
+void helper_crete_make_concolic_internal(target_ulong guest_addr, target_ulong size, target_ulong name_guest_addr)
 {
     // Do nothing. Just a keyword for Klee to catch.
 #if defined(CRETE_DEP_ANALYSIS) || 1

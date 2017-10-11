@@ -56,15 +56,45 @@ static inline void __crete_touch_buffer(volatile void *buffer, unsigned size)
     }
 }
 
-// Inject call to helper_crete_make_symbolic, so that klee can catch
-void __crete_make_concolic_internal(void)
+// Function to be captured for replay "crete_make_concolic()":
+// 1. Capture values of concolic variable and its name by touching/reading buffer
+// 2. Inject a call to helper_crete_make_concolic() so that SVM can inject symbolic values
+static void __crete_make_concolic_internal(void *addr, size_t size, const char* name)
 {
+    // Touch the content of name and force it is being captured
+    {
+        size_t name_size = strlen(name);
+        volatile char *_addr = (volatile char *) addr;
+        volatile char *_name = (volatile char *) name;
+
+        size_t i;
+        for (i = 0; (i < size && i < name_size); ++i) {
+            *_addr; *_name;
+            ++_name; ++_addr;
+        }
+
+        if(i < name_size) {
+            --_addr;
+            for(; i < name_size; ++i)
+            {
+                *_addr; *_name;
+                ++_name;
+            }
+        } else if (i < size) {
+            for(; i < size; ++i)
+            {
+                *_addr; ++_addr;
+            }
+        }
+    }
+
     __asm__ __volatile__(
-        CRETE_INSTR_MAKE_SYMBOLIC()
+        CRETE_INSTR_MAKE_CONCOLIC_INTERNAL()
+        : : "a" (addr), "c" (size), "d" (name)
     );
 }
 
-void crete_send_concolic_name(const char* name) {
+static void crete_send_concolic_name(const char* name) {
     size_t name_size = strlen(name);
     __crete_touch_buffer((void*)name, name_size);
 
@@ -74,20 +104,28 @@ void crete_send_concolic_name(const char* name) {
     );
 }
 
-void crete_make_concolic(void* addr, size_t size, const char* name)
+// Prepare for "crete_make_concolic()" within VM for tracing:
+// Send information from guest to VM, guest_addr, size, name and name size of concolic value, so that:
+// 1. Set the correct value of concolic variale from test case
+// 2. Enable taint-analysis on this concolic variable
+static void crete_pre_make_concolic(void* addr, size_t size, const char* name)
 {
-    // CRETE_INSTR_SEND_CONCOLIC_NAME must be sent before CRETE_INSTR_MAKE_CONCOLIC,
+    // CRETE_INSTR_SEND_CONCOLIC_NAME must be sent before CRETE_INSTR_PRE_MAKE_CONCOLIC,
     // to satisfy the hanlder's order in qemu/runtime-dump/custom-instruction.cpp
     crete_send_concolic_name(name);
 
     __crete_touch_buffer(addr, size);
 
     __asm__ __volatile__(
-            CRETE_INSTR_MAKE_CONCOLIC()
+            CRETE_INSTR_PRE_MAKE_CONCOLIC()
         : : "a" (addr), "c" (size)
     );
+}
 
-    __crete_make_concolic_internal();
+void crete_make_concolic(void* addr, size_t size, const char* name)
+{
+    crete_pre_make_concolic(addr, size, name);
+    __crete_make_concolic_internal(addr, size, name);
 }
 
 void crete_assume_begin()

@@ -25,7 +25,6 @@ void crete_insert_instr_libc_start_main_address(uintptr_t addr, uintptr_t size);
 void crete_send_function_entry(uintptr_t addr, uintptr_t size, const char* name);
 void crete_send_custom_instr_quit();
 void crete_send_custom_instr_dump();
-void __crete_make_symbolic(); // No inlining. Needs to be separate function to list in dump list.
 void crete_send_custom_instr_prime();
 void crete_send_custom_instr_start_stopwatch();
 void crete_send_custom_instr_stop_stopwatch();
