@@ -80,8 +80,8 @@ static inline void crete_custom_instr_send_concolic_name()
     current_concolic_name[name_size] = '\0';
 }
 
-// CRETE_INSTR_MAKE_CONCOLIC_VALUE
-static inline void crete_custom_instr_make_concolic()
+// CRETE_INSTR_PRE_MAKE_CONCOLIC_VALUE
+static inline void crete_custom_instr_pre_make_concolic()
 {
     assert(current_concolic_name[0] != '\0' &&
             "[CRETE ERROR] current_concolic_name is empty. "
@@ -227,8 +227,8 @@ void crete_custom_instruction_handler(uint64_t arg) {
 	    crete_custom_instr_send_concolic_name();
 	    break;
 
-	case CRETE_INSTR_MAKE_CONCOLIC_VALUE:
-	    crete_custom_instr_make_concolic();
+	case CRETE_INSTR_PRE_MAKE_CONCOLIC_VALUE:
+	    crete_custom_instr_pre_make_concolic();
 	    break;
 
 	case CRETE_INSTR_PRIME_VALUE:

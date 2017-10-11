@@ -220,7 +220,7 @@ DEF_HELPER_3(rcrq, tl, env, tl, tl)
 
 
 #if defined(CRETE_CONFIG) || 1
-DEF_HELPER_0(crete_make_symbolic, void)
+DEF_HELPER_3(crete_make_concolic_internal,void, tl, tl, tl)
 DEF_HELPER_1(crete_debug_print_f32, void, tl)
 DEF_HELPER_3(crete_debug_print_buf, void, tl, tl, tl)
 DEF_HELPER_3(crete_debug_assert_is_concolic, void, tl, tl, tl)

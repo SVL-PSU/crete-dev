@@ -4650,11 +4650,10 @@ static target_ulong disas_insn(CPUX86State *env, DisasContext *s,
             switch(arg)
             {
             default:
-//                bct_tcg_emit_custom_instruction(arg);
                 gen_helper_crete_custom_instruction_handler(cpu_tmp1_i64);
                 break;
-            case CRETE_INSTR_MAKE_SYMBOLIC_VALUE:
-                gen_helper_crete_make_symbolic();
+            case CRETE_INSTR_MAKE_CONCOLIC_INTERNAL_VALUE:
+                gen_helper_crete_make_concolic_internal(cpu_regs[R_EAX], cpu_regs[R_ECX], cpu_regs[R_EDX]);
                 break;
             case CRETE_INSTR_ASSUME_BEGIN_VALUE:
                 gen_helper_crete_assume_begin();
