@@ -261,3 +261,13 @@ void crete_verify_all_cpuState_offset()
     __VERIFY_CPUSTATE_OFFSET(uint8_t, nmi_pending)
 }
 #endif //#if defined(CRETE_CROSS_CHECK)
+
+void crete_bc_assert(int valid, const char * msg)
+{
+  ;
+}
+
+void helper_crete_make_concolic_internal(target_ulong addr, target_ulong size, target_ulong name_addr)
+{
+  ;
+}
