@@ -1533,9 +1533,18 @@ void TCGLLVMContextPrivate::generate_crete_main()
         argValues.push_back(crete_cpu_state);
         argTypes.push_back(crete_cpu_state->getType());
 
-        Function *init_cpu_state = Function::Create(
-                FunctionType::get(Type::getVoidTy(m_context), argTypes, false),
-                Function::ExternalLinkage, "crete_init_cpu_state", m_module);
+        Function *init_cpu_state = m_module->getFunction("crete_init_cpu_state");
+        if(!init_cpu_state){
+            init_cpu_state = Function::Create(
+                            FunctionType::get(Type::getVoidTy(m_context), argTypes, false),
+                            Function::ExternalLinkage, "crete_init_cpu_state", m_module);
+
+            IRBuilder<> temp_irb(m_context);
+            BasicBlock *temp_bb = BasicBlock::Create(m_context,
+                    "entry", init_cpu_state);
+            temp_irb.SetInsertPoint(temp_bb);
+            temp_irb.CreateRet(0);
+        }
 
         m_builder.CreateCall(init_cpu_state,
                             ArrayRef<Value*>(argValues));
@@ -1565,10 +1574,19 @@ void TCGLLVMContextPrivate::generate_crete_main()
                 std::vector<llvm::Value*>(1, cpu_state_addr));
     }
 
-    Function *crete_finish_replay = Function::Create(
-            FunctionType::get(Type::getVoidTy(m_context),
-                    std::vector<llvm::Type*>(1, intType(64)), false),
-                    Function::ExternalLinkage, "crete_finish_replay", m_module);
+    Function *crete_finish_replay = m_module->getFunction("crete_finish_replay");
+    if(!crete_finish_replay){
+        crete_finish_replay = Function::Create(
+                FunctionType::get(Type::getVoidTy(m_context),
+                        std::vector<llvm::Type*>(1, intType(64)), false),
+                        Function::ExternalLinkage, "crete_finish_replay", m_module);
+
+        IRBuilder<> temp_irb(m_context);
+        BasicBlock *temp_bb = BasicBlock::Create(m_context,
+                                                 "entry", crete_finish_replay);
+        temp_irb.SetInsertPoint(temp_bb);
+        temp_irb.CreateRet(0);
+    }
     m_builder.CreateCall(crete_finish_replay,
             std::vector<llvm::Value*>(1, ConstantInt::get(intType(64), tb_count)));
 
@@ -1594,7 +1612,7 @@ GlobalVariable* TCGLLVMContextPrivate::generate_crete_init_cpuState()
     assert(initial_cpuState.size() == m_cpuState_size);
 
     // 2. Construct a global variable "cpu_state" with initial value read from file
-    Constant *const_initial_cpuState = ConstantDataArray::getString(m_module->getContext(), initial_cpuState, true);
+    Constant *const_initial_cpuState = ConstantDataArray::getString(m_module->getContext(), initial_cpuState, false);
     ArrayType* ArrayTy_0 = ArrayType::get(IntegerType::get(m_module->getContext(), 8), m_cpuState_size);
 
     GlobalVariable* gvar_array_init_cpuState = new GlobalVariable(/*Module=*/*m_module,
@@ -1611,17 +1629,17 @@ GlobalVariable* TCGLLVMContextPrivate::generate_crete_init_cpuState()
 
 void TCGLLVMContextPrivate::generate_crete_tb_prologue(uint64_t tb_count, uint64_t tb_pc, GlobalVariable *crete_cpu_state)
 {
-    // 1. call void sync_cpu_state(uint8_t *cpu_state, uint32_t cs_size,
+    // 1. call void crete_sync_cpu_state(uint8_t *cpu_state, uint32_t cs_size,
     //                             const struct CPUStateElement *sync_table, uint32_t st_size);
     if(m_cpuState_sync_globals[tb_count].first != 0)
     {
         uint32_t st_size = m_cpuState_sync_globals[tb_count].first;
         GlobalVariable *sync_table = m_cpuState_sync_globals[tb_count].second;
 
-        Function* func_sync_cpu_state = m_module->getFunction("sync_cpu_state");
+        Function* func_sync_cpu_state = m_module->getFunction("crete_sync_cpu_state");
         if(!func_sync_cpu_state)
         {
-            BOOST_THROW_EXCEPTION(std::runtime_error("[Crete Error] sync_cpu_state() is not defined.\n"));
+            BOOST_THROW_EXCEPTION(std::runtime_error("[Crete Error] crete_sync_cpu_state() is not defined.\n"));
         }
 
         // 1.1 uint8_t *cpu_state (getelementptr inbounds (crete_cpu_state, i32 0, i32 0))
@@ -1681,6 +1699,12 @@ void TCGLLVMContextPrivate::generate_crete_tb_prologue(uint64_t tb_count, uint64
             crete_qemu_tb_prologue = Function::Create(
                             FunctionType::get(Type::getVoidTy(m_context), tb_prologue_argTypes, false),
                                     Function::ExternalLinkage, "crete_qemu_tb_prologue", m_module);
+
+            IRBuilder<> temp_irb(m_context);
+            BasicBlock *temp_bb = BasicBlock::Create(m_context,
+                                                     "entry", crete_qemu_tb_prologue);
+            temp_irb.SetInsertPoint(temp_bb);
+            temp_irb.CreateRet(0);
         }
 
         std::vector<Value*> tb_prologue_argValues;
@@ -1744,7 +1768,7 @@ void TCGLLVMContextPrivate::crete_generate_llvm_cpuStateSyncTable(const cpuState
                                                              true, /*isConstant=*/
                                                              GlobalValue::PrivateLinkage, /*Linkage=*/
                                                              ConstantDataArray::getString(m_module->getContext(),
-                                                                                          string(data.begin(), data.end()), true), /*Initializer=*/
+                                                                                          string(data.begin(), data.end()), false), /*Initializer=*/
                                                              "cpu_element_str_");
         //    3.2 char i8* getelementptr inbounds (gvar_array__str, i32 0, i32 0)
         Constant* const_ptr_data = ConstantExpr::getGetElementPtr(gvar_array__str,
