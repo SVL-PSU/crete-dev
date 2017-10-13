@@ -37,6 +37,7 @@ ExternalProject_Add(
         -DENABLE_SOLVER_STP=ON
         -DENABLE_SYSTEM_TESTS=OFF
         -DENABLE_UNIT_TESTS=OFF
+        -DENABLE_KLEE_ASSERTS=FALSE
 
         INSTALL_COMMAND
         ln -sf
