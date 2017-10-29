@@ -220,17 +220,9 @@ DEF_HELPER_3(rcrq, tl, env, tl, tl)
 
 
 #if defined(CRETE_CONFIG) || 1
+DEF_HELPER_1(crete_custom_instruction_handler, void, i64)
 DEF_HELPER_3(crete_make_concolic_internal,void, tl, tl, tl)
-DEF_HELPER_1(crete_debug_print_f32, void, tl)
-DEF_HELPER_3(crete_debug_print_buf, void, tl, tl, tl)
-DEF_HELPER_3(crete_debug_assert_is_concolic, void, tl, tl, tl)
-DEF_HELPER_3(crete_debug_monitor_concolic_status, void, tl, tl, tl)
-DEF_HELPER_3(crete_make_concrete, void, tl, tl, tl)
-DEF_HELPER_3(crete_debug_monitor_value, void, tl, tl, tl)
-DEF_HELPER_2(crete_debug_monitor_set_flag, void, tl, tl)
-DEF_HELPER_1(crete_debug_capture, void, tl)
+
 DEF_HELPER_0(crete_assume_begin, void)
 DEF_HELPER_1(crete_assume, void, tl)
-DEF_HELPER_1(crete_custom_instruction_handler, void, i64)
-
 #endif

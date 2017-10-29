@@ -4661,39 +4661,6 @@ static target_ulong disas_insn(CPUX86State *env, DisasContext *s,
             case CRETE_INSTR_ASSUME_VALUE:
                 gen_helper_crete_assume(cpu_regs[R_EAX]);
                 break;
-            case CRETE_INSTR_DEBUG_PRINT_F32_VALUE:
-                printf("CRETE_INSTR_DEBUG_PRINT_F32_VALUE\n");
-                gen_helper_crete_debug_print_f32(cpu_regs[R_EAX]);
-                break;
-            case CRETE_INSTR_DEBUG_PRINT_BUF_VALUE:
-                printf("CRETE_INSTR_DEBUG_PRINT_BUF_VALUE\n");
-                gen_helper_crete_debug_print_buf(cpu_regs[R_EAX], cpu_regs[R_ECX], cpu_regs[R_EDX]);
-                break;
-            case CRETE_INSTR_DEBUG_ASSERT_IS_CONCOLIC_VALUE:
-                printf("CRETE_INSTR_DEBUG_ASSERT_IS_CONCOLIC_VALUE\n");
-                gen_helper_crete_debug_assert_is_concolic(cpu_regs[R_EAX], cpu_regs[R_ECX], cpu_regs[R_EDX]);
-                break;
-            case CRETE_INSTR_DEBUG_MONITOR_CONCOLIC_STATUS_VALUE:
-                printf("CRETE_INSTR_DEBUG_ASSERT_IS_CONCOLIC_VALUE\n");
-                gen_helper_crete_debug_monitor_concolic_status(cpu_regs[R_EAX], cpu_regs[R_ECX], cpu_regs[R_EDX]);
-                break;
-            case CRETE_INSTR_MAKE_CONCRETE_VALUE:
-//                printf("CRETE_INSTR_MAKE_CONCRETE_VALUE");
-//                gen_helper_crete_make_concrete(cpu_regs[R_EAX], cpu_regs[R_ECX], cpu_regs[R_EDX]);
-                assert(0);
-                break;
-            case CRETE_INSTR_DEBUG_MONITOR_VALUE_VALUE:
-                printf("CRETE_INSTR_DEBUG_MONITOR_VALUE_VALUE");
-                gen_helper_crete_debug_monitor_value(cpu_regs[R_EAX], cpu_regs[R_ECX], cpu_regs[R_EDX]);
-                break;
-            case CRETE_INSTR_DEBUG_MONITOR_SET_FLAG_VALUE:
-                printf("CRETE_INSTR_DEBUG_MONITOR_SET_FLAG_VALUE");
-                gen_helper_crete_debug_monitor_set_flag(cpu_regs[R_EAX], cpu_regs[R_ECX]);
-                break;
-            case CRETE_INSTR_DEBUG_CAPTURE_VALUE:
-                printf("CRETE_INSTR_DEBUG_CAPTURE_VALUE");
-                gen_helper_crete_debug_capture(cpu_regs[R_EAX]);
-                break;
             }
 #else
             /* Simply skip the opcode when building vanilla qemu */
