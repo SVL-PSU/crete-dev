@@ -234,7 +234,6 @@ static inline void crete_preload_initialize(int argc, char**& argv)
     // Should terminate program while being launched as prime
     update_proc_maps();
 
-    atexit(crete_void_target_pid);
     // Need to call crete_send_target_pid before make_concolics, or they won't be captured.
     crete_send_target_pid();
 
@@ -264,9 +263,7 @@ static inline void crete_preload_initialize(int argc, char**& argv)
 // TODO: xxx does not handle nested signals
 static inline void crete_signal_handler(int signum)
 {
-    //TODO: xxx _exit() is safer, but atexit()/crete_void_target_pid() will not be called with _exit()
-    // FIXME: xxx should be fine now, as crete_void_target_pid() will be invoked in crete-runner
-    exit(CRETE_EXIT_CODE_SIG_BASE + signum);
+    _exit(CRETE_EXIT_CODE_SIG_BASE + signum);
 }
 
 static inline void init_crete_signal_handlers(void)
