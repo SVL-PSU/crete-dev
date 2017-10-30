@@ -100,22 +100,6 @@ public:
     void process_lib_filter(ProcReader& pr,
                             const std::vector<std::string>& libs,
                             void (*f_custom_instr)(uintptr_t, uintptr_t));
-    void process_executable_section(ELFReader& reader,
-                                    const std::vector<std::string>& sections,
-                                    void (*f_custom_instr)(uintptr_t, uintptr_t));
-    void process_call_stack_library_exclusions(ELFReader& er,
-                                               const ProcReader& pr);
-    void process_call_stack_library_exclusions(const ProcReader& pr,
-                                               const std::vector<boost::filesystem::path>& libraries);
-    void process_library_sections(const ProcReader& pr);
-    void process_library_section(ELFReader& reader,
-                                 const std::vector<std::string>& sections,
-                                 void (*f_custom_instr)(uintptr_t, uintptr_t),
-                                 uint64_t base_addr);
-    void process_executable_function_entries(const std::vector<Entry>& entries);
-    void process_library_function_entries(const std::vector<Entry>& entries,
-                                          uint64_t base_addr,
-                                          std::string path);
     fs::path deduce_library(const fs::path& lib,
                             const ProcReader& pr);
 
@@ -1144,82 +1128,6 @@ void RunnerFSM_::process_lib_filter(ProcReader& pr,
         {
             f_custom_instr(pmiter->address().first, pmiter->address().second);
         }
-    }
-}
-
-void RunnerFSM_::process_executable_section(ELFReader& reader,
-                                            const std::vector<std::string>& sections,
-                                            void (*f_custom_instr)(uintptr_t, uintptr_t))
-{
-    for(std::vector<std::string>::const_iterator iter = sections.begin();
-        iter != sections.end();
-        ++iter)
-    {
-        Entry entry = reader.get_section(*iter);
-
-        if(entry.addr == 0)
-            continue;//throw std::runtime_error("failed to get address of '" + *iter + "' - ensure binary has section");
-
-        f_custom_instr(entry.addr, entry.addr + entry.size);
-    }
-}
-
-void RunnerFSM_::process_library_sections(const ProcReader& pr)
-{
-#if !defined(CRETE_TEST)
-
-    using namespace std;
-
-    const vector<ProcMap> proc_maps = pr.find_all();
-
-    set<string> lib_paths;
-    for(vector<ProcMap>::const_iterator it = proc_maps.begin();
-        it != proc_maps.end();
-        ++it)
-    {
-        if(fs::exists(it->path()))
-        {
-            lib_paths.insert(it->path());
-        }
-    }
-
-    for(set<string>::const_iterator it = lib_paths.begin();
-        it != lib_paths.end();
-        ++it)
-    {
-        string path = *it;
-
-        vector<ProcMap> pms = pr.find(path);
-
-        ELFReader ereader(path);
-
-        uint64_t base_addr = pms.front().address().first;
-
-        process_library_section(ereader,
-                                guest_config_.get_section_exclusions(),
-                                crete_insert_instr_call_stack_exclude,
-                                base_addr);
-    }
-
-#endif // !defined(CRETE_TEST)
-}
-
-void RunnerFSM_::process_library_section(ELFReader& reader,
-                                         const std::vector<std::string>& sections,
-                                         void (*f_custom_instr)(uintptr_t, uintptr_t),
-                                         uint64_t base_addr)
-{
-    for(std::vector<std::string>::const_iterator iter = sections.begin();
-        iter != sections.end();
-        ++iter)
-    {
-        Entry entry = reader.get_section(*iter);
-
-        if(entry.addr == 0)
-            continue;//throw std::runtime_error("failed to get address of '" + *iter + "' - ensure binary has section");
-
-        f_custom_instr(entry.addr + base_addr,
-                       entry.addr + base_addr + entry.size);
     }
 }
 

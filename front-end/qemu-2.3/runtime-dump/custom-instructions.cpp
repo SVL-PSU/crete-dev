@@ -211,12 +211,16 @@ static void crete_custom_instr_read_port()
 }
 
 void crete_custom_instruction_handler(uint64_t arg) {
-#if defined(CRETE_DEBUG)
-    if(arg != 0x02AE00)
-        cerr << "opcode = " << hex << arg << dec << endl;
-#endif // defined(CRETE_DEBUG)
-
 	switch (arg) {
+	case CRETE_INSTR_READ_PORT_VALUE:
+	    crete_custom_instr_read_port();
+	    break;
+
+	case CRETE_INSTR_PRIME_VALUE:
+	    crete_custom_instr_prime();
+	    crete_tracing_reset();
+	    break;
+
 	case CRETE_INSTR_SEND_TARGET_PID_VALUE:
 	    crete_custom_instr_sent_target_pid();
 	    break;
@@ -233,11 +237,6 @@ void crete_custom_instruction_handler(uint64_t arg) {
 	    crete_custom_instr_pre_make_concolic();
 	    break;
 
-	case CRETE_INSTR_PRIME_VALUE:
-        crete_custom_instr_prime();
-	    crete_tracing_reset();
-	    break;
-
 	case CRETE_INSTR_DUMP_VALUE:
 	    crete_tracing_finish();
 	    crete_tracing_reset();
@@ -251,26 +250,9 @@ void crete_custom_instruction_handler(uint64_t arg) {
 	    crete_custom_instr_inlude_filter();
 	    break;
 
-	case CRETE_INSTR_READ_PORT_VALUE:
-	    crete_custom_instr_read_port();
-	    break;
-
 	case CRETE_INSTR_QUIT_VALUE:
 	    qemu_system_shutdown_request();
 	    break;
-
-	    // TODO: xxx cleanup unused custom instructions
-    case CRETE_INSTR_MESSAGE_VALUE:
-	case 0x07AE00: // Symtab function entries (one at a time)
-	case CRETE_INSTR_CALL_STACK_EXCLUDE_VALUE: // call-stack-exclude
-	case CRETE_INSTR_CALL_STACK_SIZE_VALUE:
-	case CRETE_INSTR_MAIN_ADDRESS_VALUE:
-	case CRETE_INSTR_LIBC_START_MAIN_ADDRESS_VALUE:
-	case CRETE_INSTR_LIBC_EXIT_ADDRESS_VALUE:
-	case CRETE_INSTR_STACK_DEPTH_BOUNDS_VALUE:
-	    assert(0 && "Obsolete custom instructions\n");
-	    break;
-// Add new custom instruction handler here
 // Add new custom instruction handler here
 
 	default:
