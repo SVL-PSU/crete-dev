@@ -22,6 +22,10 @@ void qemu_system_shutdown_request(void);
 
 using namespace std;
 
+// shared from runtime-dump.cpp
+extern uint64_t g_crete_target_pid;
+extern bool g_crete_is_valid_target_pid;
+
 // TODO: xxx We may need this to capture the initial test case, when
 //        there are more concolic variables than the ones listed
 //        in crete.xml from guest
@@ -31,24 +35,22 @@ static const string crete_trace_ready_file_name = "trace_ready";
 static boost::unordered_set<uint64_t> g_pc_exclude_filters;
 static boost::unordered_set<uint64_t> g_pc_include_filters;
 
-// CRETE_INSTR_CAPTURE_BEGIN_VALUE
-static inline void crete_custom_instr_capture_begin()
+// CRETE_INSTR_SEND_TARGET_PID_VALUE
+static inline void crete_custom_instr_sent_target_pid()
 {
 	g_crete_flags->set((uint64_t)g_cpuState_bct->cr[3]);
 
 	g_crete_target_pid = g_cpuState_bct->cr[3];
-	g_custom_inst_emit = 1;
-	crete_flag_capture_enabled = 1;
+	g_crete_is_valid_target_pid = true;
 }
 
-// CRETE_INSTR_CAPTURE_END_VALUE
-static inline void crete_custom_instr_capture_end()
+// CRETE_INSTR_VOID_TARGET_PID_VALUE
+static inline void crete_custom_instr_void_target_pid()
 {
 	g_crete_flags->reset();
 
     g_crete_target_pid = 0;
-//    g_custom_inst_emit = 0;
-    crete_flag_capture_enabled = 0;
+//    g_crete_is_valid_target_pid = false;
 
     // FIXME: xxx workaround to force not dumping the current tb
     //      which is capture_end() function.
@@ -140,13 +142,13 @@ static inline void crete_tracing_reset()
     // Release
     crete_runtime_dump_close(); // Cleanup must happen before tb_flush (or crash occurs).
     tb_flush(g_cpuState_bct); // Flush tb cache, so references to runtime_env/tcg_llvm_ctx are destroyed.
-	assert(!runtime_env && !g_crete_flags);
+    assert(!runtime_env && !g_crete_flags);
 
-	// reset flags
-	g_custom_inst_emit = 0;
+    // reset flags
+    g_crete_is_valid_target_pid = false;
     g_crete_target_pid = 0;
 
-	// Reacquire
+    // Reacquire
     crete_runtime_dump_initialize();
     assert(runtime_env && g_crete_flags);
     crete_tci_next_iteration();
@@ -215,12 +217,12 @@ void crete_custom_instruction_handler(uint64_t arg) {
 #endif // defined(CRETE_DEBUG)
 
 	switch (arg) {
-	case CRETE_INSTR_CAPTURE_BEGIN_VALUE: // Begin capture
-	    crete_custom_instr_capture_begin();
+	case CRETE_INSTR_SEND_TARGET_PID_VALUE:
+	    crete_custom_instr_sent_target_pid();
 	    break;
 
-	case CRETE_INSTR_CAPTURE_END_VALUE: // End capture
-	    crete_custom_instr_capture_end();
+	case CRETE_INSTR_VOID_TARGET_PID_VALUE:
+	    crete_custom_instr_void_target_pid();
 	    break;
 
 	case CRETE_INSTR_SEND_CONCOLIC_NAME_VALUE:

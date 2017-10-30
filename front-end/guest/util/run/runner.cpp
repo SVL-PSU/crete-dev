@@ -91,6 +91,7 @@ public:
     void prime_executable();
     void write_configuration() const;
     void launch_executable();
+    void void_target_pid() const;
     void signal_dump() const;
 
     void process_func_filter(ProcReader& pr,
@@ -690,6 +691,13 @@ void RunnerFSM_::launch_executable()
 #endif
 }
 
+void RunnerFSM_::void_target_pid() const
+{
+#if !defined(CRETE_TEST)
+    crete_void_target_pid();
+#endif // !defined(CRETE_TEST)
+}
+
 void RunnerFSM_::signal_dump() const
 {
 #if !defined(CRETE_TEST)
@@ -746,9 +754,8 @@ void RunnerFSM_::execute(const next_test&)
     }
 
 #if !defined(CRETE_TEST)
-
     launch_executable();
-
+    void_target_pid();
 #endif // !defined(CRETE_TEST)
 }
 

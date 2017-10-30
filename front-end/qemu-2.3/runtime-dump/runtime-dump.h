@@ -30,12 +30,6 @@ extern int f_crete_is_loading_code;
 
 extern int flag_rt_dump_enable;
 
-// Enabled/Disabled on capture_begin/end. Can be disabled on command (e.g., crete_debug_capture()).
-extern int crete_flag_capture_enabled;
-
-extern uint64_t g_crete_target_pid;
-extern int g_custom_inst_emit;
-
 #if defined(TARGET_X86_64)
     #define USER_CODE_RANGE 0x00007FFFFFFFFFFF
 #elif defined(TARGET_I386)
@@ -430,7 +424,7 @@ public:
 
 private:
 	uint64_t m_target_pid;  // g_crete_target_pid
-	bool m_capture_started; // g_custom_inst_emit
+	bool m_capture_started; // g_crete_is_valid_target_pid
 
 	bool m_capture_enabled; // crete_flag_capture_enabled
 

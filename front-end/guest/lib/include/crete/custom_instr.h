@@ -12,8 +12,8 @@
 extern "C" {
 #endif // __cplusplus
 
-void crete_capture_begin(void);
-void crete_capture_end(void);
+void crete_send_target_pid(void);
+void crete_void_target_pid(void);
 void crete_insert_instr_addr_exclude_filter(uintptr_t addr_begin, uintptr_t addr_end);
 void crete_insert_instr_addr_include_filter(uintptr_t addr_begin, uintptr_t addr_end);
 void crete_insert_instr_call_stack_exclude(uintptr_t addr_begin, uintptr_t addr_end);
