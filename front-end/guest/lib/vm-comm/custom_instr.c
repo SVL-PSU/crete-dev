@@ -2,17 +2,17 @@
 #include <crete/custom_opcode.h>
 #include <crete/debug_flags.h>
 
-void crete_capture_begin(void)
+void crete_send_target_pid(void)
 {
     __asm__ __volatile__(
-            CRETE_INSTR_CAPTURE_BEGIN()
+            CRETE_INSTR_SEND_TARGET_PID()
     );
 }
 
-void crete_capture_end(void)
+void crete_void_target_pid(void)
 {
     __asm__ __volatile__(
-            CRETE_INSTR_CAPTURE_END()
+            CRETE_INSTR_VOID_TARGET_PID()
     );
 }
 

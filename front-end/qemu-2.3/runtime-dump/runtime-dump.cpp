@@ -43,17 +43,15 @@ static bool crete_pre_finished = false;
 static bool crete_post_entered = true;
 static bool crete_post_finished = true;
 
+// shared with custom-intruction.cpp
+bool g_crete_is_valid_target_pid = false;
+uint64_t g_crete_target_pid = 0;
 
 //======================
 
 /* TODO: xxx they are fairly messy, b/c
  * flags managed in custom-instruction
  * */
-uint64_t g_crete_target_pid = 0;
-// Flag for indicating whether the custom_instruction "capture_begin" emitted
-// Will be reset in crete_tracing_reset();
-int g_custom_inst_emit = 0;
-int crete_flag_capture_enabled = 0;
 
 /* flag for runtime tracing: */
 /* 0 = disable tracing, 1 = enable tracing */
@@ -1788,8 +1786,7 @@ void crete_pre_cpu_tb_exec(void *qemuCpuState, TranslationBlock *tb)
     g_cpuState_bct = (CPUArchState *)qemuCpuState;
     rt_dump_tb = tb;
 
-    bool is_begin_capture = (g_custom_inst_emit == 1);
-    if(!is_begin_capture)
+    if(!g_crete_is_valid_target_pid)
     {
         CRETE_BDMD_DBG(crete_pre_finished = true;);
         return;
@@ -1905,8 +1902,7 @@ int crete_post_cpu_tb_exec(void *qemuCpuState, TranslationBlock *input_tb, uint6
     crete_post_entered = true;
     );
 
-    bool is_begin_capture = (g_custom_inst_emit == 1);
-    if(!is_begin_capture)
+    if(!g_crete_is_valid_target_pid)
     {
         CRETE_BDMD_DBG(crete_post_finished = true;);
         return 0;
@@ -2132,8 +2128,7 @@ static void crete_process_int_load_code(void *qemuCPUState, int intno,
         int is_int, int error_code, int next_eip_addend)
 {
     // runtime_env is not initialized until is_begin_capture
-    bool is_begin_capture = (g_custom_inst_emit == 1);
-    if(!is_begin_capture) return;
+    if(!g_crete_is_valid_target_pid) return;
 
     CPUArchState *env = (CPUArchState *)qemuCPUState;
 
@@ -2225,8 +2220,7 @@ void crete_handle_do_interrupt_all(void *qemuCPUState, int intno,
         int is_int, int error_code, uint64_t next_eip, int is_hw)
 {
     // runtime_env is not initialized until is_begin_capture
-    bool is_begin_capture = (g_custom_inst_emit == 1);
-    if(!is_begin_capture) return;
+    if(!g_crete_is_valid_target_pid) return;
 
     CRETE_DBG_INT(
     CPUArchState *env = (CPUArchState *)qemuCPUState;
