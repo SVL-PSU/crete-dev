@@ -76,6 +76,7 @@ void tci_analyzer_print(void);
 void crete_tci_crete_make_concolic(uint64_t addr, uint64_t size,
         const std::vector<uint8_t>& data);
 
+void crete_analyzer_void_target_pid(uint64_t kernel_code_start_addr);
 #endif // __cplusplus
 
 #endif // CRETE_TCI_ANALYZER_H

@@ -1661,6 +1661,12 @@ void RuntimeEnv::writeGuestDataPostExec()
     }
 }
 
+void RuntimeEnv::handleCreteVoidTargetPid()
+{
+    m_interrupt_process_info.first = false;
+    crete_analyzer_void_target_pid(KERNEL_CODE_START_ADDR);
+}
+
 CreteFlags::CreteFlags()
 : m_cpuState(NULL), m_tb(NULL),
   m_target_pid(0), m_capture_started(false),
@@ -1699,7 +1705,7 @@ bool CreteFlags::is_true() const
 			m_capture_started &&
 			m_capture_enabled &&
 			(m_target_pid == ((CPUArchState *)m_cpuState)->cr[3]) &&
-			(m_tb->pc < USER_CODE_RANGE);
+			(m_tb->pc < KERNEL_CODE_START_ADDR);
 }
 
 bool CreteFlags::is_true(void* cpuState, TranslationBlock *tb) const
@@ -1710,7 +1716,7 @@ bool CreteFlags::is_true(void* cpuState, TranslationBlock *tb) const
 			m_capture_started &&
 			m_capture_enabled &&
 			(m_target_pid == ((CPUArchState *)cpuState)->cr[3]) &&
-			(tb->pc < USER_CODE_RANGE);
+			(tb->pc < KERNEL_CODE_START_ADDR);
 }
 
 void CreteFlags::check(bool valid) const
@@ -2746,7 +2752,7 @@ static bool manual_code_selection_pre_exec(TranslationBlock *tb)
     bool passed = true;
 
     // 1. check for user_code
-//    bool is_user_code = (tb->pc < USER_CODE_RANGE);
+//    bool is_user_code = (tb->pc < KERNEL_CODE_START_ADDR);
 //    passed = passed && is_user_code;
 
     return passed;
