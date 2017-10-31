@@ -182,6 +182,7 @@ public:
     Arguments get_arguments() const;
     Files get_files() const;
     STDStream get_stdin() const;
+    const std::vector<std::string> get_secondary_cmds() const;
 
     void write(boost::property_tree::ptree& config) const;
 
@@ -200,6 +201,8 @@ protected:
     void load_files(const boost::property_tree::ptree& config_tree);
     void load_file(const boost::property_tree::ptree& config_tree);
     void load_stdin(const boost::property_tree::ptree& config_tree);
+    void load_secondary_cmds(const boost::property_tree::ptree& config_tree);
+    void load_secondary_cmd(const boost::property_tree::ptree& config_tree);
 
     void verify() const;
 
@@ -209,6 +212,7 @@ private:
     Arguments arguments_;
     Files files_;
     STDStream stdin_;
+    std::vector<std::string> secondary_cmds_;
 
     ArgMinMax argminmax_; // TODO: xxx For supporting variable number of symbolic arguments
     bool first_iteration_;
@@ -226,6 +230,7 @@ void HarnessConfiguration::save(Archive& ar, const unsigned int version) const
     ar & BOOST_SERIALIZATION_NVP(arguments_);
     ar & BOOST_SERIALIZATION_NVP(files_);
     ar & BOOST_SERIALIZATION_NVP(stdin_);
+    ar & BOOST_SERIALIZATION_NVP(secondary_cmds_);
 
     ar & BOOST_SERIALIZATION_NVP(argminmax_);
     ar & BOOST_SERIALIZATION_NVP(first_iteration_);
@@ -243,6 +248,7 @@ void HarnessConfiguration::load(Archive& ar, const unsigned int version)
     ar & BOOST_SERIALIZATION_NVP(arguments_);
     ar & BOOST_SERIALIZATION_NVP(files_);
     ar & BOOST_SERIALIZATION_NVP(stdin_);
+    ar & BOOST_SERIALIZATION_NVP(secondary_cmds_);
 
     ar & BOOST_SERIALIZATION_NVP(argminmax_);
     ar & BOOST_SERIALIZATION_NVP(first_iteration_);
@@ -303,6 +309,7 @@ void HarnessConfiguration::load_configuration(const boost::filesystem::path xml_
     load_arguments(crete_tree);
     load_files(crete_tree);
     load_stdin(crete_tree);
+    load_secondary_cmds(crete_tree);
 }
 
 // Parsing rules: Required and must exist
@@ -656,6 +663,12 @@ STDStream HarnessConfiguration::get_stdin() const
     return stdin_;
 }
 
+inline
+const std::vector<std::string> HarnessConfiguration::get_secondary_cmds() const
+{
+    return secondary_cmds_;
+}
+
 // Format: size => int, value => string, concolic => bool
 // Parsing Rules:
 //          1. Either 'value' or 'size' is required.
@@ -685,6 +698,32 @@ void HarnessConfiguration::load_stdin(const boost::property_tree::ptree& config_
         stdin_.value.resize(stdin_.size);
     }
     stdin_.size = stdin_.value.size();
+}
+
+inline
+void HarnessConfiguration::load_secondary_cmds(const boost::property_tree::ptree& config_tree)
+{
+    boost::optional<const boost::property_tree::ptree&> opt_setup_commands =
+            config_tree.get_child_optional("secondary_cmds");
+
+    if(!opt_setup_commands)
+    {
+        return;
+    }
+
+    BOOST_FOREACH(const boost::property_tree::ptree::value_type& v,
+            *opt_setup_commands)
+    {
+        assert(v.first == "secondary_cmd");
+        load_secondary_cmd(v.second);
+    }
+}
+
+inline
+void HarnessConfiguration::load_secondary_cmd(const boost::property_tree::ptree& config_tree)
+{
+    std::string setup_command = config_tree.get_value<std::string>();
+    secondary_cmds_.push_back(setup_command);
 }
 
 inline
