@@ -31,9 +31,9 @@ extern int f_crete_is_loading_code;
 extern int flag_rt_dump_enable;
 
 #if defined(TARGET_X86_64)
-    #define USER_CODE_RANGE 0x00007FFFFFFFFFFF
+    #define KERNEL_CODE_START_ADDR 0x00007FFFFFFFFFFF
 #elif defined(TARGET_I386)
-    #define USER_CODE_RANGE 0xC0000000 // TODO: Should technically be 0xBFFFFFFF
+    #define KERNEL_CODE_START_ADDR 0xC0000000 // TODO: Should technically be 0xBFFFFFFF
 #else
     #error CRETE: Only I386 and x64 supported!
 #endif // defined(TARGET_X86_64) || defined(TARGET_I386)
@@ -353,6 +353,8 @@ public:
     void initOutputDirectory(const string& outputDirectory);
 
     void reverseTBDump(void *qemuCpuState);
+
+    void handleCreteVoidTargetPid();
 
     static int access_guest_memory(const void *env_cpuState, uint64_t addr,
             uint8_t *buf, int len, int is_write);

@@ -88,6 +88,8 @@ public:
     bool is_previous_block_symbolic();
     void mark_block_symbolic();
 
+    void void_target_pid(const uint64_t kernel_addr);
+
     static cpuRegsTable_ty init_guest_vcpu_regs_black_list();
     static cpuRegsTable_ty init_guest_vcpu_regs_table();
 
@@ -819,6 +821,35 @@ Analyzer::cpuRegsTable_ty Analyzer::init_guest_vcpu_regs_table()
     return ret;
 }
 
+// Only keep tainted values from kernel addr space
+void Analyzer::void_target_pid(const uint64_t kernel_code_start_addr)
+{
+    current_block_.symbolic_block_ = false;
+
+    for(taintedMem_ty::const_iterator it = guest_mem_.cbegin(); it != guest_mem_.cend();)
+    {
+        if(it->first < kernel_code_start_addr)
+        {
+            guest_mem_.erase(it++);
+        }
+        else
+        {
+            ++it;
+        }
+    }
+
+    for(uint32_t i = 0; i < CRETE_TCG_ENV_SIZE; ++i)
+    {
+        guest_vcpu_regs_[i].first = false;
+    }
+
+    for(uint32_t i = 0; i < TCG_TARGET_NB_REGS; ++i)
+    {
+        tcg_regs_[i].first = false;
+    }
+
+    tcg_call_stack_mem_.clear();
+}
 
 const Analyzer::cpuRegsTable_ty Analyzer::guest_vcpu_regs_black_list_ =
         Analyzer::init_guest_vcpu_regs_black_list();
@@ -1177,6 +1208,11 @@ void crete_tci_crete_make_concolic(uint64_t addr, uint64_t size,
 
     crete_tci_next_block(); // FIXME: xxx to force not dumping the current tb
     crete_tci_next_block();
+}
+
+void crete_analyzer_void_target_pid(uint64_t kernel_addr)
+{
+    analyzer.void_target_pid(kernel_addr);
 }
 
 void crete_tci_next_block()
