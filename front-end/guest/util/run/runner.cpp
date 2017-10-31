@@ -21,6 +21,8 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/archive/binary_oarchive.hpp>
+#include <boost/algorithm/string/split.hpp>
+#include <boost/algorithm/string/classification.hpp>
 
 #include <unistd.h>
 #include <sys/mount.h>
@@ -73,6 +75,7 @@ private:
     fs::path m_exec;
     std::vector<std::string> m_launch_args;
     bp::posix_context m_launch_ctx;
+    bp::posix_context m_launch_ctx_secondary;
 
     fs::path m_sandbox_dir;
     fs::path m_environment;
@@ -93,6 +96,8 @@ public:
     void launch_executable();
     void void_target_pid() const;
     void signal_dump() const;
+
+    void execute_secondary_cmds() const;
 
     void process_func_filter(ProcReader& pr,
                              const config::Functions& funcs,
@@ -536,6 +541,9 @@ void RunnerFSM_::setup_launch_exec()
         m_guest_config_serialized = fs::path(CRETE_SANDBOX_PATH) / CRETE_CONFIG_SERIALIZED_PATH;
     }
 
+    m_launch_ctx_secondary = m_launch_ctx;
+    m_launch_ctx_secondary.environment.insert(bp::environment::value_type(CRETE_ENV_SEC_CMD, "true"));
+
     // 5. setup timeout hanlder
     init_timeout_handler();
 }
@@ -675,6 +683,56 @@ void RunnerFSM_::launch_executable()
 #endif
 }
 
+static bool execute_command_line(const std::string& cmd, const bp::posix_context& ctx)
+ {
+    fprintf(stderr, "executing: %s\n", cmd.c_str());
+
+    bool ret = true;
+
+     std::vector<std::string> args;
+     boost::split(args, cmd, boost::is_any_of(" "), boost::token_compress_on);
+
+     std::string exec = args[0];
+     if(!fs::exists(exec))
+     {
+         exec = bp::find_executable_in_path(exec);
+     }
+
+     if(!fs::exists(exec))
+     {
+         fprintf(stderr, "[CRETE ERROR] [crete-run] command not found: %s\n", exec.c_str());
+         assert(0);
+     }
+
+     bp::posix_child c = bp::posix_launch(exec, args, ctx);
+
+     bp::status s = c.wait();
+
+     if(!(s.exited() && (s.exit_status() == 0)))
+     {
+         ret = false;
+     }
+
+     return ret;
+}
+
+void RunnerFSM_::execute_secondary_cmds() const
+{
+    const std::vector<std::string>& cmds = guest_config_.get_secondary_cmds();
+    fprintf(stderr, "sec_cmds.size() = %lu\n", cmds.size());
+
+    for(std::vector<std::string>::const_iterator it = cmds.begin();
+            it != cmds.end(); ++it) {
+        bool cmd_executed = execute_command_line(*it, m_launch_ctx_secondary);
+        if(!cmd_executed)
+        {
+            fprintf(stderr, "[CRETE Warning][crete-run] \'%s\' executed unsuccessfully.\n", it->c_str());
+        }
+
+        void_target_pid();
+    }
+}
+
 void RunnerFSM_::void_target_pid() const
 {
 #if !defined(CRETE_TEST)
@@ -740,6 +798,8 @@ void RunnerFSM_::execute(const next_test&)
 #if !defined(CRETE_TEST)
     launch_executable();
     void_target_pid();
+
+    execute_secondary_cmds();
 #endif // !defined(CRETE_TEST)
 }
 

@@ -231,15 +231,23 @@ static inline void crete_preload_initialize(int argc, char**& argv)
 {
     fprintf(stderr, "crete_preload_initialize() entered\n");
 
-    // Should terminate program while being launched as prime
-    update_proc_maps();
+    int is_sec_cmd = std::getenv(CRETE_ENV_SEC_CMD)? 1:0;
+    fprintf(stderr, "is_sec_cmd = %d\n", is_sec_cmd);
+
+    if(!is_sec_cmd)
+    {
+        // Should terminate program while being launched as prime
+        update_proc_maps();
+    }
 
     // Need to call crete_send_target_pid before make_concolics, or they won't be captured.
     crete_send_target_pid();
 
-    config::HarnessConfiguration hconfig = crete_load_configuration();
-    crete_process_configuration(hconfig, argc, argv);
-
+    if(!is_sec_cmd)
+    {
+        config::HarnessConfiguration hconfig = crete_load_configuration();
+        crete_process_configuration(hconfig, argc, argv);
+    }
     fprintf(stderr, "crete_preload_initialize() finished\n");
 }
 
