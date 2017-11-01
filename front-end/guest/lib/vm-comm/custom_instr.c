@@ -1,11 +1,12 @@
 #include <crete/custom_instr.h>
 #include <crete/custom_opcode.h>
-#include <crete/debug_flags.h>
+
+#include <string.h>
 
 // for memory that needs to be touched.
-static inline void __crete_touch_buffer(volatile void *buffer, unsigned size)
+static inline void __crete_touch_buffer(volatile void *buffer, size_t size)
 {
-    unsigned i;
+    size_t i;
     volatile char *b = (volatile char *) buffer;
     for (i = 0; i < size; ++i) {
         *b; ++b;
@@ -13,7 +14,7 @@ static inline void __crete_touch_buffer(volatile void *buffer, unsigned size)
 }
 
 //--------------------- For crete-run/preload-run
-void crete_insert_instr_read_port(uintptr_t addr, uintptr_t size)
+void crete_insert_instr_read_port(uintptr_t addr, size_t size)
 {
     __crete_touch_buffer((void *)addr, size);
 
@@ -23,7 +24,7 @@ void crete_insert_instr_read_port(uintptr_t addr, uintptr_t size)
     );
 }
 
-void crete_send_custom_instr_prime()
+void crete_send_custom_instr_prime(void)
 {
     __asm__ __volatile__(
             CRETE_INSTR_PRIME()
@@ -44,7 +45,7 @@ void crete_void_target_pid(void)
     );
 }
 
-void crete_send_custom_instr_dump()
+void crete_send_custom_instr_dump(void)
 {
     __asm__ __volatile__(
         CRETE_INSTR_DUMP()
@@ -118,13 +119,28 @@ static void crete_pre_make_concolic(void* addr, size_t size, const char* name)
     );
 }
 
+static char crete_check_target_pid(void)
+{
+    volatile char ret  = 0;
+
+    __asm__ __volatile__(
+            CRETE_INSTR_CHECK_TARGET_PID()
+            : : "a" (&ret)
+    );
+
+    return ret;
+}
+
 void crete_make_concolic(void* addr, size_t size, const char* name)
 {
+    if(!crete_check_target_pid())
+        return;
+
     crete_pre_make_concolic(addr, size, name);
     __crete_make_concolic_internal(addr, size, name);
 }
 
-void crete_assume_begin()
+void crete_assume_begin(void)
 {
     __asm__ __volatile__(
             CRETE_INSTR_ASSUME_BEGIN()
@@ -156,7 +172,7 @@ void crete_insert_instr_addr_include_filter(uintptr_t addr_begin, uintptr_t addr
     );
 }
 
-void crete_send_custom_instr_quit()
+void crete_send_custom_instr_quit(void)
 {
     __asm__ __volatile__(
         CRETE_INSTR_QUIT()
