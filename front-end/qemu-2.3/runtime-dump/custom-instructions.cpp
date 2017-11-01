@@ -55,6 +55,21 @@ static inline void crete_custom_instr_void_target_pid()
     runtime_env->handleCreteVoidTargetPid();
 }
 
+static inline void crete_custom_instr_check_target_pid()
+{
+    if(g_crete_is_valid_target_pid &&
+            ((uint64_t)g_cpuState_bct->cr[3] == g_crete_target_pid))
+    {
+        target_ulong addr = g_cpuState_bct->regs[R_EAX];
+        uint8_t ret = 1;
+
+        if(RuntimeEnv::access_guest_memory(g_cpuState_bct, addr, &ret, 1, 1) != 0) {
+            cerr << "[CRETE ERROR] access_guest_memory() failed in crete_custom_instr_check_target_pid()\n";
+            assert(0);
+        }
+    }
+}
+
 static char current_concolic_name[512];
 
 // CRETE_INSTR_SEND_CONCOLIC_NAME_VALUE
@@ -223,6 +238,10 @@ void crete_custom_instruction_handler(uint64_t arg) {
 
 	case CRETE_INSTR_VOID_TARGET_PID_VALUE:
 	    crete_custom_instr_void_target_pid();
+	    break;
+
+	case CRETE_INSTR_CHECK_TARGET_PID_VALUE:
+	    crete_custom_instr_check_target_pid();
 	    break;
 
 	case CRETE_INSTR_SEND_CONCOLIC_NAME_VALUE:
