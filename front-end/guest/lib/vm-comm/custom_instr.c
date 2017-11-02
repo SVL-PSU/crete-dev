@@ -3,6 +3,9 @@
 
 #include <string.h>
 
+#define MAX_NAME_SIZE  256
+static char concolic_name[2*MAX_NAME_SIZE];
+
 // for memory that needs to be touched.
 static inline void __crete_touch_buffer(volatile void *buffer, size_t size)
 {
@@ -136,8 +139,13 @@ void crete_make_concolic(void* addr, size_t size, const char* name)
     if(!crete_check_target_pid())
         return;
 
-    crete_pre_make_concolic(addr, size, name);
-    __crete_make_concolic_internal(addr, size, name);
+    size_t name_len = strlen(name);
+    size_t copy_size = (name_len < MAX_NAME_SIZE)? name_len:MAX_NAME_SIZE;
+    strncpy(concolic_name, name, copy_size);
+    concolic_name[copy_size] = '\0';
+
+    crete_pre_make_concolic(addr, size, concolic_name);
+    __crete_make_concolic_internal(addr, size, concolic_name);
 }
 
 void crete_assume_begin(void)

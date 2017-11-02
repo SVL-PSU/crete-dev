@@ -35,6 +35,9 @@ static const string crete_trace_ready_file_name = "trace_ready";
 static boost::unordered_set<uint64_t> g_pc_exclude_filters;
 static boost::unordered_set<uint64_t> g_pc_include_filters;
 
+static uint64_t target_process_count = 0;
+static set<string> concolics_names;
+
 // CRETE_INSTR_SEND_TARGET_PID_VALUE
 static inline void crete_custom_instr_sent_target_pid()
 {
@@ -42,6 +45,7 @@ static inline void crete_custom_instr_sent_target_pid()
 
 	g_crete_target_pid = g_cpuState_bct->cr[3];
 	g_crete_is_valid_target_pid = true;
+	++target_process_count;
 }
 
 // CRETE_INSTR_VOID_TARGET_PID_VALUE
@@ -70,7 +74,22 @@ static inline void crete_custom_instr_check_target_pid()
     }
 }
 
-static char current_concolic_name[512];
+static string get_unique_name(const char *name)
+{
+    stringstream unique_name;
+    unique_name << name << "_p" << target_process_count;
+    string base_name = unique_name.str();
+
+    unsigned count = 0;
+    while(!concolics_names.insert(unique_name.str()).second) {
+        unique_name.str(base_name);
+        unique_name << "_" << ++count;
+    }
+
+    return unique_name.str();
+}
+#define MAX_CONCOLIC_NAME_SIZE 256
+static char current_concolic_name[2*MAX_CONCOLIC_NAME_SIZE];
 
 // CRETE_INSTR_SEND_CONCOLIC_NAME_VALUE
 static inline void crete_custom_instr_send_concolic_name()
@@ -81,7 +100,8 @@ static inline void crete_custom_instr_send_concolic_name()
     target_ulong name_guest_addr = g_cpuState_bct->regs[R_EAX];
     target_ulong name_size = g_cpuState_bct->regs[R_ECX];
 
-    assert(name_size > 0 && name_size < 511 && "[CRETE ERROR] name size for concolic variable is bigger than 512\n");
+    assert(name_size > 0 && name_size < MAX_CONCOLIC_NAME_SIZE
+            && "[CRETE ERROR] name size for concolic variable is bigger than MAX_CONCOLIC_NAME_SIZE\n");
 
     if(RuntimeEnv::access_guest_memory(g_cpuState_bct, name_guest_addr,
             (uint8_t *)current_concolic_name, name_size, 0) != 0) {
@@ -91,6 +111,23 @@ static inline void crete_custom_instr_send_concolic_name()
     }
 
     current_concolic_name[name_size] = '\0';
+
+    string unique_name = get_unique_name(current_concolic_name);
+    if(strcmp(unique_name.c_str(), current_concolic_name))
+    {
+        uint64_t unique_name_size = unique_name.size();
+        assert(unique_name_size > name_size);
+        assert(unique_name_size < (2*MAX_CONCOLIC_NAME_SIZE-1));
+        strncpy(current_concolic_name, unique_name.c_str(), unique_name_size);
+        current_concolic_name[unique_name_size] = '\0';
+
+        if(RuntimeEnv::access_guest_memory(g_cpuState_bct, name_guest_addr,
+                (uint8_t *)current_concolic_name, unique_name_size+1, 1) != 0) {
+
+            cerr << "[CRETE ERROR] access_guest_memory() failed in crete_custom_instr_send_concolic_name()\n";
+            assert(0);
+        }
+    }
 }
 
 // CRETE_INSTR_PRE_MAKE_CONCOLIC_VALUE
@@ -158,6 +195,8 @@ static inline void crete_tracing_reset()
     // reset flags
     g_crete_is_valid_target_pid = false;
     g_crete_target_pid = 0;
+    target_process_count = 0;
+    concolics_names.clear();
 
     // Reacquire
     crete_runtime_dump_initialize();
