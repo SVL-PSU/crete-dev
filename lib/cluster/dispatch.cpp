@@ -2599,7 +2599,7 @@ auto extract_initial_test(const config::RunConfiguration& config) -> TestCase
         ++it)
     {
         std::stringstream ss_name;
-        ss_name << "argv_" << it->index;
+        ss_name << "argv_" << it->index << "_p1";
         const Argument& arg = *it;
 
         if(!arg.concolic)
@@ -2639,7 +2639,7 @@ auto extract_initial_test(const config::RunConfiguration& config) -> TestCase
 
         TestCaseElement elem;
 
-        std::string name = file.path.filename().string();
+        std::string name = file.path.filename().string() + "_p1";
 
         elem.name = std::vector<uint8_t>(name.begin(), name.end());
         elem.name_size = name.size();
@@ -2660,7 +2660,7 @@ auto extract_initial_test(const config::RunConfiguration& config) -> TestCase
         elem.data_size = elem.data.size();
         assert(elem.data_size == concolic_stdin.size);
 
-        std::string name = "crete-stdin";
+        std::string name = "crete-stdin_p1";
         elem.name = std::vector<uint8_t>(name.begin(), name.end());
         elem.name_size = elem.name.size();
 
