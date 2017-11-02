@@ -54,8 +54,6 @@ static inline void crete_custom_instr_void_target_pid()
 	g_crete_flags->reset();
 
     g_crete_is_valid_target_pid = false;
-    g_crete_target_pid = 0;
-
     runtime_env->handleCreteVoidTargetPid();
 }
 
