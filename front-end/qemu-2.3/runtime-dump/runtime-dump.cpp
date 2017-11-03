@@ -1427,6 +1427,8 @@ bool RuntimeEnv::check_interrupt_process_info(uint64_t current_tb_pc)
                 (void *)current_tb_pc);
         );
 
+        assert(current_tb_pc && "[CRETE ERROR] Assumption broken: 0x0 can never be resuming address.\n");
+
         m_interrupt_process_info.first = false;
         m_interrupt_process_info.second = 0;
 
