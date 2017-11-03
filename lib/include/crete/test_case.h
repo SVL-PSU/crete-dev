@@ -54,7 +54,22 @@ namespace crete
     // <index of trace-tag node to negate, index of branch within a tt node to negate>
     typedef std::pair<uint32_t, uint32_t> TestCasePatchTraceTag_ty;
     // <index within an tc element, value>
-    typedef std::vector<std::pair<uint32_t, uint8_t> > TestCasePatchElement_ty;
+
+    typedef std::vector<std::pair<uint32_t, uint8_t> > tcpe_data_ty;
+    struct TestCasePatchElement_ty
+    {
+        std::string name;
+        tcpe_data_ty data;
+
+        template <typename Archive>
+        void serialize(Archive& ar, const unsigned int version)
+        {
+            (void)version;
+
+            ar & name;
+            ar & data;
+        }
+    };
 
     class TestCase
     {

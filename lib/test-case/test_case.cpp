@@ -94,19 +94,31 @@ namespace crete
         TestCase ret(base);
         ret.m_issue_index = patch.m_issue_index;
         ret.m_base_tc_issue_index = patch.m_base_tc_issue_index;
+        map<string, uint64_t> elem_name_to_index;
+        for(uint64_t i = 0; i < ret.elems_.size(); ++i)
+        {
+            string name(ret.elems_[i].name.begin(), ret.elems_[i].name.end());
+            elem_name_to_index[name] = i;
+        }
 
         // Apply patch for elems
-        assert(patch.m_tcp_elems.size() == ret.elems_.size());
+        assert(patch.m_tcp_elems.size() <= ret.elems_.size());
         for(uint64_t i = 0; i < patch.m_tcp_elems.size(); ++i)
         {
-            for(TestCasePatchElement_ty::const_iterator it = patch.m_tcp_elems[i].begin();
-                    it != patch.m_tcp_elems[i].end(); ++it)
-            {
+            string patch_name = patch.m_tcp_elems[i].name;
+            const tcpe_data_ty &patch_data = patch.m_tcp_elems[i].data;
+            map<string, uint64_t>::const_iterator it_te = elem_name_to_index.find(patch_name);
+            assert(it_te != elem_name_to_index.end());
+            assert(it_te->second < ret.elems_.size());
+            TestCaseElement &target_elem = ret.elems_[it_te->second];
+
+            for(tcpe_data_ty::const_iterator it = patch_data.begin();
+                    it != patch_data.end(); ++it) {
                 uint32_t index = it->first;
                 uint8_t  value = it->second;
-                assert(index < ret.elems_[i].data.size());
 
-                ret.elems_[i].data[index] = value;
+                assert(index < target_elem.data.size());
+                target_elem.data[index] = value;
             }
         }
 
@@ -307,10 +319,10 @@ namespace crete
                     m_tcp_tt.first, m_tcp_tt.second, m_tcp_elems.size());
 
             for(uint64_t i = 0; i < m_tcp_elems.size(); ++i) {
-                fprintf(stderr, "elm[%lu]: ", i);
-                for(uint64_t j = 0; j < m_tcp_elems[i].size(); ++j)
+                fprintf(stderr, "elm[%lu][%s]: ", i, m_tcp_elems[i].name.c_str());
+                for(uint64_t j = 0; j < m_tcp_elems[i].data.size(); ++j)
                 {
-                    fprintf(stderr, "(%u, 0x%x) ", m_tcp_elems[i][j].first, (uint32_t)m_tcp_elems[i][j].second);
+                    fprintf(stderr, "(%u, 0x%x) ", m_tcp_elems[i].data[j].first, (uint32_t)m_tcp_elems[i].data[j].second);
                 }
                 fprintf(stderr, "\n");
             }
