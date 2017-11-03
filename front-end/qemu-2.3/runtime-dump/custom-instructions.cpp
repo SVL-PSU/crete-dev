@@ -59,8 +59,10 @@ static inline void crete_custom_instr_void_target_pid()
 
 static inline void crete_custom_instr_check_target_pid()
 {
+    // Only process if it is from valid target pid while not processing interrupt
     if(g_crete_is_valid_target_pid &&
-            ((uint64_t)g_cpuState_bct->cr[3] == g_crete_target_pid))
+            ((uint64_t)g_cpuState_bct->cr[3] == g_crete_target_pid) &&
+            !runtime_env->check_interrupt_process_info(0))
     {
         target_ulong addr = g_cpuState_bct->regs[R_EAX];
         uint8_t ret = 1;
