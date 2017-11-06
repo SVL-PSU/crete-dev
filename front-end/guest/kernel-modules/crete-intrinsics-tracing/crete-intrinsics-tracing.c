@@ -12,7 +12,7 @@ EXPORT_SYMBOL(crete_make_concolic);
 
 static int __init crete_intrinsics_tracing_init(void)
 {
-    printk(KERN_INFO "crete_intrinsics_tracing_exit Loaded!\n");
+    printk(KERN_INFO "crete-intrinsics-tracing.ko Loaded!\n");
     return 0;
 }
 
