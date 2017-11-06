@@ -2,6 +2,35 @@
 #include <linux/module.h>
 #include <linux/kprobes.h>
 
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Bo Chen (chenbo@pdx.edu)");
+MODULE_DESCRIPTION("CRETE probes for kernel API functions to inject concolic values");
+
+//#define CRETE_ENABLE_DEBUG
+
+#ifdef CRETE_ENABLE_DEBUG
+#define CRETE_DBG(x) do { x } while(0)
+#else
+#define CRETE_DBG(x) do { } while(0)
+#endif
+
+struct TargetModuleInfo
+{
+    size_t m_name_size;
+    char *m_name;
+    int   m_mod_loaded;
+    struct module m_mod;
+};
+
+static struct TargetModuleInfo target_module = {
+        .m_name_size = 0,
+        .m_name = "",
+        .m_mod_loaded = 0,
+};
+
+module_param_named(target_module, target_module.m_name, charp, 0);
+MODULE_PARM_DESC(target_module, "The name of target module to enable probe on kernel APIs");
+
 static void (*_crete_make_concolic)(void*, size_t, const char *);
 static int ret_handler_make_concolic(struct kretprobe_instance *ri, struct pt_regs *regs);
 
@@ -60,22 +89,73 @@ static inline void unregister_probes(void)
 //    return 0;
 //}
 
+// Only inject concolic values if:
+// 1. its caller is within target_module AND
+// 2. the convention on return value holds
 static int ret_handler_make_concolic(struct kretprobe_instance *ri, struct pt_regs *regs)
 {
-    if(regs->ax == regs_return_value(regs))
+    if(!(target_module.m_mod_loaded &&
+         within_module((unsigned long)ri->ret_addr, &target_module.m_mod)))
     {
-//        printk(KERN_INFO "ret_handler \'%s\': ret = %p",
-//                ri->rp->kp.symbol_name, (void *)regs->ax);
-        _crete_make_concolic(&regs->ax, sizeof(regs->ax), ri->rp->kp.symbol_name);
+        return 0;
     }
-//    else {
-//        printk(KERN_INFO  "[CRETE ERROR] Wrong assumption on return value convention about \'%s\'\n",
-//                ri->rp->kp.symbol_name);
-//    }
+
+    if(regs->ax != regs_return_value(regs))
+    {
+        printk(KERN_INFO  "[CRETE ERROR] Wrong assumption on return value convention about \'%s\'\n",
+                ri->rp->kp.symbol_name);
+        return 0;
+    }
+
+    if(!_crete_make_concolic)
+    {
+        CRETE_DBG(printk(KERN_INFO  "[CRETE ERROR] \'_crete_make_concolic() is not initialized\'\n"););
+        return 0;
+    }
+
+    CRETE_DBG(printk(KERN_INFO "ret_handler \'%s\': ret = %p", ri->rp->kp.symbol_name, (void *)regs->ax););
+
+    _crete_make_concolic(&regs->ax, sizeof(regs->ax), ri->rp->kp.symbol_name);
 
     return 0;
 }
 /* ------------------------------- */
+
+static int crete_kapi_module_event(struct notifier_block *self, unsigned long event, void *data)
+{
+    struct module *m = data;
+
+    if(strlen(m->name) != target_module.m_name_size)
+        return NOTIFY_DONE;
+
+    if(strncmp(m->name, target_module.m_name, target_module.m_name_size) != 0)
+        return NOTIFY_DONE;
+
+    switch (event) {
+    case MODULE_STATE_COMING:
+        printk(KERN_INFO "MODULE_STATE_COMING: %s\n", m->name);
+        target_module.m_mod_loaded = 1;
+        target_module.m_mod.core_layout = m->core_layout;
+        target_module.m_mod.init_layout = m->init_layout;
+        break;
+
+    case MODULE_STATE_GOING:
+        printk(KERN_INFO "MODULE_STATE_GOING: %s\n", m->name);
+        target_module.m_mod_loaded = 0;
+        break;
+
+    case MODULE_STATE_LIVE:
+    default:
+        break;
+    }
+
+    return NOTIFY_DONE;
+}
+
+static struct notifier_block crete_kapi_module_probe= {
+        .notifier_call = crete_kapi_module_event,
+        .priority = 1,
+};
 
 static inline int init_crete_intrinsics(void)
 {
@@ -89,7 +169,7 @@ static inline int init_crete_intrinsics(void)
     return 0;
 }
 
-static int __init kprobe_init(void)
+static int __init crete_kprobe_init(void)
 {
     if(init_crete_intrinsics())
         return -1;
@@ -97,13 +177,19 @@ static int __init kprobe_init(void)
     if(register_probes())
         return -1;
 
+    target_module.m_name_size = strlen(target_module.m_name);
+    register_module_notifier(&crete_kapi_module_probe);
+
+    CRETE_DBG(printk(KERN_INFO "size = %zu, name = %s\n", target_module.m_name_size, target_module.m_name););
+
     return 0;
 }
 
-static void __exit kprobe_exit(void)
+static void __exit crete_kprobe_exit(void)
 {
+    unregister_module_notifier(&crete_kapi_module_probe);
     unregister_probes();
 }
 
-module_init(kprobe_init)
-module_exit(kprobe_exit)
+module_init(crete_kprobe_init)
+module_exit(crete_kprobe_exit)
