@@ -2,6 +2,10 @@
 #include <linux/module.h>
 #include <linux/kprobes.h>
 
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Bo Chen (chenbo@pdx.edu)");
+MODULE_DESCRIPTION("CRETE probes for e1000 entry functions");
+
 static void (*_crete_make_concolic)(void*, size_t, const char *);
 
 #define __CRETE_DEF_KPROBE(func_name)                                                              \
@@ -85,4 +89,3 @@ static void __exit kprobe_exit(void)
 
 module_init(kprobe_init)
 module_exit(kprobe_exit)
-MODULE_LICENSE("GPL");
