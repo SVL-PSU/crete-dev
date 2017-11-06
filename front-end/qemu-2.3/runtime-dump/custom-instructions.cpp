@@ -82,8 +82,8 @@ static string get_unique_name(const char *name)
 
     unsigned count = 0;
     while(!concolics_names.insert(unique_name.str()).second) {
-        unique_name.str(base_name);
-        unique_name << "_" << ++count;
+        unique_name.str(string());
+        unique_name << base_name << "_" << ++count;
     }
 
     return unique_name.str();
