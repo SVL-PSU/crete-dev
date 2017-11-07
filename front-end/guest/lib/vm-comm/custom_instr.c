@@ -63,7 +63,7 @@ static void __crete_make_concolic_internal(void *addr, size_t size, const char* 
 {
     // Touch the content of name and force it is being captured
     {
-        size_t name_size = strlen(name);
+        size_t name_size = strlen(name) + 1; // Force touching the terminator '\0'
         volatile char *_addr = (volatile char *) addr;
         volatile char *_name = (volatile char *) name;
 
