@@ -25,6 +25,8 @@ CreteTcCompare::CreteTcCompare(int argc, char* argv[]) :
         generate_complete_test_from_patch();
     else if (!m_batch_patch.empty())
         batch_path_mode();
+    else if (!m_display.empty())
+        display_tc();
 }
 
 po::options_description CreteTcCompare::make_options()
@@ -37,6 +39,7 @@ po::options_description CreteTcCompare::make_options()
         ("target,t", po::value<fs::path>(), "target test case (folder)")
         ("patch,p", po::value<fs::path>(), "patch mode")
         ("batch-patch,b", po::value<fs::path>(), "input directory for patching test case in batch-patch mode")
+        ("display,d", po::value<fs::path>(), "display the content of a test case\n")
         ;
 
     return desc;
@@ -117,6 +120,15 @@ void CreteTcCompare::process_options(int argc, char* argv[])
         }
 
         m_batch_patch = p;
+    }else if (m_var_map.count("display")) {
+        fs::path p = m_var_map["display"].as<fs::path>();
+
+        if(!fs::is_regular(p))
+        {
+            BOOST_THROW_EXCEPTION(Exception() << err::file_missing(p.string()));
+        }
+
+        m_display = p;
     } else {
         BOOST_THROW_EXCEPTION(std::runtime_error("Crete-tc-compare requires reference tc and target tc"));
     }
@@ -425,6 +437,12 @@ void CreteTcCompare::batch_path_mode()
 
         batch_path_mode_internal(*it);
     }
+}
+
+void CreteTcCompare::display_tc() const
+{
+    TestCase tc = retrieve_test_serialized(m_display.string());
+    tc.print();
 }
 
 }
