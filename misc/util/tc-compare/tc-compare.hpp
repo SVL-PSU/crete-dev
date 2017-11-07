@@ -29,6 +29,8 @@ private:
     fs::path m_patch;
     fs::path m_batch_patch;
 
+    fs::path m_display;
+
     bool m_tc_folder;
 
 public:
@@ -42,6 +44,7 @@ private:
     void generate_complete_test_from_patch();
 
     void batch_path_mode();
+    void display_tc() const;
 };
 
 }
