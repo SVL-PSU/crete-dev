@@ -131,6 +131,8 @@ auto TestPool::insert_internal(const TestCase& tc) -> bool
 
 auto TestPool::insert_base_tc(const TestCase& tc) -> BaseTestCache_ty::const_iterator
 {
+    issued_tc_hash_pool_.insert(tc.get_elements());
+
     if(base_tc_cache_.size() >= BASE_TEST_CACHE_SIZE)
     {
         base_tc_cache_.clear();
