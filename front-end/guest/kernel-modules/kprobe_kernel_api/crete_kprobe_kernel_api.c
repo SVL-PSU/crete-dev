@@ -32,14 +32,17 @@ module_param_named(target_module, target_module.m_name, charp, 0);
 MODULE_PARM_DESC(target_module, "The name of target module to enable probe on kernel APIs");
 
 static void (*_crete_make_concolic)(void*, size_t, const char *);
+static void (*_crete_kernel_oops)(void);
+
 static int ret_handler_make_concolic(struct kretprobe_instance *ri, struct pt_regs *regs);
 
 #define __CRETE_DEF_KPROBE(func_name)                                                              \
         static int entry_handler_##func_name(struct kretprobe_instance *ri, struct pt_regs *regs); \
+        static int ret_handler_##func_name(struct kretprobe_instance *ri, struct pt_regs *regs);   \
         static struct kretprobe kretp_##func_name = {                                              \
                 .kp.symbol_name = #func_name,                                                      \
                 .entry_handler = entry_handler_##func_name,                                        \
-                .handler = ret_handler_##func_name,                                              \
+                .handler = ret_handler_##func_name,                                                \
         };
 
 #define __CRETE_DEF_KPROBE_RET_CONCOLIC(func_name)                                                 \
@@ -61,11 +64,15 @@ static int ret_handler_make_concolic(struct kretprobe_instance *ri, struct pt_re
 
 /* ------------------------------- */
 // Define interested functions to hook
+__CRETE_DEF_KPROBE(oops_enter);
+
 __CRETE_DEF_KPROBE_RET_CONCOLIC(__kmalloc);
 //__CRETE_DEF_KPROBE_RET_CONCOLIC(__vmalloc);
 
 static inline int register_probes(void)
 {
+    __CRETE_REG_KPROBE(oops_enter);
+
     __CRETE_REG_KPROBE(__kmalloc);
 //    __CRETE_REG_KPROBE(__vmalloc);
 
@@ -74,6 +81,8 @@ static inline int register_probes(void)
 
 static inline void unregister_probes(void)
 {
+    __CRETE_UNREG_KPROBE(oops_enter);
+
     __CRETE_UNREG_KPROBE(__kmalloc);
 //    __CRETE_UNREG_KPROBE(__vmalloc);
 }
@@ -119,6 +128,19 @@ static int ret_handler_make_concolic(struct kretprobe_instance *ri, struct pt_re
 
     return 0;
 }
+
+static int entry_handler_oops_enter(struct kretprobe_instance *ri, struct pt_regs *regs)
+{
+    _crete_kernel_oops();
+
+    return 0;
+}
+
+static int ret_handler_oops_enter(struct kretprobe_instance *ri, struct pt_regs *regs)
+{
+    return 0;
+}
+
 /* ------------------------------- */
 
 static int crete_kapi_module_event(struct notifier_block *self, unsigned long event, void *data)
@@ -160,8 +182,9 @@ static struct notifier_block crete_kapi_module_probe= {
 static inline int init_crete_intrinsics(void)
 {
     _crete_make_concolic = (void *)kallsyms_lookup_name("crete_make_concolic");
+    _crete_kernel_oops = (void *)kallsyms_lookup_name("crete_kernel_oops");
 
-    if (!(_crete_make_concolic)) {
+    if (!(_crete_make_concolic && _crete_kernel_oops)) {
         printk(KERN_INFO "[crete] not all function found, please check crete-intrinsics.ko\n");
         return -1;
     }

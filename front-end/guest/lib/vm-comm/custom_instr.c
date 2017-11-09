@@ -148,6 +148,13 @@ void crete_make_concolic(void* addr, size_t size, const char* name)
     __crete_make_concolic_internal(addr, size, concolic_name);
 }
 
+static void crete_kernel_oops(void)
+{
+    __asm__ __volatile__(
+            CRETE_INSTR_KERNEL_OOPS()
+    );
+}
+
 void crete_assume_begin(void)
 {
     __asm__ __volatile__(

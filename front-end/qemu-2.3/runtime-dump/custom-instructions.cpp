@@ -146,6 +146,16 @@ static inline void crete_custom_instr_pre_make_concolic()
     runtime_env->handlecreteMakeConcolic(concolic_name, guest_addr, size);
 }
 
+// CRETE_INSTR_KERNEL_OOPS_VALUE
+// TODO: xxx make it better with keeping traces so far
+// Report with prints and quit VM, from where vm-node should log the
+// VM quit with related information and test case
+static inline void crete_custom_instr_kernel_oops()
+{
+    fprintf(stderr, "[Potential Bugs] crete_kernel_oops()\n");
+    qemu_system_shutdown_request();
+}
+
 // CRETE_INSTR_PRIME_VALUE:
 // Reset flags and structs being used for testing an executable
 static inline void crete_custom_instr_prime()
@@ -289,6 +299,10 @@ void crete_custom_instruction_handler(uint64_t arg) {
 
 	case CRETE_INSTR_PRE_MAKE_CONCOLIC_VALUE:
 	    crete_custom_instr_pre_make_concolic();
+	    break;
+
+	case CRETE_INSTR_KERNEL_OOPS_VALUE:
+	    crete_custom_instr_kernel_oops();
 	    break;
 
 	case CRETE_INSTR_DUMP_VALUE:

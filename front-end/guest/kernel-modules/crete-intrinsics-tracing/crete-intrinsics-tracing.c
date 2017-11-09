@@ -9,6 +9,7 @@ MODULE_DESCRIPTION("CRETE intrinics");
 #include "../../lib/vm-comm/custom_instr.c"
 
 EXPORT_SYMBOL(crete_make_concolic);
+EXPORT_SYMBOL(crete_kernel_oops);
 
 static int __init crete_intrinsics_tracing_init(void)
 {
