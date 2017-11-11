@@ -66,15 +66,29 @@ static int ret_handler_make_concolic(struct kretprobe_instance *ri, struct pt_re
 // Define interested functions to hook
 __CRETE_DEF_KPROBE(oops_enter);
 
-__CRETE_DEF_KPROBE_RET_CONCOLIC(__kmalloc);
-//__CRETE_DEF_KPROBE_RET_CONCOLIC(__vmalloc);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(__kmalloc) // kmalloc, kcalloc
+__CRETE_DEF_KPROBE_RET_CONCOLIC(__vmalloc)
+__CRETE_DEF_KPROBE_RET_CONCOLIC(vzalloc)
+__CRETE_DEF_KPROBE_RET_CONCOLIC(__alloc_skb) // alloc_skb
+__CRETE_DEF_KPROBE_RET_CONCOLIC(__napi_alloc_skb)
+__CRETE_DEF_KPROBE_RET_CONCOLIC(__alloc_pages_nodemask)
+__CRETE_DEF_KPROBE_RET_CONCOLIC(netdev_alloc_frag)
+__CRETE_DEF_KPROBE_RET_CONCOLIC(alloc_etherdev_mqs)
+//__CRETE_DEF_KPROBE_RET_CONCOLIC()
 
 static inline int register_probes(void)
 {
     __CRETE_REG_KPROBE(oops_enter);
 
     __CRETE_REG_KPROBE(__kmalloc);
-//    __CRETE_REG_KPROBE(__vmalloc);
+    __CRETE_REG_KPROBE(__vmalloc);
+    __CRETE_REG_KPROBE(vzalloc);
+    __CRETE_REG_KPROBE(__alloc_skb);
+    __CRETE_REG_KPROBE( __napi_alloc_skb);
+    __CRETE_REG_KPROBE(__alloc_pages_nodemask);
+    __CRETE_REG_KPROBE(netdev_alloc_frag);
+    __CRETE_REG_KPROBE(alloc_etherdev_mqs);
+//    __CRETE_REG_KPROBE();
 
     return 0;
 }
@@ -84,7 +98,14 @@ static inline void unregister_probes(void)
     __CRETE_UNREG_KPROBE(oops_enter);
 
     __CRETE_UNREG_KPROBE(__kmalloc);
-//    __CRETE_UNREG_KPROBE(__vmalloc);
+    __CRETE_UNREG_KPROBE(__vmalloc);
+    __CRETE_UNREG_KPROBE(vzalloc);
+    __CRETE_UNREG_KPROBE(__alloc_skb);
+    __CRETE_UNREG_KPROBE( __napi_alloc_skb);
+    __CRETE_UNREG_KPROBE(__alloc_pages_nodemask);
+    __CRETE_UNREG_KPROBE(netdev_alloc_frag);
+    __CRETE_UNREG_KPROBE(alloc_etherdev_mqs);
+//    __CRETE_UNREG_KPROBE();
 }
 
 /* ------------------------------- */
