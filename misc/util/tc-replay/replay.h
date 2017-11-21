@@ -35,6 +35,9 @@ private:
     vector<string> m_launch_args;
     bp::posix_context m_launch_ctx;
 
+    bp::posix_context m_launch_ctx_secondary;
+    vector<string> m_secondary_cmds;
+
     fs::path m_input_sandbox;
     fs::path m_input_launch;
 

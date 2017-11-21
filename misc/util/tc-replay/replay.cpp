@@ -7,6 +7,8 @@
 #include <boost/filesystem/fstream.hpp>
 #include <boost/program_options.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/algorithm/string/split.hpp>
+#include <boost/algorithm/string/classification.hpp>
 
 #include <string>
 #include <ctime>
@@ -518,6 +520,11 @@ void CreteReplay::setup_launch()
         m_guest_config_serialized = fs::path(CRETE_SANDBOX_PATH) / CRETE_CONFIG_SERIALIZED_PATH;
         m_current_tc = fs::path(CRETE_SANDBOX_PATH) / CRETE_REPLAY_CURRENT_TC;
     }
+
+    m_launch_ctx.environment.insert(bp::environment::value_type(CRETE_CONCOLIC_NAME_SUFFIX, "_p1"));
+
+    m_launch_ctx_secondary = m_launch_ctx;
+    m_secondary_cmds = guest_config.get_secondary_cmds();
 }
 
 // Get current date/time, format is YYYY-MM-DD.HH:mm:ss
@@ -655,6 +662,45 @@ static vector<string> get_files_ordered(const fs::path& input)
     return file_list;
 }
 
+static bool execute_command_line(const std::string& cmd, const bp::posix_context& ctx)
+{
+    fprintf(stderr, "executing: %s\n", cmd.c_str());
+
+    bool ret = true;
+
+    std::vector<std::string> args;
+    boost::split(args, cmd, boost::is_any_of(" "), boost::token_compress_on);
+
+    std::string exec = args[0];
+    if(!fs::exists(exec))
+    {
+        exec = bp::find_executable_in_path(exec);
+    }
+
+    if(!fs::exists(exec))
+    {
+        fprintf(stderr, "[CRETE ERROR] [crete-run] command not found: %s\n", exec.c_str());
+        assert(0);
+    }
+
+    bp::posix_child c = bp::posix_launch(exec, args, ctx);
+
+    monitored_pid = c.get_id();
+    assert(monitored_timeout != 0);
+    alarm(monitored_timeout);
+
+    bp::status s = c.wait();
+
+    alarm(0);
+
+    if(!(s.exited() && (s.exit_status() == 0)))
+    {
+        ret = false;
+    }
+
+    return ret;
+}
+
 void CreteReplay::replay()
 {
     init_timeout_handler();
@@ -770,6 +816,24 @@ void CreteReplay::replay()
             }
         }
 
+        // execute secondary cmds
+        {
+            fprintf(stderr, "sec_cmds.size() = %lu\n", m_secondary_cmds.size());
+
+            unsigned int sec_cmd_count = 1;
+            for(vector<string>::const_iterator it = m_secondary_cmds.begin();
+                    it != m_secondary_cmds.end(); ++it) {
+                m_launch_ctx_secondary.environment.erase(CRETE_CONCOLIC_NAME_SUFFIX);
+                m_launch_ctx_secondary.environment.insert(bp::environment::value_type(
+                        CRETE_CONCOLIC_NAME_SUFFIX, "_p" + boost::lexical_cast<std::string>(++sec_cmd_count)));
+
+                bool cmd_executed = execute_command_line(*it, m_launch_ctx_secondary);
+                if(!cmd_executed)
+                {
+                    fprintf(stderr, "[CRETE Warning][crete-replay] \'%s\' executed unsuccessfully.\n", it->c_str());
+                }
+            }
+        }
         ofs_replay_log << "====================================================================\n";
     }
 
