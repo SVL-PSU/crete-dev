@@ -9,6 +9,7 @@ static const char *CRETE_RAMDISK_PATH = "/tmp/ramdisk";
 static const char *CRETE_PROC_MAPS_PATH = "/tmp/proc-maps.log";
 static const char *CRETE_CONFIG_SERIALIZED_PATH = "/tmp/harness.config.serialized";
 static const char *CRETE_ENV_SEC_CMD = "CRETE_ENV_SEC_CMD";
+static const char *CRETE_CONCOLIC_NAME_SUFFIX = "CRETE_CONCOLIC_NAME_SUFFIX";
 
 static const char *CRETE_SANDBOX_PATH = "/tmp/sandbox";
 

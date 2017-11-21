@@ -50,6 +50,7 @@ private:
 
     config::HarnessConfiguration m_guest_config;
     map<string, TestCaseElement> m_current_tc;
+    string m_cocnolic_name_suffix;
 
     CheckExploitable m_ck_exp;
 
@@ -74,6 +75,12 @@ CreteReplayPreload::CreteReplayPreload(int argc, char **argv):
 {
     init_guest_config();
     init_current_tc();
+
+    char *p = getenv(CRETE_CONCOLIC_NAME_SUFFIX);
+    if(p)
+    {
+        m_cocnolic_name_suffix = string(p);
+    }
 }
 
 void CreteReplayPreload::init_guest_config()
@@ -136,7 +143,7 @@ void CreteReplayPreload::setup_concolic_args()
             assert(it->index < m_argc);
 
             stringstream concolic_name;
-            concolic_name << "argv_" << it->index;
+            concolic_name << "argv_" << it->index << m_cocnolic_name_suffix;
 
             map<string, TestCaseElement>::iterator it_current_tc_arg =
                     m_current_tc.find(concolic_name.str());
@@ -173,7 +180,7 @@ void CreteReplayPreload::setup_concolic_files()
         if(it->concolic)
         {
             // 1. Get concolic file data
-            string filename = it->path.filename().string();
+            string filename = it->path.filename().string() + m_cocnolic_name_suffix;
 
             map<string, TestCaseElement>::iterator it_file_libc=
                     m_current_tc.find(filename);
@@ -242,7 +249,7 @@ void CreteReplayPreload::setup_concolic_stdin()
         {
             // 1. Get concolic file data
             map<string, TestCaseElement>::iterator it_stdin_libc=
-                    m_current_tc.find("crete-stdin");
+                    m_current_tc.find("crete-stdin" + m_cocnolic_name_suffix);
             assert(it_stdin_libc!= m_current_tc.end());
 
             TestCaseElement stdin_libc= it_stdin_libc->second;
