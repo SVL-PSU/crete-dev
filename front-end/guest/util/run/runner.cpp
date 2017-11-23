@@ -706,7 +706,13 @@ static bool execute_command_line(const std::string& cmd, const bp::posix_context
 
      bp::posix_child c = bp::posix_launch(exec, args, ctx);
 
+     monitored_pid = c.get_id();
+     assert(monitored_timeout != 0);
+     alarm(monitored_timeout);
+
      bp::status s = c.wait();
+
+     alarm(0);
 
      if(!(s.exited() && (s.exit_status() == 0)))
      {
