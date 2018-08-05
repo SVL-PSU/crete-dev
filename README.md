@@ -11,7 +11,7 @@ modules, etc.
 ## Highlights
 
 * Open and extensible architecture: totally decoupled concrete and symbolic
-  execution
+  execution from virtual machine
 * Standardized execution trace: llvm-based, self-contained, and composable
 * Binary-level analysis: no source code or debug information required
 * In-vivo analysis: use real full software stack and require no environment
