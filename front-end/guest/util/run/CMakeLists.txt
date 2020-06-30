@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 2.8.7)
 
 project(run)
 
+#zl3 add debug info
+add_definitions(-g)
 add_definitions(-DFUSION_MAX_VECTOR_SIZE=20)
 
 add_executable(crete-run runner.cpp)

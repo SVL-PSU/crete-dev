@@ -1400,6 +1400,9 @@ void RuntimeEnv::writeTBGraphExecSequ()
 
 void RuntimeEnv::set_interrupt_process_info(uint64_t ret_eip)
 {
+	//zl3 print debug info
+	fprintf(stderr, "m_interrupt_process_info.first is %d\n",m_interrupt_process_info.first);
+
     assert(!m_interrupt_process_info.first);
     m_interrupt_process_info.first = true;
     m_interrupt_process_info.second = ret_eip;

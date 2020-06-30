@@ -665,12 +665,13 @@ struct KleeFSM_::clean
     template <class EVT,class FSM,class SourceState,class TargetState>
     auto operator()(EVT const&, FSM& fsm, SourceState&, TargetState&) -> void
     {
-        fsm.tests_->clear();
-
-        if(fs::remove_all(fsm.trace_dir_) == 0)
-        {
-            BOOST_THROW_EXCEPTION(Exception{} << err::file{"failed to remove trace directory"});
-        }
+    	//zl3 do not clean trace file
+//        fsm.tests_->clear();
+//
+//        if(fs::remove_all(fsm.trace_dir_) == 0)
+//        {
+//            BOOST_THROW_EXCEPTION(Exception{} << err::file{"failed to remove trace directory"});
+//        }
     }
 };
 

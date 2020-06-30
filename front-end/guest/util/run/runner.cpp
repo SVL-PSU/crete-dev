@@ -545,7 +545,8 @@ void RunnerFSM_::setup_launch_exec()
     m_launch_ctx_secondary.environment.insert(bp::environment::value_type(CRETE_ENV_SEC_CMD, "true"));
 
     // 5. setup timeout hanlder
-    init_timeout_handler();
+    //zl3 comment out timeout
+    //init_timeout_handler();
 }
 
 void RunnerFSM_::init_launch_folder()
@@ -665,8 +666,9 @@ void RunnerFSM_::launch_executable()
 
     pid_ = proc.get_id();
     monitored_pid = pid_;
-    assert(monitored_timeout != 0);
-    alarm(monitored_timeout);
+    //zl3 comment out timeout
+    //assert(monitored_timeout != 0);
+    //alarm(monitored_timeout);
 
     std::cerr << "=== Output from the target executable ===\n";
     bp::pistream& is = proc.get_stdout();

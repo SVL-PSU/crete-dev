@@ -408,17 +408,27 @@ void batch_path_mode_internal(const fs::path& input)
     for(uint64_t i = 0; i < tcs.size(); ++i)
     {
         TestCase out_tc;
+        //zl3 debug purpose
+        TestCaseIssueIndex temp_id = 0;
+
         if(tcs[i].is_test_patch())
         {
             boost::unordered_map<TestCaseIssueIndex, TestCase>::const_iterator base_tc =
                     get_base_tc(input, tcs[i]);
             out_tc = generate_complete_tc_from_patch(tcs[i], base_tc->second);
+
+            temp_id = tcs[i].get_issue_index();
         } else {
             out_tc = tcs[i];
+            temp_id = out_tc.get_issue_index();
         }
 
         std::stringstream ss;
-        ss << out_dir.string() << "/" << (i+1) << ".bin";
+        //ss << out_dir.string() << "/" << (i+1) << ".bin";
+
+        //zl3 print out base test case id in bin
+        ss << out_dir.string() << "/" << (i+1) << "-base-" << out_tc.get_base_tc_issue_index() << "-issued-" << temp_id << ".bin";
+
         std::ofstream ktest_pool_file(ss.str().c_str(), std::ios_base::out | std::ios_base::binary);
         assert(ktest_pool_file);
         out_tc.write(ktest_pool_file);

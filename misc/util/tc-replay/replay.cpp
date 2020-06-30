@@ -686,8 +686,9 @@ static bool execute_command_line(const std::string& cmd, const bp::posix_context
     bp::posix_child c = bp::posix_launch(exec, args, ctx);
 
     monitored_pid = c.get_id();
-    assert(monitored_timeout != 0);
-    alarm(monitored_timeout);
+    //zl3 comment out timeout
+    //assert(monitored_timeout != 0);
+    //alarm(monitored_timeout);
 
     bp::status s = c.wait();
 
@@ -703,7 +704,8 @@ static bool execute_command_line(const std::string& cmd, const bp::posix_context
 
 void CreteReplay::replay()
 {
-    init_timeout_handler();
+	//zl3 comment out replay timeout
+    //init_timeout_handler();
 
     // Read all test cases to replay
     vector<string> test_list = get_files_ordered(m_tc_dir);
@@ -783,8 +785,9 @@ void CreteReplay::replay()
             bp::posix_child proc = bp::posix_launch(m_exec, m_launch_args, m_launch_ctx);
 
             monitored_pid = proc.get_id();
-            assert(monitored_timeout != 0);
-            alarm(monitored_timeout);
+            //zl3 comment time out
+            //assert(monitored_timeout != 0);
+            //alarm(monitored_timeout);
 
             ofs_replay_log << "Output from Launched executable:\n";
             bp::pistream& is = proc.get_stdout();
@@ -865,8 +868,9 @@ static vector<string> run_gdb_script(const CheckExploitable& ck_exp,
     bp::child c = bp::launch(exec, args, ctx);
 
     monitored_pid = c.get_id();
-    assert(monitored_timeout != 0);
-    alarm(monitored_timeout*3);
+    //zl3 comment out timeout
+    //assert(monitored_timeout != 0);
+    //alarm(monitored_timeout*3);
 
     bp::pistream &is = c.get_stdout();
     std::string line;

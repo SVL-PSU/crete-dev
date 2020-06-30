@@ -1164,9 +1164,10 @@ struct QemuFSM_::is_finished
         {
             BOOST_THROW_EXCEPTION(VMException{} << err::process_exited{"pid_"});
         } else if (eplapsed_time_in_second(fsm.test_start_time_) > fsm.test_timeout_duration_) {
-            fsm.is_test_timeout_ = true;
-            BOOST_THROW_EXCEPTION(VMException{} <<
-                    err::msg{"timeout in vm-node-fsm for a test, likely to be crete-run crash"});
+        	//zl3 comment out timeout
+//            fsm.is_test_timeout_ = true;
+//            BOOST_THROW_EXCEPTION(VMException{} <<
+//                    err::msg{"timeout in vm-node-fsm for a test, likely to be crete-run crash"});
         }
 
         auto trace_ready_sig = fsm.vm_dir_ / hostfile_dir_name / trace_ready_name;

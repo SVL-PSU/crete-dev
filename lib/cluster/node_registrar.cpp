@@ -69,7 +69,8 @@ auto NodeRegistrarDriver::run() -> void
 {
     while(!shutdown_)
     {
-        std::cout << "[CRETE] Awaiting connection on '"
+    	//zl3 debug info
+        std::cout << "[CRETE NODE REGISTRAR] Awaiting connection on '"
                   << boost::asio::ip::host_name()
                   << "' on port '"
                   << master_port_

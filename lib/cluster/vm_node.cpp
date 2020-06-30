@@ -119,6 +119,9 @@ auto VMNode::poll() -> void
         }
         else
         {
+        	//zl3 debug info
+        	//printf("entered poll else just poll\n");
+
             vm->process_event(ev::poll{});
         }
 
@@ -205,6 +208,9 @@ auto VMNode::init_image_info() -> void
 
 auto VMNode::update(const ImageInfo& ii) -> void
 {
+	//zl3 debug info
+	printf("entered vmnode update\n");
+
     image_info_ = ii;
     auto img_dir = pwd_ / node_image_dir;
     auto infop = img_dir / image_info_name;
@@ -295,23 +301,28 @@ auto process(AtomicGuard<VMNode>& node,
     switch(request.pkinfo_.type)
     {
     case packet_type::cluster_image_info_request:
+    	printf("1\n");
         transmit_image_info(node,
                             request.client_);
         return true;
     case packet_type::cluster_image_info:
+    	printf("2\n");
         receive_image_info(node,
                            request.sbuf_);
         return true;
     case packet_type::cluster_image:
+    	printf("3\n");
         receive_image(node,
                       request.client_);
         return true;
     case packet_type::cluster_next_target:
+    	printf("4\n");
         receive_target(node,
                        request.sbuf_);
         return true;
     case packet_type::cluster_commence:
     {
+    	printf("5\n");
         auto lock = node.acquire();
 
         lock->start_FSMs(); // Once we have the options from Dispatch, we can start the VM instances.
@@ -321,12 +332,14 @@ auto process(AtomicGuard<VMNode>& node,
     }
     case packet_type::cluster_request_guest_data:
     {
+    	printf("6\n");
         transmit_guest_data(node,
                             request.client_);
 
         return true;
     }
     case packet_type::cluster_request_guest_data_post_exec:
+    	printf("7\n");
         transmit_guest_data_post_exec(node,
                                       request.client_);
 

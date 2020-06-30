@@ -241,7 +241,8 @@ static inline void crete_preload_initialize(int argc, char**& argv)
     }
 
     // Need to call crete_send_target_pid before make_concolics, or they won't be captured.
-    crete_send_target_pid();
+    //zl3 no analysis
+    //crete_send_target_pid();
 
     if(!is_sec_cmd)
     {

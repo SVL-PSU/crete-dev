@@ -261,13 +261,13 @@ namespace crete
 
     TestCaseIssueIndex TestCase::get_base_tc_issue_index() const
     {
-        assert(m_base_tc_issue_index != 0);
+        //assert(m_base_tc_issue_index != 0);
         return m_base_tc_issue_index;
     }
 
     TestCaseIssueIndex TestCase::get_issue_index() const
     {
-        assert(m_issue_index != 0);
+        //assert(m_issue_index != 0);
         return m_issue_index;
     }
 
